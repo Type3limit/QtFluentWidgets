@@ -1,44 +1,22 @@
 # QtFluentWidgets
 
-一套基于 Qt Widgets 的 Fluent Design 通用控件库示例，包含常用控件与统一主题管理。
-
-## 组件清单
-- 按钮：`FluentButton`
-- 文本：`FluentLabel`
-- 单行输入：`FluentLineEdit`
-- 多行输入：`FluentTextEdit`
-- 日历选择：`FluentCalendarPicker`
-- 时间选择：`FluentTimePicker`
-- 颜色选择：`FluentColorPicker`
-- 颜色对话框：`FluentColorDialog`
-- 复选框：`FluentCheckBox`
-- 单选框：`FluentRadioButton`
-- 开关：`FluentToggleSwitch`
-- 下拉框：`FluentComboBox`
-- 滑块：`FluentSlider`
-- 进度条：`FluentProgressBar`
-- 数值输入：`FluentSpinBox` / `FluentDoubleSpinBox`
-- 工具按钮：`FluentToolButton`
-- 标签页：`FluentTabWidget`
-- 列表：`FluentListView`
-- 表格：`FluentTableView`
-- 树视图：`FluentTreeView`
-- 分组框：`FluentGroupBox`
-- 卡片容器：`FluentCard`
-- 菜单栏：`FluentMenuBar`
-- 菜单：`FluentMenu`
-- 工具栏：`FluentToolBar`
-- 状态栏：`FluentStatusBar`
-- 对话框：`FluentDialog`
-- 消息框：`FluentMessageBox`
-
-# QtFluentWidgets
-
 一套基于 **Qt Widgets** 的 Fluent Design 风格控件库（含 Demo 与 Qt Designer 插件），提供统一的主题/色板管理与一组常用控件。
 
 - 语言 / Languages：
 	- 中文：README.md（默认） / [README.zh-CN.md](README.zh-CN.md)
 	- English: [README.en-US.md](README.en-US.md)
+
+
+## 预览
+
+### 浅色模式：
+
+![QtFluentWidgets LightMode](img/light.gif)
+
+
+### 深色模式：
+
+![QtFluentWidgets DarkMode](img/dark.gif)
 
 ## 特性
 
