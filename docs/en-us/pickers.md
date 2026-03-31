@@ -3,6 +3,7 @@
 ## Widgets
 
 - `FluentCalendarPicker` (include: `Fluent/FluentCalendarPicker.h`)
+- `FluentDateRangePicker` (include: `Fluent/FluentDateRangePicker.h`)
 - `FluentCalendarPopup` (include: `Fluent/datePicker/FluentCalendarPopup.h`)
 - `FluentTimePicker` (include: `Fluent/FluentTimePicker.h`)
 - `FluentColorPicker` (include: `Fluent/FluentColorPicker.h`)
@@ -50,6 +51,58 @@ Demo: Pickers / Overview.
 
 ---
 
+## FluentDateRangePicker
+
+```cpp
+#include "Fluent/FluentDateRangePicker.h"
+
+auto *picker = new Fluent::FluentDateRangePicker();
+picker->setDateRange(QDate::currentDate(), QDate::currentDate().addDays(7));
+picker->setStartPrefix(QStringLiteral("From: "));
+picker->setSeparator(QStringLiteral("  to  "));
+picker->setEndPrefix(QStringLiteral("To: "));
+```
+
+Purpose: a date-range input widget. Clicking it opens a dual-panel calendar popup: the left panel represents the start month, the right panel represents the end month, and the selected span is painted with a continuous accent-colored range band.
+
+Inheritance & construction:
+
+- `class FluentDateRangePicker : public QWidget`
+- Constructor: `FluentDateRangePicker(QWidget*)`
+
+Visual / interaction notes:
+
+- The control itself uses `Style::paintControlSurface()` and paints a right-side chevron.
+- The popup switches `FluentCalendarPopup` into `Range` mode, with left/right panels defaulting to one month apart.
+- First click selects the start date, second click selects the end date; hover previews the pending range.
+- The in-range area uses a continuous accent band without visible vertical gaps.
+- `Esc`: cancels the current range-in-progress first; pressing again closes the popup.
+
+Text customization APIs:
+
+- `setStartPrefix()` / `setStartSuffix()`
+- `setEndPrefix()` / `setEndSuffix()`
+- `setSeparator()` (default: `"  →  "`)
+- `setStartPlaceholder()` / `setEndPlaceholder()`
+- `setDisplayFormat()` (default: `"yyyy-MM-dd"`)
+
+Data APIs:
+
+- `setDateRange(const QDate &start, const QDate &end)`
+- `startDate()` / `endDate()`
+- `dateRangeChanged(const QDate&, const QDate&)`
+
+Typical use cases:
+
+- hotel check-in / check-out
+- report filters
+- billing / settlement periods
+- task start/end dates
+
+Demo: Pickers.
+
+---
+
 ## FluentCalendarPopup
 
 Purpose: the popup calendar widget used by `FluentCalendarPicker` (custom-painted `Qt::Popup`). Can also be used standalone.
@@ -87,8 +140,10 @@ Key APIs:
 
 - `setAnchor(QWidget*)`
 - `setDate(const QDate&)` / `date()`
+- `setSelectionMode(SelectionMode::Single / Range)`
+- `setDateRange(const QDate&, const QDate&)` / `rangeStart()` / `rangeEnd()`
 - `popup()` / `dismiss()`
-- `datePicked(const QDate&)` / `dismissed()` signals
+- `datePicked(const QDate&)` / `rangePicked(const QDate&, const QDate&)` / `dismissed()` signals
 
 Demo: shown indirectly via `FluentCalendarPicker`.
 

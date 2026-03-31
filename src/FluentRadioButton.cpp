@@ -233,7 +233,7 @@ void FluentRadioButton::paintEvent(QPaintEvent *event)
     painter.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, elided);
 }
 
-void FluentRadioButton::enterEvent(QEvent *event)
+void FluentRadioButton::enterEvent(FluentEnterEvent *event)
 {
     QRadioButton::enterEvent(event);
     startHoverAnimation(1.0);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QPlainTextEdit>
+#include "Fluent/FluentQtCompat.h"
 
 class QAction;
 class QTimer;
@@ -87,7 +88,7 @@ protected:
     void showEvent(QShowEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 

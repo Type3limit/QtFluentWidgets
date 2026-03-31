@@ -268,7 +268,7 @@ void FluentToggleSwitch::startFocusAnimation(qreal endValue)
     m_focusAnim->start();
 }
 
-void FluentToggleSwitch::enterEvent(QEvent *event)
+void FluentToggleSwitch::enterEvent(FluentEnterEvent *event)
 {
     QWidget::enterEvent(event);
     m_hoverAnim->stop();

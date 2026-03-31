@@ -25,6 +25,7 @@
 - Qt5 / Qt6 兼容（CMake 自动探测 Qt6，否则使用 Qt5）。
 - 统一主题与色板：`ThemeManager` + `ThemeColors`。
 - Fluent 风格输入控件面板：通过 `Style::paintControlSurface()` 统一圆角/边框/focus ring。
+- 内置日期范围选择器 `FluentDateRangePicker`，支持双面板范围选择与可配置 prefix / suffix / separator。
 - Demo 覆盖所有控件，并带侧边栏联动配置（含 CodeEditor 的 clang-format 路径配置）。
 - 可选 Qt Designer 插件（默认开启构建）。
 
@@ -69,9 +70,16 @@ target_link_libraries(your_app PRIVATE QtFluentWidgets)
 
 ```cpp
 #include "Fluent/FluentButton.h"
+#include "Fluent/FluentDateRangePicker.h"
 #include "Fluent/FluentTheme.h"
 
 using namespace Fluent;
+
+auto *rangePicker = new FluentDateRangePicker();
+rangePicker->setDateRange(QDate::currentDate(), QDate::currentDate().addDays(7));
+rangePicker->setStartPrefix(QStringLiteral("开始："));
+rangePicker->setSeparator(QStringLiteral("  至  "));
+rangePicker->setEndPrefix(QStringLiteral("结束："));
 ```
 
 ### 方式 B：作为源码依赖
@@ -91,6 +99,8 @@ using namespace Fluent;
 - 容器 / 布局： [docs/zh-cn/containers-layout.md](docs/zh-cn/containers-layout.md)
 - 窗口 / 菜单 / 对话框： [docs/zh-cn/windows-dialogs.md](docs/zh-cn/windows-dialogs.md)
 - 杂项与工具： [docs/zh-cn/utilities.md](docs/zh-cn/utilities.md)
+
+其中 `FluentDateRangePicker` 的用法、自定义前后缀 / 分隔符示例，以及范围模式下 `FluentCalendarPopup` 的说明都已收录在 `pickers.md`。
 
 ## Qt Designer 插件
 

@@ -326,7 +326,7 @@ void FluentTimePicker::paintEvent(QPaintEvent *event)
     Style::drawChevronDown(painter, downRect.center(), iconColor, 7.0, 1.6);
 }
 
-void FluentTimePicker::enterEvent(QEvent *event)
+void FluentTimePicker::enterEvent(FluentEnterEvent *event)
 {
     QTimeEdit::enterEvent(event);
     startHoverAnimation(1.0);

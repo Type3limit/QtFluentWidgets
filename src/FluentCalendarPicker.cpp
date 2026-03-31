@@ -1,4 +1,4 @@
-﻿#include "Fluent/FluentCalendarPicker.h"
+#include "Fluent/FluentCalendarPicker.h"
 #include "Fluent/datePicker/FluentCalendarPopup.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -269,7 +269,7 @@ void FluentCalendarPicker::keyPressEvent(QKeyEvent *event)
     QDateEdit::keyPressEvent(event);
 }
 
-void FluentCalendarPicker::enterEvent(QEvent *event)
+void FluentCalendarPicker::enterEvent(FluentEnterEvent *event)
 {
     QDateEdit::enterEvent(event);
     startHoverAnimation(1.0);

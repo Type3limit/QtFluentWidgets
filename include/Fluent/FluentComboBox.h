@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QComboBox>
+#include "Fluent/FluentQtCompat.h"
 
 class QPropertyAnimation;
 
@@ -21,7 +22,7 @@ public:
 protected:
     void changeEvent(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void showPopup() override;
 

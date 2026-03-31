@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QSlider>
+#include "Fluent/FluentQtCompat.h"
 
 class QPropertyAnimation;
 
@@ -28,7 +29,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
 
 private:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include "Fluent/FluentQtCompat.h"
 
 class QPropertyAnimation;
 
@@ -38,7 +39,7 @@ signals:
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void changeEvent(QEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;

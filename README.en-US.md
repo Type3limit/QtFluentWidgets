@@ -11,6 +11,7 @@ A Fluent Design styled widget library built on **Qt Widgets** (with a full demo 
 - Qt5 / Qt6 compatible (CMake auto-detects Qt6, otherwise falls back to Qt5).
 - Unified theming: `ThemeManager` + `ThemeColors`.
 - Fluent-like input surfaces via `Style::paintControlSurface()` (radius/border/focus ring).
+- Includes `FluentDateRangePicker` with a dual-panel range popup and configurable prefix / suffix / separator text.
 - Demo covers all widgets and includes a sidebar panel to configure the CodeEditor (including clang-format path).
 - Optional Qt Designer plugin (enabled by default).
 
@@ -55,9 +56,16 @@ Include headers from `include/Fluent/`:
 
 ```cpp
 #include "Fluent/FluentButton.h"
+#include "Fluent/FluentDateRangePicker.h"
 #include "Fluent/FluentTheme.h"
 
 using namespace Fluent;
+
+auto *rangePicker = new FluentDateRangePicker();
+rangePicker->setDateRange(QDate::currentDate(), QDate::currentDate().addDays(7));
+rangePicker->setStartPrefix(QStringLiteral("From: "));
+rangePicker->setSeparator(QStringLiteral("  to  "));
+rangePicker->setEndPrefix(QStringLiteral("To: "));
 ```
 
 ## Docs (by module)
@@ -73,6 +81,8 @@ Controls are documented by module under `docs/`:
 - Containers / layout: [docs/en-us/containers-layout.md](docs/en-us/containers-layout.md)
 - Windows / menus / dialogs: [docs/en-us/windows-dialogs.md](docs/en-us/windows-dialogs.md)
 - Utilities: [docs/en-us/utilities.md](docs/en-us/utilities.md)
+
+`docs/en-us/pickers.md` now also contains a dedicated `FluentDateRangePicker` section, including prefix/suffix/separator customization and the range mode behavior of `FluentCalendarPopup`.
 
 ## Qt Designer Plugin
 

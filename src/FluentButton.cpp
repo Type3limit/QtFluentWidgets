@@ -224,7 +224,7 @@ void FluentButton::paintEvent(QPaintEvent *event)
     }
 }
 
-void FluentButton::enterEvent(QEvent *event)
+void FluentButton::enterEvent(FluentEnterEvent *event)
 {
     QPushButton::enterEvent(event);
     startHoverAnimation(1.0);

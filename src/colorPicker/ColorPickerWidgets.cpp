@@ -50,14 +50,14 @@ void ColorSwatchButton::setColor(const QColor &c)
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-void ColorSwatchButton::enterEvent(QEnterEvent *event)
+void ColorSwatchButton::enterEvent(FluentEnterEvent *event)
 {
     Q_UNUSED(event)
     m_hover = true;
     update();
 }
 #else
-void ColorSwatchButton::enterEvent(QEvent *event)
+void ColorSwatchButton::enterEvent(FluentEnterEvent *event)
 {
     Q_UNUSED(event)
     m_hover = true;
@@ -285,7 +285,7 @@ void HueStrip::setValue(int v)
     update();
 }
 
-void HueStrip::enterEvent(QEvent *event)
+void HueStrip::enterEvent(FluentEnterEvent *event)
 {
     Q_UNUSED(event)
     m_hover = true;
@@ -425,7 +425,7 @@ void AlphaStrip::setBaseColor(const QColor &c)
     update();
 }
 
-void AlphaStrip::enterEvent(QEvent *event)
+void AlphaStrip::enterEvent(FluentEnterEvent *event)
 {
     Q_UNUSED(event)
     m_hover = true;

@@ -191,7 +191,7 @@ void FluentScrollBar::paintEvent(QPaintEvent *event)
     p.drawRoundedRect(r, radius, radius);
 }
 
-void FluentScrollBar::enterEvent(QEvent *event)
+void FluentScrollBar::enterEvent(FluentEnterEvent *event)
 {
     QScrollBar::enterEvent(event);
     startHoverAnimation(1.0);

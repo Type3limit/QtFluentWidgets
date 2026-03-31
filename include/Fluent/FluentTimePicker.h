@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QTimeEdit>
+#include "Fluent/FluentQtCompat.h"
 
 class QFocusEvent;
 class QPaintEvent;
@@ -28,7 +29,7 @@ protected:
     void changeEvent(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;

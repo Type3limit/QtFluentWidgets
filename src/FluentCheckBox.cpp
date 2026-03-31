@@ -246,7 +246,7 @@ void FluentCheckBox::paintEvent(QPaintEvent *event)
     }
 }
 
-void FluentCheckBox::enterEvent(QEvent *event)
+void FluentCheckBox::enterEvent(FluentEnterEvent *event)
 {
     QCheckBox::enterEvent(event);
     startHoverAnimation(1.0);

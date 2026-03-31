@@ -1,4 +1,5 @@
 #include "Fluent/FluentLineEdit.h"
+#include "Fluent/FluentQtCompat.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -158,9 +159,13 @@ void FluentLineEdit::paintEvent(QPaintEvent *event)
     QLineEdit::paintEvent(event);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void FluentLineEdit::enterEvent(QEnterEvent *event)
+#else
 void FluentLineEdit::enterEvent(QEvent *event)
+#endif
 {
-    QLineEdit::enterEvent(event);
+    QWidget::enterEvent(event);
     startHoverAnimation(1.0);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QColor>
+#include "Fluent/FluentQtCompat.h"
 #include <QWidget>
 
 class QEvent;
@@ -26,9 +27,9 @@ signals:
 
 protected:
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    void enterEvent(QEnterEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
 #else
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
 #endif
     void leaveEvent(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
@@ -100,7 +101,7 @@ signals:
     void valueChangeFinished(int v);
 
 protected:
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -132,7 +133,7 @@ signals:
     void valueChangeFinished(int v);
 
 protected:
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;

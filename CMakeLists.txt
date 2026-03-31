@@ -19,6 +19,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentCodeEditor.h
     include/Fluent/FluentCppHighlighter.h
     include/Fluent/FluentTheme.h
+    include/Fluent/FluentQtCompat.h
     include/Fluent/FluentStyle.h
     include/Fluent/FluentFlowLayout.h
     include/Fluent/FluentMainWindow.h
@@ -57,6 +58,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentScrollArea.h
     include/Fluent/FluentSplitter.h
     include/Fluent/FluentToast.h
+    include/Fluent/FluentDateRangePicker.h
     src/FluentCodeEditor.cpp
     src/FluentCppHighlighter.cpp
     src/FluentTheme.cpp
@@ -101,6 +103,7 @@ add_library(QtFluentWidgets
     src/FluentScrollArea.cpp
     src/FluentSplitter.cpp
     src/FluentToast.cpp
+    src/FluentDateRangePicker.cpp
     src/FluentDiagnostics.cpp
 )
 

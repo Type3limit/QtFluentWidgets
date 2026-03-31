@@ -2,7 +2,9 @@
 
 #include "../DemoHelpers.h"
 
+#include <QDate>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QVBoxLayout>
 
 #include "Fluent/FluentButton.h"
@@ -11,6 +13,7 @@
 #include "Fluent/FluentColorDialog.h"
 #include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentComboBox.h"
+#include "Fluent/FluentDateRangePicker.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentMainWindow.h"
 #include "Fluent/FluentScrollArea.h"
@@ -142,6 +145,120 @@ QWidget *createPickersPage(FluentMainWindow *window)
                 230));
 
 #undef PICKERS_COLOR
+        }
+
+        // DateRangePicker
+        {
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentDateRangePicker"),
+                QStringLiteral("日期范围选择器（双面板，连续 Accent 高亮带）"),
+                QStringLiteral("要点：\n"
+                               "-点击控件弹出双月份面板\n"
+                               "-第一次点击选开始日，第二次选结束日\n"
+                               "-左右面板各自独立翻月；鼠标滚轮也可翻页\n"
+                               "-ESC 取消当前选择，再按关闭弹窗"),
+                QStringLiteral(
+                    "auto *rangePicker = new FluentDateRangePicker();\n"
+                    "rangePicker->setFixedWidth(400);\n"
+                    "rangePicker->setDateRange(QDate::currentDate(),\n"
+                    "                          QDate::currentDate().addDays(13));\n"
+                    "body->addWidget(rangePicker);\n"
+                    "QObject::connect(rangePicker, &FluentDateRangePicker::dateRangeChanged,\n"
+                    "    label, [label](const QDate &s, const QDate &e) {\n"
+                    "        label->setText(s.toString(\"yyyy-MM-dd\") + \" ~ \" + e.toString(\"yyyy-MM-dd\"));\n"
+                    "    });"),
+                [=](QVBoxLayout *body) {
+                    auto *row = new QHBoxLayout();
+                    row->setContentsMargins(0, 0, 0, 0);
+                    row->setSpacing(12);
+
+                    auto *rangePicker = new FluentDateRangePicker();
+                    rangePicker->setFixedWidth(400);
+                    rangePicker->setDateRange(QDate::currentDate(),
+                                              QDate::currentDate().addDays(13));
+
+                    auto *label = new FluentLabel();
+                    label->setStyleSheet("font-size: 12px; opacity: 0.85;");
+
+                    auto updateLabel = [label](const QDate &s, const QDate &e) {
+                        if (s.isValid() && e.isValid()) {
+                            label->setText(QStringLiteral("已选：") +
+                                           s.toString("yyyy-MM-dd") +
+                                           QStringLiteral("  ~  ") +
+                                           e.toString("yyyy-MM-dd"));
+                        } else {
+                            label->setText(QStringLiteral("未选择"));
+                        }
+                    };
+                    updateLabel(rangePicker->startDate(), rangePicker->endDate());
+
+                    QObject::connect(rangePicker, &FluentDateRangePicker::dateRangeChanged,
+                                     label, updateLabel);
+
+                    row->addWidget(rangePicker);
+                    row->addWidget(label);
+                    row->addStretch(1);
+                    body->addLayout(row);
+                },
+                false));
+
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentDateRangePicker（自定义前后缀 / 分隔符）"),
+                QStringLiteral("prefix / suffix / separator 配置展示"),
+                QStringLiteral("要点：\n"
+                               "-开始/结束两侧都支持 prefix 与 suffix\n"
+                               "-中间分隔文本可改成业务语义，例如“至”“→”“~”\n"
+                               "-适合做入住/离店、起止时间、账期范围等场景"),
+                QStringLiteral(
+                    "auto *rangePicker = new FluentDateRangePicker();\n"
+                    "rangePicker->setFixedWidth(440);\n"
+                    "rangePicker->setStartPrefix(QStringLiteral(\"入住：\"));\n"
+                    "rangePicker->setStartSuffix(QStringLiteral(\" 起\"));\n"
+                    "rangePicker->setSeparator(QStringLiteral(\"  至  \"));\n"
+                    "rangePicker->setEndPrefix(QStringLiteral(\"离店：\"));\n"
+                    "rangePicker->setEndSuffix(QStringLiteral(\" 止\"));\n"
+                    "rangePicker->setDateRange(QDate::currentDate().addDays(2),\n"
+                    "                          QDate::currentDate().addDays(5));\n"),
+                [=](QVBoxLayout *body) {
+                    auto *row = new QHBoxLayout();
+                    row->setContentsMargins(0, 0, 0, 0);
+                    row->setSpacing(12);
+
+                    auto *rangePicker = new FluentDateRangePicker();
+                    rangePicker->setFixedWidth(440);
+                    rangePicker->setStartPrefix(QStringLiteral("入住："));
+                    rangePicker->setStartSuffix(QStringLiteral(" 起"));
+                    rangePicker->setSeparator(QStringLiteral("  至  "));
+                    rangePicker->setEndPrefix(QStringLiteral("离店："));
+                    rangePicker->setEndSuffix(QStringLiteral(" 止"));
+                    rangePicker->setDateRange(QDate::currentDate().addDays(2),
+                                              QDate::currentDate().addDays(5));
+
+                    auto *label = new FluentLabel();
+                    label->setStyleSheet("font-size: 12px; opacity: 0.85;");
+
+                    auto updateLabel = [label](const QDate &s, const QDate &e) {
+                        if (s.isValid() && e.isValid()) {
+                            label->setText(QStringLiteral("酒店场景：")
+                                           + s.toString("MM-dd")
+                                           + QStringLiteral(" 入住，")
+                                           + e.toString("MM-dd")
+                                           + QStringLiteral(" 离店"));
+                        } else {
+                            label->setText(QStringLiteral("未选择入住/离店日期"));
+                        }
+                    };
+                    updateLabel(rangePicker->startDate(), rangePicker->endDate());
+
+                    QObject::connect(rangePicker, &FluentDateRangePicker::dateRangeChanged,
+                                     label, updateLabel);
+
+                    row->addWidget(rangePicker);
+                    row->addWidget(label);
+                    row->addStretch(1);
+                    body->addLayout(row);
+                },
+                true));
         }
     });
 }

@@ -322,7 +322,7 @@ void FluentSlider::mouseReleaseEvent(QMouseEvent *event)
     QSlider::mouseReleaseEvent(event);
 }
 
-void FluentSlider::enterEvent(QEvent *event)
+void FluentSlider::enterEvent(FluentEnterEvent *event)
 {
     QSlider::enterEvent(event);
     m_hoverAnim->stop();

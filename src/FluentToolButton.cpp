@@ -237,7 +237,7 @@ void FluentToolButton::paintEvent(QPaintEvent *event)
     style()->drawControl(QStyle::CE_ToolButtonLabel, &opt, &painter, this);
 }
 
-void FluentToolButton::enterEvent(QEvent *event)
+void FluentToolButton::enterEvent(FluentEnterEvent *event)
 {
     QToolButton::enterEvent(event);
     startHoverAnimation(1.0);

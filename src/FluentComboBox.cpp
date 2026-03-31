@@ -390,7 +390,7 @@ void FluentComboBox::paintEvent(QPaintEvent *event)
     Style::drawChevronDown(painter, arrowRect.center(), iconColor, 8.0, 1.7);
 }
 
-void FluentComboBox::enterEvent(QEvent *event)
+void FluentComboBox::enterEvent(FluentEnterEvent *event)
 {
     QComboBox::enterEvent(event);
     m_hoverAnim->stop();

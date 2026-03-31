@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QRadioButton>
+#include "Fluent/FluentQtCompat.h"
 
 class QPaintEvent;
 class QVariantAnimation;
@@ -28,7 +29,7 @@ public:
 protected:
     void changeEvent(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;

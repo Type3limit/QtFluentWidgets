@@ -391,7 +391,7 @@ void FluentSpinBox::startStepperAnimation(qreal endValue)
     m_stepperAnim->start();
 }
 
-void FluentSpinBox::enterEvent(QEvent *event)
+void FluentSpinBox::enterEvent(FluentEnterEvent *event)
 {
     QSpinBox::enterEvent(event);
     m_hoverAnim->stop();
@@ -807,7 +807,7 @@ void FluentDoubleSpinBox::resizeEvent(QResizeEvent *event)
     }
 }
 
-void FluentDoubleSpinBox::enterEvent(QEvent *event)
+void FluentDoubleSpinBox::enterEvent(FluentEnterEvent *event)
 {
     QDoubleSpinBox::enterEvent(event);
     m_hoverAnim->stop();

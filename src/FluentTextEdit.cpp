@@ -311,7 +311,7 @@ bool FluentTextEdit::eventFilter(QObject *watched, QEvent *event)
     return QTextEdit::eventFilter(watched, event);
 }
 
-void FluentTextEdit::enterEvent(QEvent *event)
+void FluentTextEdit::enterEvent(FluentEnterEvent *event)
 {
     QTextEdit::enterEvent(event);
     startHoverAnimation(1.0);

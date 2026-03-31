@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QCheckBox>
+#include "Fluent/FluentQtCompat.h"
 
 class QMouseEvent;
 class QPaintEvent;
@@ -29,7 +30,7 @@ public:
 protected:
     void changeEvent(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
-    void enterEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;

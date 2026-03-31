@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QLineEdit>
+#include "Fluent/FluentQtCompat.h"
 
 class QFocusEvent;
 class QPaintEvent;
@@ -26,7 +27,11 @@ public:
 protected:
     void changeEvent(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void enterEvent(QEnterEvent *event) override;
+#else
     void enterEvent(QEvent *event) override;
+#endif
     void leaveEvent(QEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;

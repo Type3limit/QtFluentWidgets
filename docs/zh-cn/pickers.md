@@ -3,6 +3,7 @@
 ## 控件清单
 
 - `FluentCalendarPicker`（include: `Fluent/FluentCalendarPicker.h`）
+- `FluentDateRangePicker`（include: `Fluent/FluentDateRangePicker.h`）
 - `FluentCalendarPopup`（include: `Fluent/datePicker/FluentCalendarPopup.h`）
 - `FluentTimePicker`（include: `Fluent/FluentTimePicker.h`）
 - `FluentColorPicker`（include: `Fluent/FluentColorPicker.h`）
@@ -52,6 +53,57 @@ Demo：Pickers / Overview。
 
 ---
 
+## FluentDateRangePicker
+
+```cpp
+#include "Fluent/FluentDateRangePicker.h"
+
+auto *picker = new Fluent::FluentDateRangePicker();
+picker->setDateRange(QDate::currentDate(), QDate::currentDate().addDays(7));
+picker->setStartPrefix(QStringLiteral("开始："));
+picker->setSeparator(QStringLiteral("  至  "));
+picker->setEndPrefix(QStringLiteral("结束："));
+```
+
+用途：日期范围选择输入框。点击后会弹出双面板日历：左侧选择开始月份，右侧选择结束月份，范围区间使用连续的 accent 背景高亮。
+
+继承与构造：
+
+- `class FluentDateRangePicker : public QWidget`
+- 构造：`FluentDateRangePicker(QWidget*)`
+
+外观/交互要点：
+
+- 控件自身使用 `Style::paintControlSurface()` 绘制输入框表面，右侧带下拉 chevron。
+- 弹出的 `FluentCalendarPopup` 会切到 `Range` 模式，左右两个月份面板默认相差 1 个月。
+- 第一次点击日期选开始，第二次点击选结束；悬停时会实时预览范围。
+- 开始/结束日期之间的区间使用连续 accent 带填充，中间不留竖线缝隙。
+- `Esc`：若当前正在选结束日期，则取消本次范围选择；再次按下关闭弹窗。
+
+文本配置 API：
+
+- `setStartPrefix()` / `setStartSuffix()`
+- `setEndPrefix()` / `setEndSuffix()`
+- `setSeparator()`：设置中间分隔文本（默认 `"  →  "`）
+- `setStartPlaceholder()` / `setEndPlaceholder()`
+- `setDisplayFormat()`：日期格式（默认 `"yyyy-MM-dd"`）
+
+数据 API：
+
+- `setDateRange(const QDate &start, const QDate &end)`
+- `startDate()` / `endDate()`
+- `dateRangeChanged(const QDate&, const QDate&)`
+
+适用场景：
+
+- 酒店入住 / 离店
+- 报表时间范围
+- 账期、结算区间、任务起止时间
+
+Demo：Pickers。
+
+---
+
 ## FluentCalendarPopup
 
 用途：`FluentCalendarPicker` 使用的弹出式日历（自绘 `Qt::Popup`），也可单独作为 popup 使用。
@@ -84,8 +136,10 @@ Demo：Pickers / Overview。
 
 - `setAnchor(QWidget*)`：设置锚点控件（用于定位）。
 - `setDate(const QDate&)` / `date()`：当前选择日期。
+- `setSelectionMode(SelectionMode::Single / Range)`：切换单日 / 范围模式。
+- `setDateRange(const QDate&, const QDate&)` / `rangeStart()` / `rangeEnd()`：范围模式下的起止日期。
 - `popup()` / `dismiss()`：显示/关闭。
-- `datePicked(const QDate&)` / `dismissed()`：信号。
+- `datePicked(const QDate&)` / `rangePicked(const QDate&, const QDate&)` / `dismissed()`：信号。
 
 单独使用示例：
 

@@ -522,7 +522,7 @@ void FluentCodeEditor::focusOutEvent(QFocusEvent *event)
     }
 }
 
-void FluentCodeEditor::enterEvent(QEvent *event)
+void FluentCodeEditor::enterEvent(FluentEnterEvent *event)
 {
     QPlainTextEdit::enterEvent(event);
     startHoverAnimation(1.0);

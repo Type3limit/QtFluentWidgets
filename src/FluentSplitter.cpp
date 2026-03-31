@@ -1,6 +1,7 @@
 #include "Fluent/FluentSplitter.h"
 
 #include "Fluent/FluentTheme.h"
+#include "Fluent/FluentQtCompat.h"
 
 #include <QEvent>
 #include <QPainter>
@@ -31,7 +32,7 @@ public:
     }
 
 protected:
-    void enterEvent(QEvent *event) override
+    void enterEvent(FluentEnterEvent *event) override
     {
         QSplitterHandle::enterEvent(event);
         startHover(1.0);
