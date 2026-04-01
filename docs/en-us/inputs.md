@@ -1,8 +1,8 @@
 # Inputs
 
-This module covers common input/edit widgets (excluding date/time/color pickers and the code editor).
+This module covers common input/edit widgets (excluding date/time/color pickers and the code editor), and also includes angle-input controls.
 
-Demo pages: Inputs (`demo/pages/PageInputs.cpp`) and Overview (`demo/pages/PageOverview.cpp`).
+Demo pages: Inputs (`demo/pages/PageInputs.cpp`), Angle Controls (`demo/pages/PageAngleControls.cpp`), and Overview (`demo/pages/PageOverview.cpp`).
 
 ## Widget list (public headers)
 
@@ -12,6 +12,8 @@ Demo pages: Inputs (`demo/pages/PageInputs.cpp`) and Overview (`demo/pages/PageO
 - `FluentSpinBox` / `FluentDoubleSpinBox` (include: `Fluent/FluentSpinBox.h`)
 - `FluentSlider` (include: `Fluent/FluentSlider.h`)
 - `FluentProgressBar` (include: `Fluent/FluentProgressBar.h`)
+- `FluentDial` (include: `Fluent/FluentDial.h`)
+- `FluentAngleSelector` (include: `Fluent/FluentAngleSelector.h`)
 
 Related but documented under Containers/Layout:
 
@@ -232,3 +234,79 @@ pb->setTextPosition(Fluent::FluentProgressBar::TextPosition::Right);
 ```
 
 Demo: Buttons / Containers / Overview.
+
+---
+
+## FluentDial
+
+```cpp
+#include "Fluent/FluentDial.h"
+
+auto *dial = new Fluent::FluentDial();
+dial->setValue(135);
+dial->setTicksVisible(true);
+```
+
+Purpose: compact circular knob for angle selection, useful for gradient angles, rotation, and direction input.
+
+Angle convention:
+
+- `0°` = left → right (3 o'clock origin)
+- values increase clockwise
+- the accent arc starts from the 3 o'clock position
+
+Key APIs:
+
+- `setValue(int)` / `value()`
+- `setTicksVisible(bool)` / `ticksVisible()`
+- `setTickStep(int)` / `tickStep()`
+- `setMajorTickStep(int)` / `majorTickStep()`
+- `setPointerVisible(bool)` / `pointerVisible()`
+
+Implementation notes:
+
+- Custom-painted `QWidget` with internal hover/focus animations.
+- Mouse dragging converts cursor position into an angle value; the mouse wheel can be used for fine adjustment.
+- It can draw the outer track, current accent arc, optional ticks / major ticks, optional pointer, and a focus ring.
+
+Demo: Angle Controls / Overview.
+
+---
+
+## FluentAngleSelector
+
+```cpp
+#include "Fluent/FluentAngleSelector.h"
+
+auto *editor = new Fluent::FluentAngleSelector();
+editor->setValue(128);
+editor->setSuffix(QStringLiteral("°"));
+```
+
+Purpose: integrated angle editor built from `FluentLabel + FluentDial + FluentSpinBox`, exposing a single `valueChanged(int)` semantic.
+
+Key APIs:
+
+- `setValue(int)` / `value()`
+- `setRange(int minimum, int maximum)` (default `0..359`)
+- `setWrapping(bool)` / `wrapping()`
+- `setLabelText(const QString&)` / `labelText()`
+- `setSuffix(const QString&)` / `suffix()`
+- `setDialVisible(bool)` / `dialVisible()`
+- `setLabelVisible(bool)` / `labelVisible()`
+- `setSpinBoxVisible(bool)` / `spinBoxVisible()`
+- `dial()` / `spinBox()` for advanced customization of the internal child widgets
+
+Implementation notes:
+
+- Dial and spin box stay synchronized, with temporary `blockSignals(true)` guards to avoid signal loops.
+- In wrapping mode, values are normalized back into range; in non-wrapping mode they are clamped.
+- Visibility toggles make it easy to create compact variants such as dial-only, spinbox-only, or label-less forms.
+
+Typical use cases:
+
+- gradient angle editing in `FluentColorDialog`
+- object / canvas rotation controls
+- any workflow that wants both a numeric value and a visual knob
+
+Demo: Angle Controls.

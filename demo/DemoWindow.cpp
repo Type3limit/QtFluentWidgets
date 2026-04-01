@@ -6,12 +6,14 @@
 #include "pages/PageButtons.h"
 #include "pages/PageContainers.h"
 #include "pages/PageDataViews.h"
+#include "pages/PageAngleControls.h"
 #include "pages/PageInputs.h"
 #include "pages/PageOverview.h"
 #include "pages/PagePickers.h"
 #include "pages/PageWindows.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QClipboard>
 #include <QComboBox>
@@ -74,16 +76,21 @@ DemoWindow::DemoWindow(QWidget *parent)
     auto *viewMenu = menuBar->addFluentMenu(QStringLiteral("视图"));
     QAction *lightAction = viewMenu->addAction(QStringLiteral("浅色"));
     QAction *darkAction = viewMenu->addAction(QStringLiteral("深色"));
+    auto *themeGroup = new QActionGroup(viewMenu);
+    themeGroup->setExclusive(true);
+    themeGroup->addAction(lightAction);
+    themeGroup->addAction(darkAction);
     lightAction->setCheckable(true);
     darkAction->setCheckable(true);
-    lightAction->setChecked(true);
+    const bool isDarkAtStartup = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
+    darkAction->setChecked(isDarkAtStartup);
+    lightAction->setChecked(!isDarkAtStartup);
     QObject::connect(lightAction, &QAction::triggered, []() { ThemeManager::instance().setLightMode(); });
     QObject::connect(darkAction, &QAction::triggered, []() { ThemeManager::instance().setDarkMode(); });
     QObject::connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [lightAction, darkAction]() {
         const bool isDark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
-        if (darkAction->isChecked() != isDark) {
-            (isDark ? darkAction : lightAction)->setChecked(true);
-        }
+        darkAction->setChecked(isDark);
+        lightAction->setChecked(!isDark);
     });
 
     window.setFluentMenuBar(menuBar);
@@ -221,6 +228,7 @@ DemoWindow::DemoWindow(QWidget *parent)
     tabs->addTab(Demo::Pages::createInputsPage(&window), QStringLiteral("输入"));
     tabs->addTab(Demo::Pages::createButtonsPage(&window), QStringLiteral("按钮"));
     tabs->addTab(Demo::Pages::createPickersPage(&window), QStringLiteral("选择器"));
+    tabs->addTab(Demo::Pages::createAngleControlsPage(&window), QStringLiteral("角度控件"));
     tabs->addTab(Demo::Pages::createDataViewsPage(&window), QStringLiteral("数据视图"));
     tabs->addTab(Demo::Pages::createContainersPage(&window), QStringLiteral("容器"));
     tabs->addTab(Demo::Pages::createWindowsPage(&window), QStringLiteral("窗口"));
@@ -236,8 +244,8 @@ DemoWindow::DemoWindow(QWidget *parent)
     });
 
     QObject::connect(dlgAction, &QAction::triggered, this, [tabs]() {
-        if (tabs && tabs->count() > 6) {
-            tabs->setCurrentIndex(6);
+        if (tabs && tabs->count() > 7) {
+            tabs->setCurrentIndex(7);
         }
     });
 }

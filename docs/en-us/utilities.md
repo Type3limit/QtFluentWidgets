@@ -106,3 +106,77 @@ Key APIs:
 - `FluentFrameSpec`
 - `paintFluentFrame(...)`
 - `paintFluentPanel(...)`
+
+---
+
+## FluentToolTip
+
+include: `Fluent/FluentToolTip.h`
+
+Purpose: Fluent-styled replacement for Qt's native tooltip popup.
+
+Key APIs:
+
+- `FluentToolTip::ensureInstalled()`
+- `FluentToolTip::showText(const QPoint&, const QString&, QWidget* anchor = nullptr, int msecDisplayTime = -1)`
+- `FluentToolTip::hideText()`
+
+Implementation notes:
+
+- Internally it creates a `Qt::ToolTip | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint` top-level popup and paints it with `paintFluentPanel()`.
+- Text width is capped at about `420px`, and default display time is estimated from the text length (~0.9s + 55ms per character, clamped to `1600..8000ms`).
+- Position is based on the global cursor point plus an offset (~`+14,+22`), then clamped to the available screen geometry; if it does not fit below, it flips above the cursor.
+- Once installed, it intercepts `QEvent::ToolTip`, reads `widget->toolTip()` / `widget->toolTipDuration()`, and hides on `Leave`, mouse press, wheel, key press, focus out, or app deactivation.
+
+Typical use cases:
+
+- make the whole app use a consistent Fluent tooltip visual
+- show a temporary help bubble manually at a global position
+
+---
+
+## FluentPopupSurface
+
+include: `Fluent/FluentPopupSurface.h`
+
+Purpose: shared rounded-panel constants and helper functions for calendar/time/color popups and similar transient surfaces.
+
+Note: `FluentPopupSurface` is not a widget class; it is a set of inline helpers under `namespace Fluent::PopupSurface`.
+
+Key items:
+
+- `kRadius` / `kBorderWidth` / `kOpenDurationMs` / `kOpenSlideOffsetPx`
+- `panelRect(const QRect&)`
+- `contentClipPath(const QRect&)`
+- `paintPanel(QPainter&, const QRect&, const ThemeColors&, FluentBorderEffect*)`
+
+Implementation notes:
+
+- `panelRect()` slightly insets the rect before painting to reduce border jitter on HiDPI and translucent popup windows.
+- `contentClipPath()` returns a rounded path matching the popup panel border, useful for clipping popup contents so they do not visually square off the corners.
+- `paintPanel()` builds a `FluentFrameSpec` internally and injects accent-border / trace parameters automatically when a `FluentBorderEffect` is provided.
+- These helpers are mainly reused by popup widgets such as `FluentCalendarPopup` to keep radius, border width, and open-animation tuning consistent.
+
+---
+
+## FluentQtCompat
+
+include: `Fluent/FluentQtCompat.h`
+
+Purpose: very small Qt5 / Qt6 compatibility layer for event and pointer-position handling.
+
+Note: this is a **mostly internal public header**; normal app code usually does not need to include it directly. It primarily exists so widget implementations can avoid repeating `#if QT_VERSION` branches everywhere.
+
+Key items:
+
+- `using FluentEnterEvent = ...`
+- `mousePositionF(const QMouseEvent*)`
+- `globalMousePosition(const QMouseEvent*)`
+- `wheelPositionF(const QWheelEvent*)`
+
+Implementation notes:
+
+- On Qt6 it maps to `QEnterEvent`, `event->position()`, and `event->globalPosition()`.
+- On Qt5 it falls back to `QEvent`, `localPos()`, `globalPos()`, and `posF()`.
+- This lets higher-level widgets (for example `FluentDial`) use one unified coordinate-reading path across Qt versions.
+

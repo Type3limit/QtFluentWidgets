@@ -1,5 +1,6 @@
 ﻿#include "Fluent/FluentMainWindow.h"
 
+#include "Fluent/FluentFramePainter.h"
 #include "Fluent/FluentMenuBar.h"
 #include "Fluent/FluentResizeHelper.h"
 #include "Fluent/FluentStatusBar.h"
@@ -38,20 +39,8 @@ namespace Fluent {
 namespace {
 enum WindowGlyphType { GlyphMinimize = 0, GlyphMaximize = 1, GlyphRestore = 2, GlyphClose = 3 };
 
-static int effectiveWindowRadiusPx(const QWidget *w)
-{
-    if (!w) {
-        return 0;
-    }
-
-    if (w->isMaximized() || w->isFullScreen()) {
-        return 0;
-    }
-
-    const int base = Style::metrics().radius;
-    const int inset = w->contentsMargins().left();
-    return qMax(0, base - inset);
-}
+// Window frame radius matching the Windows 11 DWM DWMWCP_ROUND corner clip (8 DIPs).
+static constexpr qreal kWindowFrameRadius = 8.0;
 
 static QString rgbaString(const QColor &c)
 {
@@ -62,228 +51,97 @@ static QString rgbaString(const QColor &c)
         .arg(c.alpha());
 }
 
-class WindowAccentBorderOverlay final : public QWidget
+// ---------------------------------------------------------------------------
+// WindowBorderOverlay – a transparent child of the MainWindow that covers the
+// ENTIRE content area (title bar + central widget).  It paints the accent
+// border stroke + trace animation on top of everything so it is never covered
+// by opaque child widgets.
+// ---------------------------------------------------------------------------
+class WindowBorderOverlay final : public QWidget
 {
 public:
-    explicit WindowAccentBorderOverlay(QWidget *parent)
+    explicit WindowBorderOverlay(QWidget *parent)
         : QWidget(parent)
     {
         setAttribute(Qt::WA_TransparentForMouseEvents, true);
         setAttribute(Qt::WA_NoSystemBackground, true);
-        setAttribute(Qt::WA_TranslucentBackground, true);
-        setAttribute(Qt::WA_StyledBackground, false);
         setAutoFillBackground(false);
-        setFocusPolicy(Qt::NoFocus);
     }
+
+    void setBorderEffect(const FluentBorderEffect *border) { m_border = border; }
 
 protected:
     void paintEvent(QPaintEvent *event) override
     {
         Q_UNUSED(event)
-        if (const QWidget *w = window()) {
-            if (!w->property("_fluentPaintReady").toBool()) {
-                return;
-            }
-            if (QWindow *wh = w->windowHandle()) {
-                if (!wh->isExposed()) {
-                    return;
-                }
-            }
-        }
-        if (const QWidget *w = window()) {
-            if (QWindow *wh = w->windowHandle()) {
-                if (!wh->isExposed()) {
-                    return;
-                }
-            }
-        }
-        const auto &colors = ThemeManager::instance().colors();
 
-        QPainter p(this);
-        if (!p.isActive()) {
-            return;
-        }
-        p.setRenderHint(QPainter::Antialiasing, true);
-
-        // Align strokes to device pixels to reduce jaggies/blur on rounded corners (notably on HiDPI).
-        qreal dpr = devicePixelRatioF();
-        if (dpr <= 0.0) {
-            dpr = 1.0;
-        }
-        const qreal px = 0.5 / dpr;
-
-        QPen pen(colors.accent, 1.0);
-        if (!ThemeManager::instance().accentBorderEnabled()) {
-            pen.setColor(colors.border);
-        }
-        pen.setJoinStyle(Qt::MiterJoin);
-        p.setPen(pen);
-        p.setBrush(Qt::NoBrush);
-
-        QRectF r = QRectF(rect()).adjusted(px, px, -px, -px);
         const QWidget *w = window();
-        const qreal radius = effectiveWindowRadiusPx(w);
-
-        if (radius <= 0.0) {
-            p.drawRect(r);
-        } else {
-            p.drawRoundedRect(r, radius, radius);
-        }
-    }
-};
-
-class WindowAccentBorderMarqueeOverlay final : public QWidget
-{
-public:
-    explicit WindowAccentBorderMarqueeOverlay(QWidget *parent)
-        : QWidget(parent)
-    {
-        setAttribute(Qt::WA_TransparentForMouseEvents, true);
-        setAttribute(Qt::WA_NoSystemBackground, true);
-        setAttribute(Qt::WA_TranslucentBackground, true);
-        setAttribute(Qt::WA_StyledBackground, false);
-        setAutoFillBackground(false);
-        setFocusPolicy(Qt::NoFocus);
-        hide();
-    }
-
-    void setToAccent(bool toAccent)
-    {
-        m_toAccent = toAccent;
-        update();
-    }
-
-    void setProgress(qreal t)
-    {
-        m_t = t;
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent *event) override
-    {
-        Q_UNUSED(event)
-        if (m_t < 0.0) {
+        if (w && !w->property("_fluentPaintReady").toBool()) {
             return;
         }
-
-        if (const QWidget *w = window()) {
-            if (!w->property("_fluentPaintReady").toBool()) {
-                return;
-            }
-            if (QWindow *wh = w->windowHandle()) {
-                if (!wh->isExposed()) {
-                    return;
-                }
-            }
-        }
-
-        if (const QWidget *w = window()) {
-            if (QWindow *wh = w->windowHandle()) {
-                if (!wh->isExposed()) {
-                    return;
-                }
-            }
-        }
-
-        const auto &colors = ThemeManager::instance().colors();
-
-        QPainter p(this);
-        if (!p.isActive()) {
-            return;
-        }
-        p.setRenderHint(QPainter::Antialiasing, true);
-
-        qreal dpr = devicePixelRatioF();
-        if (dpr <= 0.0) {
-            dpr = 1.0;
-        }
-        const qreal px = 0.5 / dpr;
-
-        QRectF r = QRectF(rect()).adjusted(px, px, -px, -px);
-        const QWidget *w = window();
-        const qreal radius = effectiveWindowRadiusPx(w);
-
-        const QColor trace = m_toAccent ? colors.accent : colors.border;
-        Style::paintTraceBorder(p, r, radius, trace, m_t, 1.0, 0.0);
-    }
-
-private:
-    qreal m_t = -1.0;
-    bool m_toAccent = true;
-};
-
-class WindowCentralClipHost final : public QWidget
-{
-public:
-    explicit WindowCentralClipHost(QWidget *parent = nullptr)
-        : QWidget(parent)
-    {
-        setAttribute(Qt::WA_StyledBackground, false);
-        setAutoFillBackground(false);
-    }
-
-    void refreshMask()
-    {
-        updateMask();
-    }
-
-protected:
-    void resizeEvent(QResizeEvent *event) override
-    {
-        QWidget::resizeEvent(event);
-        updateMask();
-    }
-
-private:
-    void updateMask()
-    {
-        const QWidget *w = window();
-        const qreal radius = effectiveWindowRadiusPx(w);
-
-        if (radius <= 0.0) {
-            clearMask();
-            return;
-        }
-
-        bool titleBarVisible = false;
         if (w) {
-            if (QWidget *title = w->findChild<QWidget *>(QStringLiteral("FluentTitleBarHost"))) {
-                titleBarVisible = title->isVisible() && title->height() > 0;
+            if (QWindow *wh = w->windowHandle()) {
+                if (!wh->isExposed()) {
+                    return;
+                }
             }
         }
 
-        const QRectF r = QRectF(rect());
-        if (r.isEmpty()) {
-            clearMask();
+        QPainter p(this);
+        if (!p.isActive()) {
             return;
         }
 
-        QPainterPath path;
-        if (titleBarVisible) {
-            // Title bar owns the top corners. Only clip bottom corners here so we don't
-            // create gaps under the title bar.
-            path.moveTo(r.left(), r.top());
-            path.lineTo(r.right(), r.top());
-            path.lineTo(r.right(), r.bottom() - radius);
-            path.quadTo(r.right(), r.bottom(), r.right() - radius, r.bottom());
-            path.lineTo(r.left() + radius, r.bottom());
-            path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - radius);
-            path.closeSubpath();
-        } else {
-            // When the title bar is collapsed/hidden, central content reaches the top,
-            // so clip all four corners.
-            path = Style::roundedRectPath(r, radius);
+        const auto &colors = ThemeManager::instance().colors();
+        const bool maximized = w && (w->isMaximized() || w->isFullScreen());
+
+        FluentFrameSpec frame;
+        frame.radius = kWindowFrameRadius;
+        frame.maximized = maximized;
+        {
+            qreal dpr = devicePixelRatioF();
+            if (dpr <= 0.0) {
+                dpr = 1.0;
+            }
+            frame.borderInset = 0.5 / dpr;
         }
 
-        setMask(QRegion(path.toFillPolygon().toPolygon()));
+        if (m_border) {
+            m_border->applyToFrameSpec(frame, colors);
+        }
+
+        const qreal radius = maximized ? 0.0 : frame.radius;
+        QRectF panelRect(rect());
+        panelRect.adjust(frame.borderInset, frame.borderInset, -frame.borderInset, -frame.borderInset);
+
+        const QColor border = frame.borderColorOverride.isValid()
+            ? frame.borderColorOverride
+            : (frame.accentBorderEnabled ? colors.accent : colors.border);
+
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(QPen(border, frame.borderWidth));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(panelRect, radius, radius);
+
+        if (frame.traceEnabled) {
+            Style::paintTraceBorder(p, panelRect, radius, frame.traceColor, frame.traceT, frame.borderWidth, 0.0);
+        }
     }
+
+private:
+    const FluentBorderEffect *m_border = nullptr;
 };
 
-class WindowAccentCentralBorderHost final : public QWidget
+// ---------------------------------------------------------------------------
+// WindowFrameHost – a simple container that sits inside the MainWindow as the
+// central widget.  It only paints the Fluent surface fill (rounded rect).
+// The accent border is painted by WindowBorderOverlay (a sibling widget that
+// covers the entire window content area, including the title bar).
+// ---------------------------------------------------------------------------
+class WindowFrameHost final : public QWidget
 {
 public:
-    explicit WindowAccentCentralBorderHost(QWidget *parent)
+    explicit WindowFrameHost(QWidget *parent)
         : QWidget(parent)
     {
         setAttribute(Qt::WA_StyledBackground, false);
@@ -294,72 +152,34 @@ protected:
     void paintEvent(QPaintEvent *event) override
     {
         Q_UNUSED(event)
-        if (const QWidget *w = window()) {
-            if (!w->property("_fluentPaintReady").toBool()) {
-                return;
-            }
+
+        const QWidget *w = window();
+        if (w && !w->property("_fluentPaintReady").toBool()) {
+            return;
+        }
+        if (w) {
             if (QWindow *wh = w->windowHandle()) {
                 if (!wh->isExposed()) {
                     return;
                 }
             }
         }
-        if (const QWidget *w = window()) {
-            if (QWindow *wh = w->windowHandle()) {
-                if (!wh->isExposed()) {
-                    return;
-                }
-            }
-        }
-        const auto &colors = ThemeManager::instance().colors();
 
         QPainter p(this);
         if (!p.isActive()) {
             return;
         }
-        p.setRenderHint(QPainter::Antialiasing, true);
 
-        qreal dpr = devicePixelRatioF();
-        if (dpr <= 0.0) {
-            dpr = 1.0;
-        }
-        const qreal px = 0.5 / dpr;
+        const auto &colors = ThemeManager::instance().colors();
 
-        bool effectiveAccent = ThemeManager::instance().accentBorderEnabled();
-        if (const QWidget *w = window()) {
-            if (w->property("_fluentBorderMarqueeActive").toBool()) {
-                effectiveAccent = w->property("_fluentBorderMarqueeFromAccent").toBool();
-            }
-        }
-
-        QPen pen(effectiveAccent ? colors.accent : colors.border, 1.0);
-        pen.setJoinStyle(Qt::MiterJoin);
-        p.setPen(pen);
-        p.setBrush(Qt::NoBrush);
-
-        const QWidget *widget = window();
-        const bool widgetMaximizedOrFullscreen = widget? (widget->isMaximized() || widget->isFullScreen()) : false;
-        const qreal radius = widgetMaximizedOrFullscreen ? 0.0 : effectiveWindowRadiusPx(widget);
-
-        // Draw only left/right/bottom so it connects with the title bar's top border.
-        const QRectF r = QRectF(rect()).adjusted(px, 0.0, -px, -px);
-
-        // Left / Right
-        p.drawLine(QPointF(r.left(), r.top()), QPointF(r.left(), r.bottom() - radius));
-        p.drawLine(QPointF(r.right(), r.top()), QPointF(r.right(), r.bottom() - radius));
-
-        // Bottom
-        p.drawLine(QPointF(r.left() + radius, r.bottom()), QPointF(r.right() - radius, r.bottom()));
-
-        if (radius > 0.0) {
-            const QRectF bl(r.left(), r.bottom() - 2 * radius, 2 * radius, 2 * radius);
-            const QRectF br(r.right() - 2 * radius, r.bottom() - 2 * radius, 2 * radius, 2 * radius);
-            p.drawArc(bl, 180 * 16, 90 * 16);
-            p.drawArc(br, 270 * 16, 90 * 16);
-        }
+        // Simple opaque fill — no rounded rect needed here because the border
+        // overlay and DWM handle the visual rounding.
+        p.fillRect(rect(), colors.surface);
     }
 };
+
 } // namespace
+
 FluentMainWindow::FluentMainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -375,22 +195,21 @@ FluentMainWindow::FluentMainWindow(QWidget *parent)
     // Keep overlay/title bar above widgets added later (e.g. setCentralWidget after construction).
     installEventFilter(this);
 
-    // Always-on accent border overlay (topmost). Transparent for mouse.
-    m_borderOverlay = new WindowAccentBorderOverlay(this);
-    m_borderOverlay->setObjectName("FluentMainWindowAccentBorderOverlay");
-    m_borderOverlay->setGeometry(rect());
-    m_borderOverlay->hide();
+    // Create the frame host that paints the surface fill for the central widget area.
+    m_frameHost = new WindowFrameHost(this);
+    m_frameHost->setObjectName("FluentMainWindowFrameHost");
 
-    m_borderMarqueeOverlay = new WindowAccentBorderMarqueeOverlay(this);
-    m_borderMarqueeOverlay->setObjectName("FluentMainWindowAccentBorderMarqueeOverlay");
-    m_borderMarqueeOverlay->setGeometry(rect());
+    // Create the border overlay as a direct child of the MainWindow so it
+    // covers the ENTIRE content area (title bar + central widget).
+    m_borderOverlay = new WindowBorderOverlay(this);
+    m_borderOverlay->setObjectName("FluentMainWindowBorderOverlay");
+    if (auto *overlay = dynamic_cast<WindowBorderOverlay *>(m_borderOverlay)) {
+        overlay->setBorderEffect(&m_border);
+    }
 
     m_border.syncFromTheme();
     m_border.setRequestUpdate([this]() {
-        syncBorderVisualState();
-        if (m_borderMarqueeOverlay && m_borderMarqueeOverlay->isVisible()) {
-            m_borderMarqueeOverlay->raise();
-        }
+        updateFrameHost();
     });
 
     ensureTitleBar();
@@ -405,44 +224,33 @@ FluentMainWindow::FluentMainWindow(QWidget *parent)
     // Decide initial inset/overlay visibility.
     updateTitleBarContent();
 
-    // Initialize marquee properties/overlay visibility.
+    // Initialize border state.
     syncBorderVisualState();
 }
 
 void FluentMainWindow::syncBorderVisualState()
 {
-    const bool animating = m_border.isAnimating();
-    setProperty("_fluentBorderMarqueeActive", animating);
-    setProperty("_fluentBorderMarqueeFromAccent", m_border.fromEnabled());
-    setProperty("_fluentBorderMarqueeToAccent", m_border.toEnabled());
-
-    if (auto *overlay = dynamic_cast<WindowAccentBorderMarqueeOverlay *>(m_borderMarqueeOverlay)) {
-        if (animating) {
-            overlay->setToAccent(m_border.toEnabled());
-            overlay->setProgress(m_border.t());
-        } else {
-            overlay->setProgress(-1.0);
-        }
-    }
-
-    if (m_borderMarqueeOverlay) {
-        m_borderMarqueeOverlay->setGeometry(rect());
-        if (animating) {
-            m_borderMarqueeOverlay->raise();
-            m_borderMarqueeOverlay->show();
-        } else {
-            m_borderMarqueeOverlay->hide();
-        }
-        m_borderMarqueeOverlay->update();
-    }
-
-    // Keep base border (title bar + central border host) in the "from" color while tracing.
+    updateFrameHost();
     updateTitleBarContent();
     if (m_titleBarHost) {
         m_titleBarHost->update();
     }
-    if (m_centralBorderHost) {
-        m_centralBorderHost->update();
+}
+
+void FluentMainWindow::updateFrameHost()
+{
+    if (m_frameHost) {
+        m_frameHost->update();
+    }
+    if (m_borderOverlay) {
+        // Position the overlay to cover the entire content area (inside the 1px margins).
+        const int inset = (isMaximized() || isFullScreen()) ? 0 : 1;
+        const QRect overlayRect(inset, inset, width() - 2 * inset, height() - 2 * inset);
+        if (m_borderOverlay->geometry() != overlayRect) {
+            m_borderOverlay->setGeometry(overlayRect);
+        }
+        m_borderOverlay->raise();
+        m_borderOverlay->update();
     }
 }
 
@@ -481,24 +289,23 @@ void FluentMainWindow::setCentralWidget(QWidget *widget)
         return;
     }
 
-    ensureCentralBorderHost();
+    ensureFrameHostAsCentral();
 
-    if (!m_centralBorderHost) {
+    if (!m_frameHost) {
         m_userCentralWidget = widget;
         QMainWindow::setCentralWidget(widget);
         return;
     }
 
     // Remove old
-    if (m_userCentralWidget && m_centralClipHost && m_userCentralWidget->parent() == m_centralClipHost) {
+    if (m_userCentralWidget && m_userCentralWidget->parent() == m_frameHost) {
         m_userCentralWidget->setParent(nullptr);
     }
     m_userCentralWidget = widget;
 
-    QWidget *host = m_centralClipHost ? m_centralClipHost : m_centralBorderHost;
-    auto *layout = qobject_cast<QVBoxLayout *>(host->layout());
+    auto *layout = qobject_cast<QVBoxLayout *>(m_frameHost->layout());
     if (!layout) {
-        layout = new QVBoxLayout(host);
+        layout = new QVBoxLayout(m_frameHost);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
     }
@@ -514,16 +321,12 @@ void FluentMainWindow::setCentralWidget(QWidget *widget)
     }
 
     if (widget) {
-        widget->setParent(host);
+        widget->setParent(m_frameHost);
         layout->addWidget(widget);
     }
 
-    m_centralBorderHost->update();
 
-    if (m_borderOverlay) {
-        m_borderOverlay->raise();
-        m_borderOverlay->update();
-    }
+    updateFrameHost();
 }
 
 void FluentMainWindow::setFluentTitleBarTitle(const QString &title)
@@ -734,25 +537,25 @@ QWidget *FluentMainWindow::fluentTitleBarRightWidget() const
     return m_rightCustomWidget;
 }
 
-void FluentMainWindow::ensureCentralBorderHost()
+void FluentMainWindow::ensureFrameHostAsCentral()
 {
-    if (m_centralBorderHost) {
-        return;
+    if (m_frameHost && m_frameHost->parent() == this) {
+        // Already installed as central widget? Check.
+        if (QMainWindow::centralWidget() == m_frameHost) {
+            return;
+        }
     }
 
-    m_centralBorderHost = new WindowAccentCentralBorderHost(this);
-    m_centralBorderHost->setObjectName(QStringLiteral("FluentMainWindowCentralBorderHost"));
+    if (!m_frameHost) {
+        m_frameHost = new WindowFrameHost(this);
+        m_frameHost->setObjectName("FluentMainWindowFrameHost");
+    }
 
-    auto *layout = new QVBoxLayout(m_centralBorderHost);
-    // Reserve 1px for the border; rounded clipping is handled by m_centralClipHost.
-    layout->setContentsMargins(1, 0, 1, 1);
+    auto *layout = new QVBoxLayout(m_frameHost);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    m_centralClipHost = new WindowCentralClipHost(m_centralBorderHost);
-    m_centralClipHost->setObjectName(QStringLiteral("FluentMainWindowCentralClipHost"));
-    layout->addWidget(m_centralClipHost);
-
-    QMainWindow::setCentralWidget(m_centralBorderHost);
+    QMainWindow::setCentralWidget(m_frameHost);
 }
 
 void FluentMainWindow::setFluentWindowButtons(WindowButtons buttons)
@@ -928,14 +731,7 @@ void FluentMainWindow::setFluentMenuBar(FluentMenuBar *menuBar)
     }
 
     m_menuBar->setParent(m_leftHost ? m_leftHost : m_titleBarHost);
-    // Keep menu bar visible and clickable in the custom title bar.
-    // Using Expanding here can make it compete with the title label and trigger
-    // QMenuBar's internal overflow (qt_menubar_ext_button).
     m_menuBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
-
-    // Prevent QMenuBar from being compressed into the built-in overflow button ("▼")
-    // which looks native and also spawns a native-looking overflow menu.
-    // In a Fluent title bar we prefer showing top-level menus directly.
     m_menuBar->setMinimumWidth(m_menuBar->minimumSizeHint().width());
 
     if (m_leftHost) {
@@ -950,8 +746,6 @@ void FluentMainWindow::setFluentMenuBar(FluentMenuBar *menuBar)
         if (m_leftHost->layout()) {
             m_leftHost->layout()->activate();
         }
-        // Reserve enough space for icon + menu bar so clicks on actions won't be eaten by
-        // the title bar drag logic and so Qt won't collapse items into the overflow button.
         m_leftHost->setMinimumWidth(m_leftHost->sizeHint().width());
     }
     updateTitleBarContent();
@@ -970,14 +764,9 @@ void FluentMainWindow::changeEvent(QEvent *event)
 
         // Maximized/restored affects the outer frame border/inset.
         updateTitleBarContent();
-
-        if (m_centralBorderHost) {
-            m_centralBorderHost->update();
-        }
+        updateFrameHost();
     } else if (event->type() == QEvent::ActivationChange) {
-        if (m_centralBorderHost) {
-            m_centralBorderHost->update();
-        }
+        updateFrameHost();
     }
 }
 
@@ -986,75 +775,30 @@ void FluentMainWindow::resizeEvent(QResizeEvent *event)
     QMainWindow::resizeEvent(event);
     updateTitleBarContent();
 
-    if (m_borderOverlay) {
-        m_borderOverlay->setGeometry(rect());
-        if (m_borderOverlay->isVisible()) {
-            m_borderOverlay->raise();
-            m_borderOverlay->update();
-        }
-    }
-
-    if (m_borderMarqueeOverlay) {
-        m_borderMarqueeOverlay->setGeometry(rect());
-        if (m_borderMarqueeOverlay->isVisible()) {
-            m_borderMarqueeOverlay->raise();
-            m_borderMarqueeOverlay->update();
-        }
-    }
-
-    if (m_centralBorderHost) {
-        m_centralBorderHost->update();
-    }
+    updateFrameHost();
 }
 
 void FluentMainWindow::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
 
-    // Allow overlay painting after the first event loop cycle.
+    // Allow painting after the first event loop cycle.
     if (!property("_fluentPaintReady").toBool()) {
         QTimer::singleShot(0, this, [this]() {
             setProperty("_fluentPaintReady", true);
             if (m_titleBarHost) {
                 m_titleBarHost->update();
             }
-            if (m_centralBorderHost) {
-                m_centralBorderHost->update();
-            }
-            if (m_borderOverlay) {
-                m_borderOverlay->update();
-            }
-            if (m_borderMarqueeOverlay) {
-                m_borderMarqueeOverlay->update();
-            }
+            updateFrameHost();
         });
     }
 
     if (!m_initialTracePlayed) {
         // Trigger the initial trace only after the first paint.
-        // Some platforms can still report QPainter::begin engine==0 if we start too early.
         m_initialTracePending = true;
     }
 
-    if (m_borderOverlay) {
-        m_borderOverlay->setGeometry(rect());
-        if (m_borderOverlay->isVisible()) {
-            m_borderOverlay->raise();
-            m_borderOverlay->update();
-        }
-    }
-
-    if (m_borderMarqueeOverlay) {
-        m_borderMarqueeOverlay->setGeometry(rect());
-        if (m_borderMarqueeOverlay->isVisible()) {
-            m_borderMarqueeOverlay->raise();
-            m_borderMarqueeOverlay->update();
-        }
-    }
-
-    if (m_centralBorderHost) {
-        m_centralBorderHost->update();
-    }
+    updateFrameHost();
 }
 
 bool FluentMainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -1080,18 +824,14 @@ bool FluentMainWindow::eventFilter(QObject *watched, QEvent *event)
             }
         }
 
-        // Keep title bar above widgets added later (e.g. replacing central widget).
+        // Keep title bar and border overlay above widgets added later.
         if (m_titleBarHost) {
             m_titleBarHost->raise();
         }
-
         if (m_borderOverlay) {
             m_borderOverlay->raise();
         }
 
-        if (m_borderMarqueeOverlay) {
-            m_borderMarqueeOverlay->raise();
-        }
         return QMainWindow::eventFilter(watched, event);
     }
 
@@ -1137,16 +877,12 @@ bool FluentMainWindow::eventFilter(QObject *watched, QEvent *event)
                         return QMainWindow::eventFilter(watched, event);
                     }
 
-                    // Heuristic: most interactive widgets opt into focus.
                     if (p->focusPolicy() != Qt::NoFocus) {
                         return QMainWindow::eventFilter(watched, event);
                     }
 
                     if (auto *mb = qobject_cast<QMenuBar *>(p)) {
                         const QPoint inMenu = mb->mapFrom(m_titleBarHost, inTitle);
-                        // If cursor is anywhere within the menu bar rect, treat it as interactive.
-                        // Using actionAt() here can be unreliable with custom painting/padding and
-                        // would incorrectly start a system move instead of opening the menu.
                         if (mb->rect().contains(inMenu)) {
                             return QMainWindow::eventFilter(watched, event);
                         }
@@ -1259,11 +995,8 @@ bool FluentMainWindow::nativeEvent(const QByteArray &eventType, void *message, l
                     return true;
                 }
 
-                // Special-case menu bar: allow dragging on empty spaces but keep menu actions clickable.
                 if (auto *mb = qobject_cast<QMenuBar *>(p)) {
                     const QPoint inMenu = mb->mapFrom(this, localPos);
-                    // Treat the whole menubar area as client so clicks always reach QMenuBar.
-                    // This avoids "click doesn't open menu" when the title bar hit-test steals it.
                     if (mb->rect().contains(inMenu)) {
                         *result = HTCLIENT;
                         return true;
@@ -1296,8 +1029,6 @@ void FluentMainWindow::applyThemeToApplication()
     if (auto *app = qobject_cast<QApplication *>(QCoreApplication::instance())) {
         const auto &colors = ThemeManager::instance().colors();
         const QString next = Theme::baseStyleSheet(colors);
-        // Setting the same application stylesheet repeatedly is expensive:
-        // it triggers a full style repolish across the widget tree.
         if (app->styleSheet() != next) {
             app->setStyleSheet(next);
         }
@@ -1306,9 +1037,7 @@ void FluentMainWindow::applyThemeToApplication()
     updateTitleBarContent();
     updateWindowControlIcons();
 
-    if (m_centralBorderHost) {
-        m_centralBorderHost->update();
-    }
+    updateFrameHost();
 
 #ifdef Q_OS_WIN
     applyWindowsDwmAttributes();
@@ -1326,7 +1055,6 @@ void FluentMainWindow::ensureTitleBar()
     m_titleBarHost->installEventFilter(this);
 
     const auto wm = Style::windowMetrics();
-    // Height is finalized in updateTitleBarContent() based on current contents.
     m_titleBarHost->setMinimumHeight(0);
 
     auto *layout = new QHBoxLayout(m_titleBarHost);
@@ -1355,7 +1083,6 @@ void FluentMainWindow::ensureTitleBar()
     // Center zone: title (kept visually centered via symmetric stretches)
     layout->addStretch(1);
 
-    // Center zone: user content or default title label.
     m_centerHost = new QWidget(m_titleBarHost);
     auto *centerLayout = new QHBoxLayout(m_centerHost);
     centerLayout->setContentsMargins(0, 0, 0, 0);
@@ -1363,7 +1090,6 @@ void FluentMainWindow::ensureTitleBar()
 
     m_titleLabel = new QLabel(m_centerHost);
     m_titleLabel->setObjectName("FluentWindowTitle");
-    // Allow shrinking aggressively so the menu bar doesn't get pushed into overflow.
     m_titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_titleLabel->setMinimumWidth(0);
     m_titleLabel->setAlignment(Qt::AlignCenter);
@@ -1402,7 +1128,6 @@ void FluentMainWindow::ensureTitleBar()
         b->setProperty("fluentWindowGlyph", -1);
     }
 
-    // Enable glyph-painting mode in FluentToolButton.
     m_minBtn->setProperty("fluentWindowGlyph", GlyphMinimize);
     m_maxBtn->setProperty("fluentWindowGlyph", GlyphMaximize);
     m_closeBtn->setProperty("fluentWindowGlyph", GlyphClose);
@@ -1449,8 +1174,6 @@ void FluentMainWindow::updateTitleBarContent()
     const bool dark = colors.background.lightnessF() < 0.5;
 
     // Elide title to avoid pushing menu/buttons.
-    // Use the reserved/minimum widths (not transient current widths) to prevent the title label
-    // from temporarily taking too much space and forcing QMenuBar into overflow.
     const int leftW = m_leftHost ? qMax(m_leftHost->minimumWidth(), m_leftHost->sizeHint().width()) : 0;
     const int rightW = m_rightHost ? qMax(m_rightHost->minimumWidth(), m_rightHost->sizeHint().width()) : 0;
     const int margins = Style::windowMetrics().titleBarPaddingX * 2 + 24;
@@ -1474,24 +1197,17 @@ void FluentMainWindow::updateTitleBarContent()
     divider.setAlpha(dark ? 180 : 130);
 
     const bool maximizedOrFullscreen = isMaximized() || isFullScreen();
-    const bool animatingBorder = m_border.isAnimating();
-    const bool effectiveAccentForFrame = animatingBorder ? m_border.fromEnabled() : m_border.enabled();
-    const bool outerFrameBorder = effectiveAccentForFrame && !maximizedOrFullscreen;
 
-    // Outer frame border mode: inset the entire QMainWindow layout by 1px so the overlay
-    // border is never occluded by child widgets. When disabled, cancel the inset.
-    const int inset = outerFrameBorder ? 1 : 0;
+    // Keep 1px frame space when restored so the accent border drawn by m_frameHost
+    // is visible on all edges. When maximized, use 0 inset.
+    const int inset = maximizedOrFullscreen ? 0 : 1;
     if (contentsMargins().left() != inset || contentsMargins().top() != inset
         || contentsMargins().right() != inset || contentsMargins().bottom() != inset) {
         setContentsMargins(inset, inset, inset, inset);
     }
 
-
-    // Do not rely on an overlay for the border; some widget stacks can occlude it.
-    // The 1px inset is kept (when enabled) to ensure the widget-drawn borders remain visible.
-    if (m_borderOverlay) {
-        m_borderOverlay->hide();
-    }
+    // Update the border overlay to match current content area.
+    updateFrameHost();
 
     // NOTE: do not use isVisible() here; before the window is shown it will be false even if
     // the widgets are logically visible. Use our flags instead.
@@ -1504,8 +1220,6 @@ void FluentMainWindow::updateTitleBarContent()
         || (m_rightCustomWidget != nullptr);
     const bool anyMenu = (m_menuBar != nullptr);
 
-    // If the window buttons are all hidden and there's no meaningful title bar content,
-    // collapse the title bar so the central widget can occupy the full height.
     const bool titleBarNeeded = anyButtonsVisible || anyCustomContent || anyMenu || m_hasTitleOverride || m_hasIconOverride;
     const bool titleBarVisible = m_titleBarEnabled && titleBarNeeded;
     m_titleBarHost->setVisible(titleBarVisible);
@@ -1514,41 +1228,32 @@ void FluentMainWindow::updateTitleBarContent()
         if (m_titleBarHost->height() != 0) {
             m_titleBarHost->setFixedHeight(0);
         }
-
-        if (m_centralClipHost) {
-            if (auto *clip = dynamic_cast<WindowCentralClipHost *>(m_centralClipHost)) {
-                clip->refreshMask();
-            }
-        }
         return;
     }
+
     const QString bottomRule = anyButtonsVisible
         ? QStringLiteral("border-bottom: 1px solid %1;").arg(rgbaString(divider))
         : QStringLiteral("border-bottom: none;");
 
-    const int frameRadius = effectiveWindowRadiusPx(this);
+    // The frame host draws the outer border with full kWindowFrameRadius.
+    // The title bar is inside the 1px inset, so its effective inner radius is slightly smaller.
+    const qreal innerRadius = maximizedOrFullscreen ? 0.0 : qMax(0.0, kWindowFrameRadius - 1.0);
+    const int frameRadius = static_cast<int>(innerRadius);
     const QString radiusRule = QStringLiteral(
         "border-top-left-radius: %1px; border-top-right-radius: %1px; "
         "border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;")
         .arg(frameRadius);
 
-    const QColor titleBorder = effectiveAccentForFrame ? colors.accent : colors.border;
-    const QString windowBorderRule = QStringLiteral(
-        "border-left: 1px solid %1; border-right: 1px solid %1; border-top: 1px solid %1;")
-        .arg(titleBorder.name());
-
     // Background for title bar area (slightly separated from window background)
     m_titleBarHost->setStyleSheet(QString(
-        "#FluentTitleBarHost { background: %1; %2 %3 %4 }"
-        "#FluentWindowTitle { color: %5; font-weight: 600; }"
-    ).arg(colors.surface.name(), windowBorderRule, bottomRule, radiusRule, colors.text.name()));
+        "#FluentTitleBarHost { background: %1; %2 %3 }"
+        "#FluentWindowTitle { color: %4; font-weight: 600; }"
+    ).arg(colors.surface.name(), bottomRule, radiusRule, colors.text.name()));
 
     // Dynamically adjust title bar height to fit its contents.
-    // This prevents custom widgets (e.g. a FluentLineEdit search box) from being clipped.
     if (auto *l = m_titleBarHost->layout()) {
         l->activate();
         const int contentHintH = l->sizeHint().height();
-        // When window buttons exist, keep the standard height; otherwise allow shrinking.
         const int baseH = anyButtonsVisible ? Style::windowMetrics().titleBarHeight : 0;
         const int desiredH = qMax(baseH, contentHintH);
         if (m_titleBarHost->height() != desiredH) {
@@ -1556,28 +1261,11 @@ void FluentMainWindow::updateTitleBarContent()
         }
     }
 
-    // IMPORTANT: Qt style-sheet border-radius does NOT clip child widgets. Use a mask so
-    // title/content cannot paint outside the rounded outer frame.
-    if (frameRadius <= 0) {
-        m_titleBarHost->clearMask();
-    } else {
-        const QRectF r = QRectF(m_titleBarHost->rect());
-        QPainterPath path;
-        path.moveTo(r.left(), r.bottom());
-        path.lineTo(r.left(), r.top() + frameRadius);
-        path.quadTo(r.left(), r.top(), r.left() + frameRadius, r.top());
-        path.lineTo(r.right() - frameRadius, r.top());
-        path.quadTo(r.right(), r.top(), r.right(), r.top() + frameRadius);
-        path.lineTo(r.right(), r.bottom());
-        path.closeSubpath();
-        m_titleBarHost->setMask(QRegion(path.toFillPolygon().toPolygon()));
-    }
-
-    if (m_centralClipHost) {
-        if (auto *clip = dynamic_cast<WindowCentralClipHost *>(m_centralClipHost)) {
-            clip->refreshMask();
-        }
-    }
+    // NOTE: We intentionally do NOT set a QRegion mask on the title bar.
+    // QRegion masks are pixel-based and produce visible jaggies on rounded corners.
+    // On Windows 11, DWM DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND provides
+    // smooth system-level corner clipping.  The CSS border-radius on the title bar
+    // provides the visual rounded background.
 }
 
 void FluentMainWindow::updateWindowControlIcons()
@@ -1586,7 +1274,6 @@ void FluentMainWindow::updateWindowControlIcons()
         return;
     }
 
-    // Glyph painting mode lives in FluentToolButton; we only switch maximize vs restore here.
     m_maxBtn->setProperty("fluentWindowGlyph", isMaximized() ? GlyphRestore : GlyphMaximize);
     m_minBtn->update();
     m_maxBtn->update();
@@ -1600,7 +1287,6 @@ void FluentMainWindow::applyWindowsDwmAttributes()
         return;
     }
 
-    // Use dynamic lookup to avoid link-time dependencies.
     HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
     if (!dwm) {
         return;
@@ -1615,7 +1301,6 @@ void FluentMainWindow::applyWindowsDwmAttributes()
 
     HWND hwnd = reinterpret_cast<HWND>(winId());
 
-    // Rounded corners (Windows 11). When maximized, Windows uses square corners.
 #ifndef DWMWA_WINDOW_CORNER_PREFERENCE
 #define DWMWA_WINDOW_CORNER_PREFERENCE 33
 #endif
@@ -1628,13 +1313,12 @@ void FluentMainWindow::applyWindowsDwmAttributes()
     const int cornerPref = isMaximized() ? DWMWCP_DONOTROUND : DWMWCP_ROUND;
     fn(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPref, sizeof(cornerPref));
 
-    // Immersive dark mode (best-effort; different builds use 19/20)
     const bool isDark = ThemeManager::instance().colors().background.lightnessF() < 0.5;
-    const BOOL dark = isDark ? TRUE : FALSE;
+    const BOOL darkVal = isDark ? TRUE : FALSE;
     const DWORD attr19 = 19;
     const DWORD attr20 = 20;
-    fn(hwnd, attr20, &dark, sizeof(dark));
-    fn(hwnd, attr19, &dark, sizeof(dark));
+    fn(hwnd, attr20, &darkVal, sizeof(darkVal));
+    fn(hwnd, attr19, &darkVal, sizeof(darkVal));
 
     FreeLibrary(dwm);
 }
@@ -1642,7 +1326,6 @@ void FluentMainWindow::applyWindowsDwmAttributes()
 
 void FluentMainWindow::updateResizeHelperState()
 {
-    // Only needed in frameless title-bar mode; if system frame is enabled, let OS handle resizing.
     const bool shouldEnable = m_resizeEnabled && m_titleBarEnabled;
 
     if (shouldEnable) {

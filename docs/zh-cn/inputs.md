@@ -1,8 +1,8 @@
 # 输入与编辑
 
-本模块为常见输入/编辑控件（不含日期时间/颜色等 Picker，也不含代码编辑器）。
+本模块为常见输入/编辑控件（不含日期时间/颜色等 Picker，也不含代码编辑器），同时收录角度输入类控件。
 
-Demo 页面：Inputs（`demo/pages/PageInputs.cpp`）与 Overview（`demo/pages/PageOverview.cpp`）。
+Demo 页面：Inputs（`demo/pages/PageInputs.cpp`）、Angle Controls（`demo/pages/PageAngleControls.cpp`）与 Overview（`demo/pages/PageOverview.cpp`）。
 
 ## 控件清单（对应公开头文件）
 
@@ -12,6 +12,8 @@ Demo 页面：Inputs（`demo/pages/PageInputs.cpp`）与 Overview（`demo/pages/
 - `FluentSpinBox` / `FluentDoubleSpinBox`（include: `Fluent/FluentSpinBox.h`）
 - `FluentSlider`（include: `Fluent/FluentSlider.h`）
 - `FluentProgressBar`（include: `Fluent/FluentProgressBar.h`）
+- `FluentDial`（include: `Fluent/FluentDial.h`）
+- `FluentAngleSelector`（include: `Fluent/FluentAngleSelector.h`）
 
 相关但归类到容器模块：
 
@@ -232,3 +234,79 @@ pb->setTextPosition(Fluent::FluentProgressBar::TextPosition::Right);
 ```
 
 Demo：Buttons / Containers / Overview。
+
+---
+
+## FluentDial
+
+```cpp
+#include "Fluent/FluentDial.h"
+
+auto *dial = new Fluent::FluentDial();
+dial->setValue(135);
+dial->setTicksVisible(true);
+```
+
+用途：紧凑的圆形角度旋钮，适合做渐变角度、旋转角度、朝向选择等输入。
+
+角度语义：
+
+- `0°` = 左 → 右（3 点钟方向）
+- 按顺时针递增
+- accent 弧从 3 点钟方向开始绘制
+
+关键 API：
+
+- `setValue(int)` / `value()`
+- `setTicksVisible(bool)` / `ticksVisible()`
+- `setTickStep(int)` / `tickStep()`
+- `setMajorTickStep(int)` / `majorTickStep()`
+- `setPointerVisible(bool)` / `pointerVisible()`
+
+实现语义：
+
+- 自绘 `QWidget`，内部维护 hover/focus 动画层。
+- 鼠标拖拽会按当前位置换算角度；滚轮可做细粒度调节。
+- 可同时绘制外圈轨道、当前 accent 弧、可选刻度 / 主刻度、可选指针和 focus ring。
+
+Demo：Angle Controls / Overview。
+
+---
+
+## FluentAngleSelector
+
+```cpp
+#include "Fluent/FluentAngleSelector.h"
+
+auto *editor = new Fluent::FluentAngleSelector();
+editor->setValue(128);
+editor->setSuffix(QStringLiteral("°"));
+```
+
+用途：由 `FluentLabel + FluentDial + FluentSpinBox` 组合而成的一体化角度编辑器，对外暴露统一的 `valueChanged(int)` 语义。
+
+关键 API：
+
+- `setValue(int)` / `value()`
+- `setRange(int minimum, int maximum)`：默认 `0..359`
+- `setWrapping(bool)` / `wrapping()`
+- `setLabelText(const QString&)` / `labelText()`
+- `setSuffix(const QString&)` / `suffix()`
+- `setDialVisible(bool)` / `dialVisible()`
+- `setLabelVisible(bool)` / `labelVisible()`
+- `setSpinBoxVisible(bool)` / `spinBoxVisible()`
+- `dial()` / `spinBox()`：获取内部子控件以做更细粒度定制
+
+实现语义：
+
+- Dial 与 SpinBox 双向同步，内部使用临时 `blockSignals(true)` 避免信号回环。
+- wrapping 模式下会把值规整回范围内；非 wrapping 模式下会对值做 clamp。
+- 可见性开关可快速做“仅 Dial”“仅 SpinBox”“无标题紧凑表单”等变体。
+
+典型场景：
+
+- `FluentColorDialog` 里的渐变角度编辑
+- 图形 / 画布对象旋转
+- 任何需要“数字值 + 可视旋钮”双输入方式的场景
+
+Demo：Angle Controls。

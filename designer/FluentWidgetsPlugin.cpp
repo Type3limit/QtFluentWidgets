@@ -14,6 +14,7 @@
 #include "Fluent/FluentTimePicker.h"
 #include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentColorDialog.h"
+#include "Fluent/FluentAngleSelector.h"
 #include "Fluent/FluentCard.h"
 #include "Fluent/FluentCheckBox.h"
 #include "Fluent/FluentRadioButton.h"
@@ -80,6 +81,7 @@ public:
         if (m_className == "FluentTimePicker") return new Fluent::FluentTimePicker(parent);
         if (m_className == "FluentColorPicker") return new Fluent::FluentColorPicker(parent);
         if (m_className == "FluentColorDialog") return new Fluent::FluentColorDialog(QColor("#0067C0"), parent);
+        if (m_className == "FluentAngleSelector") return new Fluent::FluentAngleSelector(parent);
         if (m_className == "FluentCard") return new Fluent::FluentCard(parent);
         if (m_className == "FluentCheckBox") return new Fluent::FluentCheckBox(parent);
         if (m_className == "FluentRadioButton") return new Fluent::FluentRadioButton(parent);
@@ -140,6 +142,7 @@ public:
         m_plugins.append(new FluentWidgetPlugin("FluentTimePicker", "Fluent/FluentTimePicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentColorPicker", "Fluent/FluentColorPicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentColorDialog", "Fluent/FluentColorDialog.h", group, true, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentAngleSelector", "Fluent/FluentAngleSelector.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCard", "Fluent/FluentCard.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCheckBox", "Fluent/FluentCheckBox.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentRadioButton", "Fluent/FluentRadioButton.h", group, false, this));

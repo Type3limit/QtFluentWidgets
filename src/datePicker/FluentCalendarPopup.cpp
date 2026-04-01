@@ -1,9 +1,11 @@
 ﻿#include "Fluent/datePicker/FluentCalendarPopup.h"
+#include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include <QApplication>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QHideEvent>
 #include <QKeyEvent>
 #include <QLocale>
 #include <QMouseEvent>
@@ -16,10 +18,8 @@ namespace Fluent {
 namespace {
 constexpr int kPadding      = 10;
 constexpr int kHeaderH      = 44;
-constexpr int kCornerRadius = 10;
 constexpr int kNavBtn       = 30;
 constexpr int kDayNamesH    = 24;
-constexpr int kOpenSlidePx  = 6;
 constexpr int kModeSlidePx  = 10;
 constexpr int kSingleW     = 360;
 constexpr int kSingleH     = 360;
@@ -38,15 +38,6 @@ static QDate gridStartForMonth(int year, int month, Qt::DayOfWeek firstDayOfWeek
     const int shift = (first.dayOfWeek() - int(firstDayOfWeek) + 7) % 7;
     return first.addDays(-shift);
 }
-static void applyRoundedWidgetMask(QWidget *w, qreal radius)
-{
-    if (!w) return;
-    const QRect r = w->rect();
-    if (r.isEmpty()) return;
-    QPainterPath path;
-    path.addRoundedRect(QRectF(r), radius, radius);
-    w->setMask(QRegion(path.toFillPolygon().toPolygon()));
-}
 static QRect pillRect(const QRect &header, int x, int w)
 {
     const int y = header.y() + (header.height() - 30) / 2;
@@ -61,23 +52,33 @@ FluentCalendarPopup::FluentCalendarPopup(QWidget *anchor)
     setWindowFlag(Qt::Popup, true);
     setWindowFlag(Qt::FramelessWindowHint, true);
     setWindowFlag(Qt::NoDropShadowWindowHint, true);
-    setAttribute(Qt::WA_TranslucentBackground, false);
-    setAttribute(Qt::WA_StyledBackground, true);
+    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     m_selected = QDate::currentDate();
     ensurePageFromSelected();
-    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() { update(); });
+
+    m_border.syncFromTheme();
+    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        if (isVisible()) {
+            m_border.onThemeChanged();
+        } else {
+            m_border.syncFromTheme();
+        }
+        update();
+    });
+
     m_openAnim = new QVariantAnimation(this);
-    m_openAnim->setDuration(140);
+    m_openAnim->setDuration(PopupSurface::kOpenDurationMs);
     m_openAnim->setEasingCurve(QEasingCurve::OutCubic);
     connect(m_openAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_openProgress = v.toReal();
         setWindowOpacity(m_openProgress);
         if (m_targetGeom.isValid()) {
             QRect g = m_targetGeom;
-            g.translate(0, -int((1.0 - m_openProgress) * kOpenSlidePx));
+            g.translate(0, -int((1.0 - m_openProgress) * PopupSurface::kOpenSlideOffsetPx));
             setGeometry(g);
         }
         update();
@@ -154,7 +155,7 @@ void FluentCalendarPopup::popup()
     m_openProgress = 0.0;
     setWindowOpacity(0.0);
     QRect startGeom = m_targetGeom;
-    startGeom.translate(0, -kOpenSlidePx);
+    startGeom.translate(0, -PopupSurface::kOpenSlideOffsetPx);
     setGeometry(startGeom);
     show();
     raise();
@@ -171,14 +172,8 @@ void FluentCalendarPopup::popup()
 void FluentCalendarPopup::dismiss()
 {
     if (!isVisible()) return;
-    if (m_appFilterInstalled) {
-        qApp->removeEventFilter(this);
-        m_appFilterInstalled = false;
-    }
-    m_openAnim->stop();
-    setWindowOpacity(1.0);
     m_hoverDate = QDate();
-    hide();
+    hide();         // hideEvent handles animation/opacity/border/filter cleanup
     emit dismissed();
 }
 // ── Panel geometry ───────────────────────────────────────────────────────
@@ -373,19 +368,49 @@ bool FluentCalendarPopup::eventFilter(QObject *watched, QEvent *event)
     }
     return QWidget::eventFilter(watched, event);
 }
-void FluentCalendarPopup::showEvent(QShowEvent *e)  { QWidget::showEvent(e);  applyRoundedMask(); }
-void FluentCalendarPopup::resizeEvent(QResizeEvent *e) { QWidget::resizeEvent(e); applyRoundedMask(); }
+void FluentCalendarPopup::showEvent(QShowEvent *e)
+{
+    QWidget::showEvent(e);
+    m_border.playInitialTraceOnce(0);
+}
+void FluentCalendarPopup::hideEvent(QHideEvent *e)
+{
+    QWidget::hideEvent(e);
+    if (m_appFilterInstalled && qApp) {
+        qApp->removeEventFilter(this);
+        m_appFilterInstalled = false;
+    }
+    if (m_openAnim) {
+        m_openAnim->stop();
+    }
+    setWindowOpacity(1.0);
+    m_border.resetInitial();
+}
+void FluentCalendarPopup::resizeEvent(QResizeEvent *e) { QWidget::resizeEvent(e); }
 // ── Paint ────────────────────────────────────────────────────────────────
 void FluentCalendarPopup::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
     const auto &c = ThemeManager::instance().colors();
+
+    // 1. Clear to transparent (required for WA_TranslucentBackground).
+    {
+        QPainter clear(this);
+        if (!clear.isActive()) return;
+        clear.setCompositionMode(QPainter::CompositionMode_Source);
+        clear.fillRect(rect(), Qt::transparent);
+    }
+
+    // 2. Paint the shared Fluent panel background (surface fill + themed border + accent trace).
     QPainter p(this);
     if (!p.isActive()) return;
     p.setRenderHint(QPainter::Antialiasing, true);
-    const QRectF outer = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-    p.setPen(QPen(c.border, 1.0)); p.setBrush(c.surface);
-    p.drawRoundedRect(outer, kCornerRadius, kCornerRadius);
+    PopupSurface::paintPanel(p, rect(), c, &m_border);
+
+    // 3. Clip all subsequent content painting to the rounded panel rect.
+    p.setClipPath(PopupSurface::contentClipPath(rect()));
+
+    // 4. Draw calendar content.
     if (m_selectionMode == SelectionMode::Range) {
         paintRangePanelHeader(p, 0,            m_pageYear,      m_pageMonth,      false);
         paintRangePanelDays  (p, 0,            m_pageYear,      m_pageMonth,      false);
@@ -888,7 +913,6 @@ void FluentCalendarPopup::startModeTransition(ViewMode from, ViewMode to)
     m_modeAnim->setStartValue(0.0); m_modeAnim->setEndValue(1.0); m_modeAnim->start();
 }
 // ── Utilities ────────────────────────────────────────────────────────────
-void FluentCalendarPopup::applyRoundedMask() { applyRoundedWidgetMask(this, kCornerRadius); }
 void FluentCalendarPopup::positionPopupBelowOrAbove(int gap)
 {
     if (!m_anchor) return;

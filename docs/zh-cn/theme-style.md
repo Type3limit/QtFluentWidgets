@@ -54,6 +54,11 @@ ThemeManager::instance().setDarkMode();
 ThemeManager::instance().setAccentBorderEnabled(true);
 ```
 
+实现语义补充：
+
+- `accentBorderEnabled()` 不只是一个布尔开关；窗口层组件（`FluentMainWindow` / `FluentDialog` / `FluentMessageBox` / `FluentToast`）会通过 `FluentBorderEffect` 把它映射到“普通描边 ↔ accent 描边”的状态切换，并在启用时播放 trace-in 动画。
+- `FluentMainWindow` 当前会把描边画在一个独立的顶层 overlay 上，因此描边可以同时包裹标题栏与 central widget，且不会被不透明内容控件覆盖。
+
 也可以直接修改色板：
 
 ```cpp
@@ -84,6 +89,7 @@ Style::paintControlSurface(p, QRectF(rect()), ThemeManager::instance().colors(),
 
 - `Style::setWindowMetrics()` 会对 trace 相关参数做防御性 clamp（例如 duration 范围 1..60000ms、overshoot 上限 0.25、overshootAt 上限 0.99），避免 Demo/外部输入把动画参数设置到不可用区间。
 - `Style::paintTraceBorder()` 支持轻微“越界脉冲”：当 `progress > 1`（rawProgress overshoot）时，会在绘制完整描边的同时略微增粗并提高 alpha（overshoot 最大按 0.10 截断），用来做更有“Fluent 味”的启用动画收尾。
+- `Style::windowMetrics()` 里的窗口级参数现在也直接影响 `FluentMainWindow`：例如 `titleBarHeight` / `windowButtonWidth` / `resizeBorder` 会影响标题栏布局与 `WM_NCHITTEST`，而 trace 参数会影响外层 accent 描边动画节奏。
 
 ## Theme::baseStyleSheet（全局 QSS）
 
@@ -94,6 +100,11 @@ Style::paintControlSurface(p, QRectF(rect()), ThemeManager::instance().colors(),
 - Win11-like overlay 滚动条（仅在 `QAbstractScrollArea:hover` 时显示 handle 更明显）
 - `QToolTip` 外观
 - `QLabel#FluentLink` 的链接色
+
+补充说明：
+
+- `Theme::baseStyleSheet(...)` 负责的是“全局底座外观”，并不直接承担 `FluentMainWindow` 外层描边的绘制；主窗口的 accent 描边与 trace 动画是自绘的。
+- 因为 `FluentMainWindow` 会在主题变化时做“相等判定”后再决定是否重新设置 `qApp->setStyleSheet(...)`，所以一般不会因为重复 themeChanged 而触发不必要的全量 repolish。
 
 ## 相关头文件
 

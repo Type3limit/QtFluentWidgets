@@ -25,7 +25,7 @@ public:
 };
 ```
 
-用途：带 Fluent 标题栏的主窗口（MenuBar 嵌入标题栏，支持可选无边框 resize）。
+用途：带 Fluent 标题栏的主窗口（MenuBar 嵌入标题栏，支持标题栏插槽、自绘 accent 描边、可选无边框 resize）。
 
 关键 API：
 
@@ -44,10 +44,13 @@ Demo：Windows / Overview（Demo 主窗口也基于此）。
 ### 默认行为与结构
 
 - **不使用 QMainWindow 的 ToolBar/StatusBar 区域**：`addToolBar()` / `insertToolBar()` / `setStatusBar()` 会直接隐藏并 `deleteLater()` 传入的对象（`FluentMainWindow` 期望你的布局都在中央区域里完成）。
-- **CentralWidget 会被“包一层”**：第一次 `setCentralWidget()` 时会创建内部容器（central border host + clip host），并把你的 widget re-parent 到该容器内。
-    - 该内部容器会为边框/圆角裁剪预留 1px（左右/底部）空间。
-    - 圆角裁剪通过 `setMask()` 实现：标题栏可见时中央区域只裁剪底部两个角；标题栏折叠/隐藏时裁剪四个角，避免出现缝隙。
+- **CentralWidget 会被“包一层”**：第一次 `setCentralWidget()` 时会创建内部 `WindowFrameHost`，并把你的 widget re-parent 到该容器内。
+    - `WindowFrameHost` 是 `QMainWindow::centralWidget()`，主要负责绘制中央区域的 `surface` 背景。
+    - 业务 widget 仍然以 0 margin / 0 spacing 填满这个 host，因此你可以像普通 `QMainWindow` 一样组织中央布局。
+- **主窗口自身会保留 1px 内容边距**：还原态时通过 `contentsMargins(1,1,1,1)` 在窗口四周预留描边走廊；最大化/全屏时自动收回到 0。
+- **accent 描边不是画在 centralWidget 里，而是画在独立 overlay 上**：内部 `WindowBorderOverlay` 是 `FluentMainWindow` 的直接子控件，覆盖“标题栏 + central widget”的完整内容区，并始终 `raise()` 到最上层，因此不会被不透明子控件遮住。
 - **标题栏是 `menuWidget()`**：标题栏宿主（`FluentTitleBarHost`）通过 `setMenuWidget()` 放在主窗口顶部。
+- **不再使用 `QRegion::setMask()` 做圆角裁剪**：当前实现依赖抗锯齿自绘描边 + Windows 11 DWM 圆角（`DWMWCP_ROUND`）来保持窗口外轮廓平滑，避免旧方案在圆角处出现明显锯齿。
 
 ### 标题栏内容：覆盖/插槽/自动折叠
 
@@ -64,18 +67,22 @@ Demo：Windows / Overview（Demo 主窗口也基于此）。
     - 有 MenuBar；
     - 有标题/图标覆盖。
 
+一个容易忽略的点：如果你只是调用 `setWindowTitle()` / `setWindowIcon()`，但没有设置覆盖、MenuBar、窗口按钮或插槽内容，那么标题栏仍可能折叠；这是有意为之，目的是让“纯内容窗口”能占满顶部区域。
+
 ### 标题文本省略与高度自适应
 
 - 标题文本会根据左右区域的**预留宽度**（`minimumWidth` 与 `sizeHint` 的较大值）进行 `Qt::ElideRight`，避免短暂挤压导致 `QMenuBar` 被迫进入 Qt 原生 overflow（`qt_menubar_ext_button`）。
 - 标题栏高度会根据内容动态调整：
     - 有窗口按钮时至少为 `Style::windowMetrics().titleBarHeight`；
     - 同时取布局 `sizeHint().height()` 的更大值，避免自定义控件（例如标题栏内放 `FluentLineEdit`）被裁剪。
+- 标题栏背景圆角会使用比外层窗口略小的内半径（当前是 `kWindowFrameRadius - 1`），以匹配 1px 描边走廊，避免标题栏背景“顶到”外层描边。
 
 ### 拖拽/双击行为
 
 - 标题栏可拖拽移动：在标题栏区域按下左键时，如果命中的是交互控件（按钮/可聚焦控件/MenuBar 区域），事件会交给控件；否则触发系统移动（`startSystemMove()`）。
 - 双击标题栏会在最大化/还原间切换，并同步窗口按钮 glyph。
 - 当标题栏折叠/隐藏时：会给新加入的子控件安装事件过滤器，允许在“非交互区域”按下左键时拖拽窗口（但不会抢夺按钮、可聚焦控件、可选中文本的 `QLabel` 等）。
+- 新增子控件后，标题栏与外层 accent 描边 overlay 都会重新 `raise()`，确保后续替换 central widget / 动态插入控件时层级不乱。
 
 ### MenuBar 集成与迁移
 
@@ -90,11 +97,17 @@ Demo：Windows / Overview（Demo 主窗口也基于此）。
 - 启用标题栏（frameless）时，Windows 下会处理 `WM_NCHITTEST`：
     - 使用 `Style::windowMetrics().resizeBorder` 作为边缘 hit-test 宽度，返回 `HTLEFT/HTTOP/HTBOTTOMRIGHT...` 等以支持边缘拖拽 resize。
     - 标题栏区域：如果鼠标在交互控件上（按钮/可聚焦控件/MenuBar 区域），返回 `HTCLIENT`，保证点击能传递到控件；否则返回 `HTCAPTION`，允许拖拽。
+- 同时会向 DWM 请求：
+    - 还原态使用 `DWMWCP_ROUND` 圆角；
+    - 最大化时使用 `DWMWCP_DONOTROUND`；
+    - 深/浅色模式通过 `DWMWA_USE_IMMERSIVE_DARK_MODE` 相关属性同步窗口非客户区外观。
 
 ### 主题联动与边框
 
 - 主题变化会同步更新全局 `QApplication` stylesheet（`Theme::baseStyleSheet`），并做“相等判定”避免重复设置触发全量 repolish。
-- 窗口外框/标题栏边框颜色与 `ThemeManager::accentBorderEnabled()` 联动；边框 trace 动画使用内部 overlay（marquee）绘制。
+- 窗口外框/标题栏边框颜色与 `ThemeManager::accentBorderEnabled()` 联动；描边与 trace 动画由 `FluentBorderEffect + WindowBorderOverlay` 统一绘制。
+- 初次显示时，如果 accent 描边处于启用状态，会在首帧之后播放一次 trace-in 动画；后续 theme / accent 开关变化也会驱动同一套边框状态机。
+- 当前窗口描边半径与 Windows 11 DWM 默认圆角保持一致（8 DIPs），避免外层窗口轮廓与内部 accent 描边弧度不一致。
 
 ## MenuBar / Menu
 

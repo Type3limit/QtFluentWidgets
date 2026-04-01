@@ -1,5 +1,8 @@
 #include "Fluent/FluentTheme.h"
 
+#include "Fluent/FluentStyle.h"
+#include "Fluent/FluentToolTip.h"
+
 #include <QApplication>
 #include <QTimer>
 
@@ -47,6 +50,11 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
       dark ? QColor(255, 255, 255, 110) : QColor(0, 0, 0, 110);
   const QColor sbHandlePressed =
       dark ? QColor(255, 255, 255, 140) : QColor(0, 0, 0, 140);
+  const QColor toolTipBackground =
+      Style::mix(colors.surface, colors.accent, dark ? 0.18 : 0.08);
+  const QColor toolTipBorder =
+      Style::mix(colors.border, colors.accent, dark ? 0.78 : 0.84);
+  const QColor toolTipText = colors.text;
 
   return QString(
              "QWidget {"
@@ -124,12 +132,13 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  background: none;"
              "}"
              "QToolTip {"
-             "  background: %4;"
-             "  color: %1;"
-             "  border: 1px solid %3;"
-             "  padding: 8px 10px;"
+             "  background: %9;"
+             "  color: %10;"
+             "  border: 1px solid %11;"
+             "  padding: 7px 10px;"
              "  border-radius: 8px;"
              "  font-size: 12px;"
+             "  font-weight: 500;"
              "}"
              "QLabel#FluentLink {"
              "  color: %5;"
@@ -138,7 +147,10 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
            colors.surface.name(), colors.accent.name())
       .arg(sbHandle.name(QColor::HexArgb))
       .arg(sbHandleHover.name(QColor::HexArgb))
-      .arg(sbHandlePressed.name(QColor::HexArgb));
+      .arg(sbHandlePressed.name(QColor::HexArgb))
+      .arg(toolTipBackground.name())
+      .arg(toolTipText.name())
+      .arg(toolTipBorder.name());
 }
 
 QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {
@@ -815,7 +827,11 @@ ThemeManager &ThemeManager::instance() {
   return instance;
 }
 
-ThemeManager::ThemeManager() : m_colors(Theme::light()) {}
+ThemeManager::ThemeManager() : m_colors(Theme::light()) {
+  if (qApp) {
+    QTimer::singleShot(0, qApp, []() { FluentToolTip::ensureInstalled(); });
+  }
+}
 
 const ThemeColors &ThemeManager::colors() const { return m_colors; }
 

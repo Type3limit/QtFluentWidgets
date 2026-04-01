@@ -25,7 +25,7 @@ public:
 };
 ```
 
-Purpose: main window with a Fluent title bar (menu bar embedded into the title bar) and optional frameless resize.
+Purpose: main window with a Fluent title bar (menu bar embedded into the title bar), title-bar slots, custom accent border painting, and optional frameless resize.
 
 Key APIs:
 
@@ -43,11 +43,14 @@ Demo: Windows / Overview.
 
 ### Default behavior and internal structure
 
-- **Does not use QMainWindow's ToolBar/StatusBar areas**: calling `addToolBar()` / `insertToolBar()` / `setStatusBar()` will hide and `deleteLater()` the passed objects. `FluentMainWindow` expects you to handle layout inside the central area.
-- **Central widget is wrapped**: on the first `setCentralWidget()`, the window creates internal hosts (central border host + clip host) and reparents your widget into that host.
-    - The internal host reserves ~1px space (left/right/bottom) for border and rounded clipping.
-    - Rounded clipping uses `setMask()`: when the title bar is visible, only the bottom two corners are clipped; when the title bar is collapsed/hidden, all four corners are clipped to avoid seams.
+- **Does not use QMainWindow's ToolBar/StatusBar areas**: calling `addToolBar()` / `insertToolBar()` / `setStatusBar()` hides and `deleteLater()` the passed objects. `FluentMainWindow` expects your actual app layout to live inside the central area.
+- **Central widget is wrapped**: on the first `setCentralWidget()`, the window creates an internal `WindowFrameHost` and reparents your widget into it.
+    - `WindowFrameHost` becomes the actual `QMainWindow::centralWidget()` and paints the central `surface` background.
+    - Your app widget still fills that host with 0 margins / 0 spacing, so central layout code stays straightforward.
+- **The window itself reserves a 1px gutter in restored state**: `contentsMargins(1,1,1,1)` is used to leave room for the custom border; maximized / fullscreen state collapses that gutter back to 0.
+- **The accent border is not painted inside the central widget**: an internal `WindowBorderOverlay` is a direct child of `FluentMainWindow`, covers the full content area (`title bar + central widget`), and is always raised above other children so opaque widgets cannot cover the border.
 - **The title bar is installed as `menuWidget()`**: the title bar host is placed at the top via `setMenuWidget()`.
+- **Rounded clipping no longer uses `QRegion::setMask()`**: the current implementation relies on antialiased custom painting plus Windows 11 DWM corner rounding (`DWMWCP_ROUND`) to avoid the visible jaggies of the old mask-based approach.
 
 ### Title bar content: overrides / slots / auto-collapse
 
@@ -64,18 +67,22 @@ Demo: Windows / Overview.
     - a menu bar exists;
     - a title/icon override is set.
 
+One subtle detail: calling only `setWindowTitle()` / `setWindowIcon()` does **not** force the custom title bar to stay visible. If there is no menu bar, no visible window buttons, no slot content, and no explicit Fluent title/icon override, the title bar may still collapse intentionally for a cleaner content-first layout.
+
 ### Title eliding and adaptive height
 
 - The title text is elided with `Qt::ElideRight` based on **reserved widths** of left/right areas (max of `minimumWidth` and `sizeHint`) to avoid transient squeezes that would push `QMenuBar` into Qt's native overflow (`qt_menubar_ext_button`).
 - Title bar height is content-adaptive:
     - if window buttons are present, height is at least `Style::windowMetrics().titleBarHeight`;
     - it also takes the max with the layout `sizeHint().height()` so custom widgets (e.g. a `FluentLineEdit` in the title bar) are not clipped.
+- The title bar background uses a slightly smaller **inner radius** (`kWindowFrameRadius - 1`) than the outer window border so the background aligns with the 1px border gutter instead of visually pushing into it.
 
 ### Drag / double click behavior
 
 - Drag to move: on left press in the title bar area, if the hit target is an interactive widget (buttons/focusable widgets/menu bar area), the event goes to that widget; otherwise the window triggers `startSystemMove()`.
 - Double click toggles maximize/restore and updates button glyphs.
 - When the title bar is collapsed/hidden, the window installs event filters on newly added child widgets so you can still drag from **non-interactive regions** (it will not steal events from buttons, focusable widgets, or selectable-text labels).
+- When child widgets are added later (for example after replacing the central widget), both the title bar and the border overlay are raised again so the visual stacking order remains correct.
 
 ### Menu bar integration and migration
 
@@ -90,11 +97,17 @@ Demo: Windows / Overview.
 - With the Fluent title bar (frameless) enabled, Windows handles `WM_NCHITTEST`:
     - uses `Style::windowMetrics().resizeBorder` as the hit-test thickness and returns `HTLEFT/HTTOP/HTBOTTOMRIGHT/...` for edge resize.
     - in the title bar area: if the cursor is over interactive widgets (buttons/focusable widgets/menu bar), returns `HTCLIENT` so clicks reach the widgets; otherwise returns `HTCAPTION` so you can drag.
+- The implementation also requests DWM window attributes:
+    - restored state uses `DWMWCP_ROUND` rounded corners;
+    - maximized state switches to `DWMWCP_DONOTROUND`;
+    - immersive dark/light non-client appearance follows the current theme.
 
 ### Theme coupling and border
 
 - On theme changes, the window updates the global `QApplication` stylesheet with `Theme::baseStyleSheet(...)`, with an equality check to avoid redundant repolish.
-- Frame/title-bar border color follows `ThemeManager::accentBorderEnabled()`; the accent trace animation is drawn by an internal overlay.
+- Frame/title-bar border color follows `ThemeManager::accentBorderEnabled()`; both the border and the trace animation are driven by `FluentBorderEffect + WindowBorderOverlay`.
+- On first show, if the accent border is enabled, the window plays a one-shot trace-in animation after the first paint; later theme/accent changes reuse the same border state machine.
+- The current border radius is aligned with the default Windows 11 DWM rounded-corner clip (8 DIPs) so the custom accent border arc matches the actual window silhouette.
 
 ---
 

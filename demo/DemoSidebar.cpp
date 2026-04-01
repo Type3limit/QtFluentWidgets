@@ -106,6 +106,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
             QStringLiteral("输入"),
             QStringLiteral("按钮/开关"),
             QStringLiteral("选择器"),
+            QStringLiteral("角度控件"),
             QStringLiteral("数据视图"),
             QStringLiteral("容器/布局"),
             QStringLiteral("窗口/对话框"),

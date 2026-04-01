@@ -131,6 +131,21 @@ ed->setAutoFormatTriggerPolicy(P::OnEnterOrFocusOut);
 new Fluent::FluentCppHighlighter(ed->document());
 ```
 
+### FluentCppHighlighter
+
+用途：为 `QTextDocument` / `QPlainTextDocumentLayout` 提供基础 C++ 语法高亮，可独立于 `FluentCodeEditor` 使用。
+
+适用场景：
+
+- 你已经有自己的编辑器，但想直接复用项目内的 C++ 高亮规则；
+- 你只需要“轻量语法着色”，不需要 `FluentCodeEditor` 的 gutter / 自动格式化 / 括号匹配等完整 IDE-like 能力。
+
+实现语义：
+
+- 这是一个面向 C++ 常用关键字、数字、字符串、注释的基础高亮器；目标是“足够实用 + 足够轻量”，而不是完整语法分析器。
+- 配色跟随 `ThemeManager::colors()`，因此浅色 / 深色模式切换时会与整体 Fluent 主题保持一致。
+- 通常直接 new 到 `document()` 上即可；生命周期由 Qt 文档对象树管理。
+
 ## 格式化实现细节（与行为约束）
 
 ### clang-format：异步执行与“避免覆盖用户新输入”

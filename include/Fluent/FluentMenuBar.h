@@ -11,6 +11,7 @@ class QMouseEvent;
 class QPaintEvent;
 class QActionEvent;
 class QMenu;
+class QWidget;
 
 namespace Fluent {
 
@@ -56,6 +57,7 @@ private:
     QVariantAnimation *m_highlightAnim = nullptr;
 
     QPointer<QMenu> m_openMenu;
+    QPointer<QWidget> m_openPopup;
     QAction *m_openAction = nullptr;
 };
 

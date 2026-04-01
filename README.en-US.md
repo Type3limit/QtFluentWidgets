@@ -12,6 +12,7 @@ A Fluent Design styled widget library built on **Qt Widgets** (with a full demo 
 - Unified theming: `ThemeManager` + `ThemeColors`.
 - Fluent-like input surfaces via `Style::paintControlSurface()` (radius/border/focus ring).
 - Includes `FluentDateRangePicker` with a dual-panel range popup and configurable prefix / suffix / separator text.
+- Window-layer support includes `FluentMainWindow` title-bar slots, Windows 11-style accent border / trace animation, and menu-bar embedding into the custom title bar.
 - Demo covers all widgets and includes a sidebar panel to configure the CodeEditor (including clang-format path).
 - Optional Qt Designer plugin (enabled by default).
 
@@ -83,6 +84,8 @@ Controls are documented by module under `docs/`:
 - Utilities: [docs/en-us/utilities.md](docs/en-us/utilities.md)
 
 `docs/en-us/pickers.md` now also contains a dedicated `FluentDateRangePicker` section, including prefix/suffix/separator customization and the range mode behavior of `FluentCalendarPopup`.
+
+`docs/en-us/inputs.md` now also covers angle-input controls such as `FluentDial` and `FluentAngleSelector`. `docs/en-us/windows-dialogs.md` documents the current `FluentMainWindow` behavior: title-bar slots, auto-collapse rules, Windows frameless resize, DWM rounded corners, and the top-level accent-border overlay.
 
 ## Qt Designer Plugin
 

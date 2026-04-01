@@ -112,3 +112,76 @@ private:
 - `paintFluentPanel(QPainter&, QRectF, ThemeColors, FluentFrameSpec)`：绘制任意矩形面板。
 
 Demo：被 Dialog / MessageBox / Menu 等使用。
+
+---
+
+## FluentToolTip
+
+include：`Fluent/FluentToolTip.h`
+
+用途：统一替换 Qt 原生 tooltip 的 Fluent 风格提示气泡。
+
+关键 API：
+
+- `FluentToolTip::ensureInstalled()`：安装全局事件过滤器
+- `FluentToolTip::showText(const QPoint&, const QString&, QWidget* anchor = nullptr, int msecDisplayTime = -1)`
+- `FluentToolTip::hideText()`
+
+实现语义：
+
+- 内部会创建一个 `Qt::ToolTip | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint` 的顶层浮窗，并使用 `paintFluentPanel()` 自绘圆角面板。
+- 默认文本宽度会上限到约 `420px`，并根据文本长度自动估算显示时长（大约 0.9s + 每字符 55ms，最终 clamp 到 `1600..8000ms`）。
+- 位置会基于鼠标全局坐标加一个偏移量（约 `+14,+22`），并自动 clamp 到屏幕可用区域；如果底部放不下，会翻到鼠标上方显示。
+- 安装后会统一接管 `QEvent::ToolTip`：读取 widget 的 `toolTip()` / `toolTipDuration()`，并在 `Leave` / `MouseButtonPress` / `Wheel` / `KeyPress` / `FocusOut` / 应用失活时隐藏。
+
+适用场景：
+
+- 想让整个应用的 tooltip 视觉统一为 Fluent 风格
+- 想手动在某个全局位置弹出一条临时说明
+
+---
+
+## FluentPopupSurface
+
+include：`Fluent/FluentPopupSurface.h`
+
+用途：为日历/时间/颜色等弹出层提供一套共享的“圆角面板常量 + clip path + 面板绘制”工具。
+
+说明：`FluentPopupSurface` 不是一个 widget 类，而是 `namespace Fluent::PopupSurface` 下的一组内联 helper。
+
+关键内容：
+
+- `kRadius` / `kBorderWidth` / `kOpenDurationMs` / `kOpenSlideOffsetPx`
+- `panelRect(const QRect&)`
+- `contentClipPath(const QRect&)`
+- `paintPanel(QPainter&, const QRect&, const ThemeColors&, FluentBorderEffect*)`
+
+实现语义：
+
+- `panelRect()` 会先把输入矩形按半像素向内收缩，减少描边在 HiDPI / 半透明窗口上的边缘抖动。
+- `contentClipPath()` 返回与 popup 面板边框一致的圆角 path，适合在 `WA_TranslucentBackground` 下裁剪内部内容，避免内容把圆角“顶成方形”。
+- `paintPanel()` 内部会构造 `FluentFrameSpec`，并在传入 `FluentBorderEffect` 时自动注入 accent 描边 / trace 参数。
+- 该组 helper 主要被 `FluentCalendarPopup` 等弹出层复用，用来保证不同 popup 的半径、描边宽度与出现动画参数保持一致。
+
+---
+
+## FluentQtCompat
+
+include：`Fluent/FluentQtCompat.h`
+
+用途：为 Qt5 / Qt6 提供一层很薄的事件 / 坐标兼容封装，减少组件实现里到处写版本分支。
+
+说明：这是一个**偏内部实现的公开头文件**，普通业务代码通常不需要直接包含；它主要服务于库内部的自绘控件与事件处理逻辑。
+
+关键内容：
+
+- `using FluentEnterEvent = ...`：在 Qt6 下别名到 `QEnterEvent`，Qt5 下退化为 `QEvent`
+- `mousePositionF(const QMouseEvent*)`
+- `globalMousePosition(const QMouseEvent*)`
+- `wheelPositionF(const QWheelEvent*)`
+
+实现语义：
+
+- Qt6 使用 `event->position()` / `event->globalPosition()`；Qt5 则回退到 `localPos()` / `globalPos()` / `posF()`。
+- 这样上层控件（例如 `FluentDial` 等）可以统一写一套坐标读取逻辑，而不需要在每个 `.cpp` 中重复 `#if QT_VERSION` 分支。
+

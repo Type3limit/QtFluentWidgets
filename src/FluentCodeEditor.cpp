@@ -4,6 +4,7 @@
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
+#include "Fluent/FluentToolTip.h"
 
 #include <QAction>
 #include <QEvent>
@@ -759,10 +760,11 @@ void FluentCodeEditor::formatDocumentNow()
         m_manualFormatTriggered = false;
         if (m_clangFormatMissingHintEnabled && !m_clangFormatHintShown) {
             m_clangFormatHintShown = true;
-            QToolTip::showText(mapToGlobal(QPoint(12, 12)),
-                               tr("clang-format not found. Falling back to basic formatter.\n"
-                                  "Install clang-format (LLVM) or call setClangFormatPath()."),
-                               this);
+            FluentToolTip::showText(
+                mapToGlobal(QPoint(12, 12)),
+                tr("clang-format not found. Falling back to basic formatter.\n"
+                   "Install clang-format (LLVM) or call setClangFormatPath()."),
+                this);
         }
     }
 

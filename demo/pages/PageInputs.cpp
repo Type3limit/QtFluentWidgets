@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 
+#include "Fluent/FluentComboBox.h"
 #include "Fluent/FluentLineEdit.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentMainWindow.h"
@@ -215,6 +216,84 @@ QWidget *createInputsPage(FluentMainWindow *window)
                 }));
 
 #undef INPUTS_SPINBOX
+        }
+
+        // ComboBox
+        {
+            QString code;
+#define INPUTS_COMBOBOX(X) \
+    X(auto *row = new QHBoxLayout();) \
+    X(row->setContentsMargins(0, 0, 0, 0);) \
+    X(row->setSpacing(10);) \
+    X(auto *combo = new FluentComboBox();) \
+    X(combo->addItem(QStringLiteral("选项一"));) \
+    X(combo->addItem(QStringLiteral("选项二"));) \
+    X(combo->addItem(QStringLiteral("选项三"));) \
+    X(combo->addItem(QStringLiteral("选项四"));) \
+    X(combo->addItem(QStringLiteral("选项五"));) \
+    X(auto *comboDisabled = new FluentComboBox();) \
+    X(comboDisabled->addItem(QStringLiteral("禁用 ComboBox"));) \
+    X(comboDisabled->setDisabled(true);) \
+    X(auto *label = new FluentLabel(QStringLiteral("当前：选项一"));) \
+    X(QObject::connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), label, [=](int i) { label->setText(QStringLiteral("当前：%1").arg(combo->itemText(i))); });) \
+    X(row->addWidget(combo);) \
+    X(row->addWidget(comboDisabled);) \
+    X(row->addWidget(label);) \
+    X(row->addStretch(1);) \
+    X(body->addLayout(row);)
+
+#define X(line) code += QStringLiteral(#line "\n");
+            INPUTS_COMBOBOX(X)
+#undef X
+
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentComboBox"),
+                QStringLiteral("下拉选择框（含禁用态、Fluent 弹出动效）"),
+                QStringLiteral("要点：\n"
+                               "-addItem() 添加选项\n"
+                               "-currentIndexChanged 信号用于联动\n"
+                               "-setPopupScrollThreshold(n) 超过 n 项时出现滚动条\n"
+                               "-setDisabled(true) 展示禁用态"),
+                code,
+                [=](QVBoxLayout *body) {
+#define X(line) line
+                    INPUTS_COMBOBOX(X)
+#undef X
+                },
+                false));
+
+#undef INPUTS_COMBOBOX
+        }
+
+        // ComboBox with scroll threshold demo
+        {
+            QString code;
+#define INPUTS_COMBOBOX_SCROLL(X) \
+    X(auto *combo2 = new FluentComboBox();) \
+    X(combo2->setPopupScrollThreshold(5);) \
+    X(for (int i = 1; i <= 12; ++i)) \
+    X(    combo2->addItem(QStringLiteral("列表项 %1").arg(i));) \
+    X(body->addWidget(combo2);)
+
+#define X(line) code += QStringLiteral(#line "\n");
+            INPUTS_COMBOBOX_SCROLL(X)
+#undef X
+
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentComboBox（滚动阈值）"),
+                QStringLiteral("12 个选项，阈值设为 5：超出后弹窗启用滚动条"),
+                QStringLiteral("要点：\n"
+                               "-setPopupScrollThreshold(5) 最多显示 5 行，超出滚动\n"
+                               "-默认值为 maxVisibleItems()（Qt 默认 10）"),
+                code,
+                [=](QVBoxLayout *body) {
+#define X(line) line
+                    INPUTS_COMBOBOX_SCROLL(X)
+#undef X
+                },
+                false));
+
+#undef INPUTS_COMBOBOX_SCROLL
         }
 
         Q_UNUSED(window);

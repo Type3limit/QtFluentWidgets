@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Fluent/FluentBorderEffect.h"
+
 #include <QDate>
 #include <QWidget>
 
 class QPainter;
 class QColor;
+class QHideEvent;
 class QVariantAnimation;
 
 namespace Fluent {
@@ -44,10 +47,11 @@ signals:
 	void dismissed();
 
 protected:
-	bool event(QEvent *event) override;
-	bool eventFilter(QObject *watched, QEvent *event) override;
-	void showEvent(QShowEvent *event) override;
-	void resizeEvent(QResizeEvent *event) override;
+    bool event(QEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 	void paintEvent(QPaintEvent *event) override;
 	void mouseMoveEvent(QMouseEvent *event) override;
 	void mousePressEvent(QMouseEvent *event) override;
@@ -70,7 +74,6 @@ private:
 	int  panelWidth() const;
 	int  popupHeight() const;
 
-	void applyRoundedMask();
 	void positionPopupBelowOrAbove(int gap);
 
 	// Single-mode rect helpers (left panel, panelX=0)
@@ -120,6 +123,8 @@ private:
 	void drawChevronRight(QPainter &p, const QPointF &center, const QColor &color) const;
 
 	QWidget *m_anchor = nullptr;
+
+	FluentBorderEffect m_border{this};
 
 	SelectionMode m_selectionMode = SelectionMode::Single;
 

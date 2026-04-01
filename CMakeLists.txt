@@ -19,6 +19,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentCodeEditor.h
     include/Fluent/FluentCppHighlighter.h
     include/Fluent/FluentTheme.h
+    include/Fluent/FluentToolTip.h
     include/Fluent/FluentQtCompat.h
     include/Fluent/FluentStyle.h
     include/Fluent/FluentFlowLayout.h
@@ -37,9 +38,12 @@ add_library(QtFluentWidgets
     include/Fluent/FluentRadioButton.h
     include/Fluent/FluentToggleSwitch.h
     include/Fluent/FluentComboBox.h
+    include/Fluent/FluentAngleSelector.h
+    include/Fluent/FluentDial.h
     include/Fluent/FluentSlider.h
     include/Fluent/FluentProgressBar.h
     include/Fluent/FluentSpinBox.h
+    include/Fluent/FluentDial.h
     include/Fluent/FluentToolButton.h
     include/Fluent/FluentTabWidget.h
     include/Fluent/FluentListView.h
@@ -48,6 +52,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentGroupBox.h
     include/Fluent/FluentMenuBar.h
     include/Fluent/FluentMenu.h
+    include/Fluent/FluentPopupSurface.h
     include/Fluent/FluentToolBar.h
     include/Fluent/FluentStatusBar.h
     include/Fluent/FluentDialog.h
@@ -62,6 +67,7 @@ add_library(QtFluentWidgets
     src/FluentCodeEditor.cpp
     src/FluentCppHighlighter.cpp
     src/FluentTheme.cpp
+    src/FluentToolTip.cpp
     src/FluentStyle.cpp
     src/FluentFlowLayout.cpp
     src/FluentMainWindow.cpp
@@ -82,9 +88,11 @@ add_library(QtFluentWidgets
     src/FluentRadioButton.cpp
     src/FluentToggleSwitch.cpp
     src/FluentComboBox.cpp
+    src/FluentAngleSelector.cpp
     src/FluentSlider.cpp
     src/FluentProgressBar.cpp
     src/FluentSpinBox.cpp
+    src/FluentDial.cpp
     src/FluentToolButton.cpp
     src/FluentTabWidget.cpp
     src/FluentListView.cpp
@@ -133,6 +141,8 @@ add_executable(QtFluentDemo
     demo/pages/PageButtons.cpp
     demo/pages/PagePickers.h
     demo/pages/PagePickers.cpp
+    demo/pages/PageAngleControls.h
+    demo/pages/PageAngleControls.cpp
     demo/pages/PageDataViews.h
     demo/pages/PageDataViews.cpp
     demo/pages/PageContainers.h

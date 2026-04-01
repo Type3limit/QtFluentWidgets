@@ -317,6 +317,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(btn);
     }));
     addJumpCard(QStringLiteral("选择器页：CalendarPicker / TimePicker / ColorPicker / ColorDialog"), 3);
+    addJumpCard(QStringLiteral("角度控件页：FluentDial / FluentAngleSelector / 可见性变体"), 4);
 
     addGroupTitle(QStringLiteral("数据视图"));
     flow->addWidget(makeTile(QStringLiteral("ListView"), QString(), [&](QVBoxLayout *body) {
@@ -368,7 +369,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         view->setEditTriggers(QAbstractItemView::NoEditTriggers);
         body->addWidget(view);
     }));
-    addJumpCard(QStringLiteral("数据视图页：ListView / TableView / TreeView"), 4);
+    addJumpCard(QStringLiteral("数据视图页：ListView / TableView / TreeView"), 5);
 
     addGroupTitle(QStringLiteral("容器/布局"));
     flow->addWidget(makeTile(QStringLiteral("Card"), QStringLiteral("FluentCard 作为内容容器"), [&](QVBoxLayout *body) {
@@ -441,7 +442,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(lab);
     }));
 
-    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / Splitter / FlowLayout"), 5);
+    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / Splitter / FlowLayout"), 6);
 
     addGroupTitle(QStringLiteral("窗口 / 对话框"));
     flow->addWidget(makeTile(QStringLiteral("Dialog"), QStringLiteral("支持可选蒙版 overlay"), [&](QVBoxLayout *body) {
@@ -503,7 +504,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
                                  lab->setWordWrap(true);
                                  body->addWidget(lab);
                              }));
-    addJumpCard(QStringLiteral("窗口/对话框页：Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast"), 6);
+    addJumpCard(QStringLiteral("窗口/对话框页：Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast"), 7);
 
     return overviewArea;
 }

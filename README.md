@@ -26,6 +26,7 @@
 - 统一主题与色板：`ThemeManager` + `ThemeColors`。
 - Fluent 风格输入控件面板：通过 `Style::paintControlSurface()` 统一圆角/边框/focus ring。
 - 内置日期范围选择器 `FluentDateRangePicker`，支持双面板范围选择与可配置 prefix / suffix / separator。
+- 窗口层支持 `FluentMainWindow` 自定义标题栏插槽、Windows 11 风格 accent 描边 / trace 动画，以及菜单栏嵌入标题栏。
 - Demo 覆盖所有控件，并带侧边栏联动配置（含 CodeEditor 的 clang-format 路径配置）。
 - 可选 Qt Designer 插件（默认开启构建）。
 
@@ -102,6 +103,8 @@ rangePicker->setEndPrefix(QStringLiteral("结束："));
 
 其中 `FluentDateRangePicker` 的用法、自定义前后缀 / 分隔符示例，以及范围模式下 `FluentCalendarPopup` 的说明都已收录在 `pickers.md`。
 
+`inputs.md` 现也覆盖了 `FluentDial` / `FluentAngleSelector` 等角度输入控件；`windows-dialogs.md` 补充了 `FluentMainWindow` 的标题栏插槽、自动折叠、Windows 无边框 resize、DWM 圆角与外层 accent 描边 overlay 等实现语义。
+
 ## Qt Designer 插件
 
 默认会构建 Designer 插件，输出到构建目录的 `designer/` 下。将生成的插件文件复制到 Qt Designer 的插件目录即可加载。
@@ -115,4 +118,4 @@ cmake --build build
 
 ## Demo 导航（与模块一致）
 
-Demo 的页面分组与文档模块基本一致：输入 / 按钮 / 选择器 / 数据视图 / 容器 / 窗口。
+Demo 的页面分组与文档模块基本一致：输入 / 按钮 / 角度控件 / 选择器 / 数据视图 / 容器 / 窗口。

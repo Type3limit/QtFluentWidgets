@@ -113,9 +113,10 @@ private:
     void ensureTitleBar();
     void updateTitleBarContent();
     void updateWindowControlIcons();
-    void ensureCentralBorderHost();
+    void ensureFrameHostAsCentral();
 
     void syncBorderVisualState();
+    void updateFrameHost();
 
 #ifdef Q_OS_WIN
     void applyWindowsDwmAttributes();
@@ -153,15 +154,16 @@ private:
     bool m_resizeEnabled = true;
     FluentResizeHelper *m_resizeHelper = nullptr;
 
+    // Frame host: the QMainWindow central widget that paints the surface fill.
+    QWidget *m_frameHost = nullptr;
+    // Border overlay: a direct child of the MainWindow that covers the entire
+    // content area (title bar + central widget) and paints the accent border
+    // stroke + trace animation on top of everything.
     QWidget *m_borderOverlay = nullptr;
-
-    QWidget *m_borderMarqueeOverlay = nullptr;
     FluentBorderEffect m_border{this};
     bool m_initialTracePlayed = false;
     bool m_initialTracePending = false;
 
-    QWidget *m_centralBorderHost = nullptr;
-    QWidget *m_centralClipHost = nullptr;
     QWidget *m_userCentralWidget = nullptr;
 };
 

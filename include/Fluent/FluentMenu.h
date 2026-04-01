@@ -11,6 +11,7 @@ class QMouseEvent;
 class QPaintEvent;
 class QShowEvent;
 class QHideEvent;
+class QResizeEvent;
 
 namespace Fluent {
 
@@ -20,6 +21,7 @@ class FluentMenu final : public QMenu
 public:
     explicit FluentMenu(QWidget *parent = nullptr);
     explicit FluentMenu(const QString &title, QWidget *parent = nullptr);
+    void popup(const QPoint &pos, QAction *atAction = nullptr);
 
     // Convenience: create Fluent submenus so level-2+ menus stay consistent.
     FluentMenu *addFluentMenu(const QString &title);
@@ -30,6 +32,7 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void hideEvent(QHideEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void ensureSubMenusFluent();
@@ -39,6 +42,7 @@ private:
     void startPopupAnimation();
     void updateHighlightForAction(QAction *action, bool animate);
     QRect highlightTargetRect(QAction *action) const;
+    void updateWindowMask();
 
     QAction *m_hoverAction = nullptr;
     qreal m_hoverLevel = 0.0;

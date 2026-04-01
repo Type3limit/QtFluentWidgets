@@ -141,3 +141,27 @@ Hover/focus levels are animated:
 - Only supports `()`, `{}`, `[]`.
 - Matching is a simple character scan with depth counting (no lexer): brackets inside strings/comments are not excluded.
 - If no match is found, the bracket is marked with `colors.error`.
+
+## FluentCppHighlighter
+
+Purpose: lightweight C++ syntax highlighter for a `QTextDocument`, usable independently from `FluentCodeEditor`.
+
+Typical use cases:
+
+- you already have your own editor widget but want to reuse the project's C++ highlighting rules;
+- you only need lightweight syntax coloring, not the full `FluentCodeEditor` feature set such as gutter, auto-formatting, and bracket matching.
+
+Minimal usage:
+
+```cpp
+#include "Fluent/FluentCppHighlighter.h"
+
+new Fluent::FluentCppHighlighter(editor->document());
+```
+
+Implementation notes:
+
+- It targets common C++ categories such as keywords, numbers, strings, and comments; the goal is practical lightweight highlighting rather than full parsing.
+- Colors follow `ThemeManager::colors()`, so light/dark mode switches stay visually aligned with the rest of the Fluent theme.
+- In typical usage you allocate it on `document()` and let Qt's object tree manage its lifetime.
+

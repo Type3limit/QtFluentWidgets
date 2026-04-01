@@ -54,6 +54,11 @@ Optional accent border:
 ThemeManager::instance().setAccentBorderEnabled(true);
 ```
 
+Implementation notes:
+
+- `accentBorderEnabled()` is not just a plain on/off flag: window-layer widgets (`FluentMainWindow`, `FluentDialog`, `FluentMessageBox`, `FluentToast`) feed it through `FluentBorderEffect`, which switches between normal border and accent border states and can play a trace-in animation when enabled.
+- `FluentMainWindow` currently paints that border in a dedicated top-level overlay, so the border can wrap both the title bar and the central widget without being covered by opaque child widgets.
+
 ## Customize colors
 
 ```cpp
@@ -82,6 +87,7 @@ Implementation notes:
 
 - `Style::setWindowMetrics()` applies defensive clamps for trace-related fields (e.g. duration 1..60000ms, overshoot up to 0.25, overshootAt up to 0.99) to keep animations in a valid range.
 - `Style::paintTraceBorder()` supports a small **overshoot pulse**: if `progress > 1` (rawProgress overshoots), it draws a full border with a slightly increased width and alpha (overshoot capped) to feel more Fluent.
+- The values in `Style::windowMetrics()` now directly affect `FluentMainWindow` too: `titleBarHeight` / `windowButtonWidth` / `resizeBorder` shape title-bar layout and Windows hit-testing, while the trace fields tune the outer accent-border animation.
 
 ## Theme::baseStyleSheet (global QSS)
 
@@ -92,6 +98,11 @@ Implementation notes:
 - Win11-like overlay scrollbars (handle becomes visible on `QAbstractScrollArea:hover`)
 - `QToolTip` styling
 - `QLabel#FluentLink` link color
+
+Additional notes:
+
+- `Theme::baseStyleSheet(...)` provides the global baseline look, but it does **not** directly paint the outer `FluentMainWindow` border; the main window accent border and trace animation are custom-painted.
+- `FluentMainWindow` compares the next stylesheet string before reapplying it, which avoids unnecessary full-application repolish on redundant theme changes.
 
 Related headers (used by windows/menus/dialogs for accent borders):
 
