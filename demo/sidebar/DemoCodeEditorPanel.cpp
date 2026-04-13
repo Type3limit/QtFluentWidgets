@@ -30,16 +30,18 @@ static QWidget *row(QWidget *a, QWidget *b)
     return w;
 }
 
-DemoCodeEditorPanel::DemoCodeEditorPanel(QWidget *parent)
+DemoCodeEditorPanel::DemoCodeEditorPanel(QWidget *parent, bool showTitle)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(10);
 
-    auto *title = new FluentLabel(QStringLiteral("CodeEditor"));
-    title->setStyleSheet("font-size: 12px; font-weight: 650;");
-    layout->addWidget(title);
+    if (showTitle) {
+        auto *title = new FluentLabel(QStringLiteral("CodeEditor"));
+        title->setStyleSheet("font-size: 12px; font-weight: 650;");
+        layout->addWidget(title);
+    }
 
     m_pathEdit = new FluentLineEdit();
     m_pathEdit->setPlaceholderText(QStringLiteral("clang-format 路径（留空=自动检测）"));

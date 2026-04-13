@@ -13,6 +13,7 @@
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
 #include <QProcess>
 #include <QRegularExpression>
@@ -477,6 +478,9 @@ void FluentCodeEditor::showEvent(QShowEvent *event)
         m_lineNumberArea->show();
         m_lineNumberArea->update();
     }
+    if (m_borderOverlay) {
+        m_borderOverlay->raise();
+    }
 }
 
 void FluentCodeEditor::startHoverAnimation(qreal to)
@@ -838,10 +842,30 @@ void FluentCodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
     painter.setRenderHint(QPainter::Antialiasing, false);
 
     const auto colors = ThemeManager::instance().colors();
+    const auto m = Style::metrics();
     // Add a subtle gutter tint on top of the surface to read more like an IDE.
     QColor gutter = Style::mix(colors.surface, colors.hover, 0.22);
     gutter.setAlpha(140);
-    painter.fillRect(event->rect(), gutter);
+
+    const QRectF gutterRect = QRectF(m_lineNumberArea->rect());
+    const qreal radius = qMax<qreal>(0.0, qMin<qreal>(m.radius, gutterRect.height() * 0.5));
+
+    QPainterPath gutterPath;
+    gutterPath.moveTo(gutterRect.topRight());
+    gutterPath.lineTo(gutterRect.topLeft() + QPointF(radius, 0.0));
+    gutterPath.quadTo(gutterRect.topLeft(), gutterRect.topLeft() + QPointF(0.0, radius));
+    gutterPath.lineTo(gutterRect.bottomLeft() + QPointF(0.0, -radius));
+    gutterPath.quadTo(gutterRect.bottomLeft(), gutterRect.bottomLeft() + QPointF(radius, 0.0));
+    gutterPath.lineTo(gutterRect.bottomRight());
+    gutterPath.closeSubpath();
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.fillPath(gutterPath, gutter);
+    painter.restore();
+
+    painter.save();
+    painter.setClipPath(gutterPath);
 
     const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
     QColor selectionBg = colors.accent;
@@ -924,6 +948,8 @@ void FluentCodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
         bottom = top + qRound(blockBoundingRect(block).height());
         ++blockNumber;
     }
+
+    painter.restore();
 
     // subtle divider line
     painter.setPen(colors.border);

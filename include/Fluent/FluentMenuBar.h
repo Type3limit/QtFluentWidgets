@@ -2,6 +2,7 @@
 
 #include <QMenuBar>
 
+#include <QHash>
 #include <QPointer>
 #include <QRect>
 
@@ -45,6 +46,7 @@ private:
     void onOpenMenuAboutToHide();
 
     void ensureMenusFluent();
+    QMenu *menuForAction(QAction *action) const;
     void updateHighlightForAction(QAction *action, bool animate);
     QRect highlightTargetRect(QAction *action) const;
 
@@ -56,6 +58,7 @@ private:
     QRect m_highlightRect;
     QVariantAnimation *m_highlightAnim = nullptr;
 
+    QHash<QAction *, QPointer<QMenu>> m_actionMenus;
     QPointer<QMenu> m_openMenu;
     QPointer<QWidget> m_openPopup;
     QAction *m_openAction = nullptr;

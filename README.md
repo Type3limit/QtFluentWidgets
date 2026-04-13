@@ -98,12 +98,15 @@ rangePicker->setEndPrefix(QStringLiteral("结束："));
 - 选择器： [docs/zh-cn/pickers.md](docs/zh-cn/pickers.md)
 - 数据视图： [docs/zh-cn/data-views.md](docs/zh-cn/data-views.md)
 - 容器 / 布局： [docs/zh-cn/containers-layout.md](docs/zh-cn/containers-layout.md)
+- NavigationView： [docs/zh-cn/navigation-view.md](docs/zh-cn/navigation-view.md)
 - 窗口 / 菜单 / 对话框： [docs/zh-cn/windows-dialogs.md](docs/zh-cn/windows-dialogs.md)
 - 杂项与工具： [docs/zh-cn/utilities.md](docs/zh-cn/utilities.md)
 
 其中 `FluentDateRangePicker` 的用法、自定义前后缀 / 分隔符示例，以及范围模式下 `FluentCalendarPopup` 的说明都已收录在 `pickers.md`。
 
 `inputs.md` 现也覆盖了 `FluentDial` / `FluentAngleSelector` 等角度输入控件；`windows-dialogs.md` 补充了 `FluentMainWindow` 的标题栏插槽、自动折叠、Windows 无边框 resize、DWM 圆角与外层 accent 描边 overlay 等实现语义。
+
+`navigation-view.md` 记录了 `FluentNavigationView` 的数据模型、父子项交互语义、glyph 图标用法，以及 Demo 当前采用的父项整合页与 auto-collapse 行为。
 
 ## Qt Designer 插件
 
@@ -118,4 +121,4 @@ cmake --build build
 
 ## Demo 导航（与模块一致）
 
-Demo 的页面分组与文档模块基本一致：输入 / 按钮 / 角度控件 / 选择器 / 数据视图 / 容器 / 窗口。
+Demo 的页面分组与文档模块基本一致：输入 / 按钮 / 角度控件 / 选择器 / 数据视图 / 容器 / 窗口。`FluentNavigationView` 相关说明已补到 Containers 页面，并由主窗口左侧导航做完整实战示例。

@@ -80,12 +80,15 @@ Controls are documented by module under `docs/`:
 - Pickers: [docs/en-us/pickers.md](docs/en-us/pickers.md)
 - Data views: [docs/en-us/data-views.md](docs/en-us/data-views.md)
 - Containers / layout: [docs/en-us/containers-layout.md](docs/en-us/containers-layout.md)
+- NavigationView: [docs/en-us/navigation-view.md](docs/en-us/navigation-view.md)
 - Windows / menus / dialogs: [docs/en-us/windows-dialogs.md](docs/en-us/windows-dialogs.md)
 - Utilities: [docs/en-us/utilities.md](docs/en-us/utilities.md)
 
 `docs/en-us/pickers.md` now also contains a dedicated `FluentDateRangePicker` section, including prefix/suffix/separator customization and the range mode behavior of `FluentCalendarPopup`.
 
 `docs/en-us/inputs.md` now also covers angle-input controls such as `FluentDial` and `FluentAngleSelector`. `docs/en-us/windows-dialogs.md` documents the current `FluentMainWindow` behavior: title-bar slots, auto-collapse rules, Windows frameless resize, DWM rounded corners, and the top-level accent-border overlay.
+
+`docs/en-us/navigation-view.md` now documents the `FluentNavigationView` data model, parent/child interaction semantics, glyph icon usage, and the parent-landing-page / auto-collapse behavior used by the current demo shell.
 
 ## Qt Designer Plugin
 

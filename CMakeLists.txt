@@ -64,6 +64,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentSplitter.h
     include/Fluent/FluentToast.h
     include/Fluent/FluentDateRangePicker.h
+    include/Fluent/FluentNavigationView.h
     src/FluentCodeEditor.cpp
     src/FluentCppHighlighter.cpp
     src/FluentTheme.cpp
@@ -112,6 +113,7 @@ add_library(QtFluentWidgets
     src/FluentSplitter.cpp
     src/FluentToast.cpp
     src/FluentDateRangePicker.cpp
+    src/FluentNavigationView.cpp
     src/FluentDiagnostics.cpp
 )
 
@@ -135,6 +137,8 @@ add_executable(QtFluentDemo
 
     demo/pages/PageOverview.h
     demo/pages/PageOverview.cpp
+    demo/pages/PageBasicInput.h
+    demo/pages/PageBasicInput.cpp
     demo/pages/PageInputs.h
     demo/pages/PageInputs.cpp
     demo/pages/PageButtons.h

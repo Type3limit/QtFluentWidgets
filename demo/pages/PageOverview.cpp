@@ -202,7 +202,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(p);
     }));
 
-    addJumpCard(QStringLiteral("按钮/开关页：Button / ToolButton / ToggleSwitch / CheckBox / RadioButton / ProgressBar"), 2);
+    addJumpCard(QStringLiteral("按钮/开关页：Button / ToolButton / ToggleSwitch / CheckBox / RadioButton / ProgressBar"), 3);
 
     addGroupTitle(QStringLiteral("输入"));
     flow->addWidget(makeTile(QStringLiteral("LineEdit"), QString(), [&](QVBoxLayout *body) {
@@ -270,7 +270,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(ed);
     }));
 
-    addJumpCard(QStringLiteral("输入页：LineEdit / TextEdit / Slider / SpinBox / ComboBox"), 1);
+    addJumpCard(QStringLiteral("输入页：LineEdit / TextEdit / Slider / SpinBox / ComboBox"), 2);
 
     addGroupTitle(QStringLiteral("选择器"));
     flow->addWidget(makeTile(QStringLiteral("CalendarPicker"), QString(), [&](QVBoxLayout *body) {
@@ -316,8 +316,8 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         });
         body->addWidget(btn);
     }));
-    addJumpCard(QStringLiteral("选择器页：CalendarPicker / TimePicker / ColorPicker / ColorDialog"), 3);
-    addJumpCard(QStringLiteral("角度控件页：FluentDial / FluentAngleSelector / 可见性变体"), 4);
+    addJumpCard(QStringLiteral("选择器页：CalendarPicker / TimePicker / ColorPicker / ColorDialog"), 4);
+    addJumpCard(QStringLiteral("角度控件页：FluentDial / FluentAngleSelector / 可见性变体"), 5);
 
     addGroupTitle(QStringLiteral("数据视图"));
     flow->addWidget(makeTile(QStringLiteral("ListView"), QString(), [&](QVBoxLayout *body) {
@@ -369,7 +369,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         view->setEditTriggers(QAbstractItemView::NoEditTriggers);
         body->addWidget(view);
     }));
-    addJumpCard(QStringLiteral("数据视图页：ListView / TableView / TreeView"), 5);
+    addJumpCard(QStringLiteral("数据视图页：ListView / TableView / TreeView"), 6);
 
     addGroupTitle(QStringLiteral("容器/布局"));
     flow->addWidget(makeTile(QStringLiteral("Card"), QStringLiteral("FluentCard 作为内容容器"), [&](QVBoxLayout *body) {
@@ -442,7 +442,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(lab);
     }));
 
-    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / Splitter / FlowLayout"), 6);
+    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / Splitter / FlowLayout"), 7);
 
     addGroupTitle(QStringLiteral("窗口 / 对话框"));
     flow->addWidget(makeTile(QStringLiteral("Dialog"), QStringLiteral("支持可选蒙版 overlay"), [&](QVBoxLayout *body) {
@@ -504,7 +504,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
                                  lab->setWordWrap(true);
                                  body->addWidget(lab);
                              }));
-    addJumpCard(QStringLiteral("窗口/对话框页：Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast"), 7);
+    addJumpCard(QStringLiteral("窗口/对话框页：Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast"), 8);
 
     return overviewArea;
 }

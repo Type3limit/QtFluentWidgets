@@ -27,7 +27,12 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
     setFrameShape(QFrame::NoFrame);
     setWidgetResizable(true);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setFixedWidth(280);
+    if (showNavigation) {
+        setFixedWidth(280);
+    } else {
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        setMinimumWidth(0);
+    }
 
     auto *sidebarContent = new QWidget();
     setWidget(sidebarContent);
@@ -35,11 +40,11 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
     sidebarContent->setMinimumWidth(0);
 
     auto *sideLayout = new QVBoxLayout(sidebarContent);
-    sideLayout->setContentsMargins(0, 0, 0, 0);
-    sideLayout->setSpacing(12);
+    sideLayout->setContentsMargins(showNavigation ? 0 : 24, showNavigation ? 0 : 24, showNavigation ? 0 : 24, showNavigation ? 0 : 24);
+    sideLayout->setSpacing(showNavigation ? 12 : 18);
 
     QWidget *headerCard = nullptr;
-    {
+    if (showNavigation) {
         auto *header = new QWidget();
         auto *hl = new QVBoxLayout(header);
         hl->setContentsMargins(0, 0, 0, 0);
@@ -58,7 +63,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
         headerCard = Demo::makeSidebarCard(header);
     }
 
-    auto *themePanel = new DemoThemePanel(m_hostWindow, nullptr, false);
+    auto *themePanel = new DemoThemePanel(m_hostWindow, sidebarContent, false);
     m_toastPosition = themePanel->toastPosition();
     QObject::connect(themePanel,
                      &DemoThemePanel::toastPositionChanged,
@@ -68,30 +73,39 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
                          emit toastPositionChanged(pos);
                      });
 
-    // Theme panel: wrap in a collapsible card and keep scrolling inside the card.
-    auto *themeCard = new FluentCard();
-    themeCard->setCollapsible(true);
-    themeCard->setTitle(QStringLiteral("主题 / 样式"));
-    themeCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    QWidget *themeSection = nullptr;
+    QWidget *codeEditorSection = nullptr;
 
-    auto *themeScroll = new FluentScrollArea(themeCard);
-    themeScroll->setOverlayScrollBarsEnabled(true);
-    themeScroll->setFrameShape(QFrame::NoFrame);
-    themeScroll->setWidgetResizable(true);
-    themeScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    themeScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    themeScroll->setMinimumHeight(220);
-    themeScroll->setWidget(themePanel);
+    if (showNavigation) {
+        auto *themeCard = new FluentCard();
+        themeCard->setCollapsible(true);
+        themeCard->setTitle(QStringLiteral("主题 / 样式"));
+        themeCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    themeCard->contentLayout()->addWidget(themeScroll);
+        auto *themeScroll = new FluentScrollArea(themeCard);
+        themeScroll->setOverlayScrollBarsEnabled(true);
+        themeScroll->setFrameShape(QFrame::NoFrame);
+        themeScroll->setWidgetResizable(true);
+        themeScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        themeScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        themeScroll->setMinimumHeight(220);
+        themeScroll->setWidget(themePanel);
 
-    // Code editor panel: allow configuring clang-format path and editor behaviors.
-    auto *codeEditorCard = new FluentCard();
-    codeEditorCard->setCollapsible(true);
-    codeEditorCard->setCollapsed(true);
-    codeEditorCard->setTitle(QStringLiteral("CodeEditor"));
-    codeEditorCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    codeEditorCard->contentLayout()->addWidget(new DemoCodeEditorPanel(codeEditorCard));
+        themeCard->contentLayout()->addWidget(themeScroll);
+
+        auto *codeEditorCard = new FluentCard();
+        codeEditorCard->setCollapsible(true);
+        codeEditorCard->setCollapsed(true);
+        codeEditorCard->setTitle(QStringLiteral("CodeEditor"));
+        codeEditorCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        codeEditorCard->contentLayout()->addWidget(new DemoCodeEditorPanel(codeEditorCard, false));
+
+        themeSection = themeCard;
+        codeEditorSection = codeEditorCard;
+    } else {
+        themeSection = themePanel;
+        codeEditorSection = new DemoCodeEditorPanel(sidebarContent, true);
+    }
 
     QWidget *navCard = nullptr;
     if (showNavigation) {
@@ -129,15 +143,19 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
         headerCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         sideLayout->addWidget(headerCard);
     }
-    if (themeCard) {
-        sideLayout->addWidget(themeCard, 1);
+    if (themeSection) {
+        themeSection->setSizePolicy(QSizePolicy::Expanding, showNavigation ? QSizePolicy::Expanding : QSizePolicy::Preferred);
+        sideLayout->addWidget(themeSection, showNavigation ? 1 : 0);
     }
-    if (codeEditorCard) {
-        sideLayout->addWidget(codeEditorCard);
+    if (codeEditorSection) {
+        sideLayout->addWidget(codeEditorSection);
     }
     if (navCard) {
         navCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         sideLayout->addWidget(navCard);
+    }
+    if (!showNavigation) {
+        sideLayout->addStretch(1);
     }
 
     if (m_navView && m_navView->selectionModel()) {

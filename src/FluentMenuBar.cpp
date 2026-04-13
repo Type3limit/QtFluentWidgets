@@ -460,6 +460,11 @@ FluentMenuBar::FluentMenuBar(QWidget *parent)
         m_hoverAction = a;
         updateHighlightForAction(a, true);
         startHoverAnimation(a ? 1.0 : 0.0);
+
+        const bool hasOpenMenu = (m_openPopup && m_openPopup->isVisible()) || (m_openMenu && m_openMenu->isVisible());
+        if (hasOpenMenu && a && a != m_openAction && menuForAction(a)) {
+            openMenuForAction(a);
+        }
     });
 
     m_hoverAnim = new QVariantAnimation(this);
@@ -492,6 +497,10 @@ void FluentMenuBar::changeEvent(QEvent *event)
 void FluentMenuBar::actionEvent(QActionEvent *event)
 {
     QMenuBar::actionEvent(event);
+
+    if (event->type() == QEvent::ActionRemoved) {
+        m_actionMenus.remove(event->action());
+    }
 
     // When actions/menus are added by external code, ensure they're Fluent.
     if (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionChanged) {
@@ -529,7 +538,8 @@ void FluentMenuBar::applyTheme()
 FluentMenu *FluentMenuBar::addFluentMenu(const QString &title)
 {
     auto *menu = new FluentMenu(title, this);
-    addMenu(menu);
+    QAction *action = QMenuBar::addAction(title);
+    m_actionMenus.insert(action, menu);
     return menu;
 }
 
@@ -538,6 +548,10 @@ void FluentMenuBar::ensureMenusFluent()
     const QList<QAction *> acts = actions();
     for (QAction *a : acts) {
         if (!a) {
+            continue;
+        }
+
+        if (m_actionMenus.contains(a) && !m_actionMenus.value(a).isNull()) {
             continue;
         }
 
@@ -563,7 +577,9 @@ void FluentMenuBar::ensureMenusFluent()
             fluent->addAction(sa);
         }
 
-        a->setMenu(fluent);
+        fluent->setParent(this);
+        a->setMenu(nullptr);
+        m_actionMenus.insert(a, fluent);
         sub->deleteLater();
     }
 
@@ -600,6 +616,20 @@ void FluentMenuBar::ensureMenusFluent()
     }
 }
 
+QMenu *FluentMenuBar::menuForAction(QAction *action) const
+{
+    if (!action) {
+        return nullptr;
+    }
+
+    const auto it = m_actionMenus.constFind(action);
+    if (it != m_actionMenus.cend() && !it.value().isNull()) {
+        return it.value().data();
+    }
+
+    return action->menu();
+}
+
 void FluentMenuBar::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
@@ -632,7 +662,7 @@ void FluentMenuBar::openMenuForAction(QAction *action)
 
     ensureMenusFluent();
 
-    QMenu *menu = action->menu();
+    QMenu *menu = menuForAction(action);
     if (!menu) {
         // Non-menu actions still should appear active briefly.
         setActiveAction(action);
@@ -746,7 +776,20 @@ void FluentMenuBar::mouseMoveEvent(QMouseEvent *event)
         m_hoverAction = action;
         updateHighlightForAction(action, true);
         startHoverAnimation(action ? 1.0 : 0.0);
+
+        const bool hasOpenMenu = (m_openPopup && m_openPopup->isVisible()) || (m_openMenu && m_openMenu->isVisible());
+        if (hasOpenMenu && action && action != m_openAction && menuForAction(action)) {
+            openMenuForAction(action);
+            event->accept();
+            return;
+        }
     }
+
+    if ((m_openPopup && m_openPopup->isVisible()) || (m_openMenu && m_openMenu->isVisible())) {
+        event->accept();
+        return;
+    }
+
     QMenuBar::mouseMoveEvent(event);
 }
 

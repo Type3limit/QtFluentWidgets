@@ -2,6 +2,8 @@
 
 #include <QMenu>
 
+#include <QPointer>
+
 #include <QRect>
 
 #include "Fluent/FluentBorderEffect.h"
@@ -22,6 +24,7 @@ public:
     explicit FluentMenu(QWidget *parent = nullptr);
     explicit FluentMenu(const QString &title, QWidget *parent = nullptr);
     void popup(const QPoint &pos, QAction *atAction = nullptr);
+    QAction *exec(const QPoint &pos, QAction *atAction = nullptr);
 
     // Convenience: create Fluent submenus so level-2+ menus stay consistent.
     FluentMenu *addFluentMenu(const QString &title);
@@ -35,6 +38,7 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
+    void closePopupHost();
     void ensureSubMenusFluent();
     void applyTheme();
     void startHoverAnimation(qreal endValue);
@@ -54,6 +58,7 @@ private:
 
     QVariantAnimation *m_popupFadeAnim = nullptr;
     QVariantAnimation *m_popupSlideAnim = nullptr;
+    QPointer<QWidget> m_popupHost;
 
     FluentBorderEffect m_border;
 };

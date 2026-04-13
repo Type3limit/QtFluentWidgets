@@ -18,7 +18,7 @@ class DemoCodeEditorPanel final : public QWidget
 {
     Q_OBJECT
 public:
-    explicit DemoCodeEditorPanel(QWidget *parent = nullptr);
+    explicit DemoCodeEditorPanel(QWidget *parent = nullptr, bool showTitle = true);
 
 private:
     void refreshStatus();

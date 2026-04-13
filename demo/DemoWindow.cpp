@@ -4,6 +4,7 @@
 #include "DemoSidebar.h"
 
 #include "pages/PageButtons.h"
+#include "pages/PageBasicInput.h"
 #include "pages/PageContainers.h"
 #include "pages/PageDataViews.h"
 #include "pages/PageAngleControls.h"
@@ -19,6 +20,7 @@
 #include <QComboBox>
 #include <QCursor>
 #include <QHBoxLayout>
+#include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <array>
@@ -38,6 +40,7 @@
 #include "Fluent/FluentMenu.h"
 #include "Fluent/FluentMenuBar.h"
 #include "Fluent/FluentMessageBox.h"
+#include "Fluent/FluentNavigationView.h"
 #include "Fluent/FluentProgressBar.h"
 #include "Fluent/FluentRadioButton.h"
 #include "Fluent/FluentScrollArea.h"
@@ -207,34 +210,159 @@ DemoWindow::DemoWindow(QWidget *parent)
     window.setCentralWidget(root);
 
     auto *rootLayout = new QHBoxLayout(root);
-    rootLayout->setContentsMargins(16, 16, 16, 16);
-    rootLayout->setSpacing(14);
+    rootLayout->setContentsMargins(0, 8, 16, 16);
+    rootLayout->setSpacing(0);
 
-    auto *sidebar = new DemoSidebar(&window, root, false);
+    // ---- NavigationView (left pane) ----
+    auto *nav = new FluentNavigationView(root);
+    nav->setExpandedWidth(280);
+    nav->setCompactWidth(48);
+    nav->setAutoCollapseWidth(800);
 
-    auto *tabs = new FluentTabWidget(root);
-    tabs->setTabPosition(QTabWidget::West);
+    auto applyGlyph = [](FluentNavigationItem &item, ushort codePoint) {
+        item.iconGlyph = QString(QChar(codePoint));
+        item.iconFontFamily = QStringLiteral("Segoe Fluent Icons");
+    };
 
-    const auto jumpTo = [tabs](int pageIndex) {
-        if (!tabs) {
-            return;
+    // Build navigation items matching the demo pages
+    using NI = FluentNavigationItem;
+
+    std::vector<NI> mainItems;
+    {
+        NI overview;
+        overview.key  = QStringLiteral("overview");
+        overview.text = QStringLiteral("总览");
+        applyGlyph(overview, 0xE80F);
+        mainItems.push_back(overview);
+
+        // "基本输入" category with sub-items
+        NI basicInput;
+        basicInput.key  = QStringLiteral("basic_input");
+        basicInput.text = QStringLiteral("基本输入");
+        applyGlyph(basicInput, 0xE961);
+        {
+            NI inputs;
+            inputs.key  = QStringLiteral("inputs");
+            inputs.text = QStringLiteral("输入");
+            applyGlyph(inputs, 0xEF60);
+            basicInput.children.push_back(inputs);
+
+            NI buttons;
+            buttons.key  = QStringLiteral("buttons");
+            buttons.text = QStringLiteral("按钮/开关");
+            applyGlyph(buttons, 0xF19F);
+            basicInput.children.push_back(buttons);
         }
-        if (pageIndex >= 0 && pageIndex < tabs->count()) {
-            tabs->setCurrentIndex(pageIndex);
+        mainItems.push_back(basicInput);
+
+        // "选择器" category
+        NI pickers;
+        pickers.key  = QStringLiteral("pickers");
+        pickers.text = QStringLiteral("选择器");
+        applyGlyph(pickers, 0xE787);
+        mainItems.push_back(pickers);
+
+        NI angles;
+        angles.key  = QStringLiteral("angles");
+        angles.text = QStringLiteral("角度控件");
+        applyGlyph(angles, 0xF0B4);
+        mainItems.push_back(angles);
+
+        NI dataViews;
+        dataViews.key  = QStringLiteral("dataviews");
+        dataViews.text = QStringLiteral("数据视图");
+        applyGlyph(dataViews, 0xEA37);
+        mainItems.push_back(dataViews);
+
+        NI containers;
+        containers.key  = QStringLiteral("containers");
+        containers.text = QStringLiteral("容器/布局");
+        applyGlyph(containers, 0xF168);
+        mainItems.push_back(containers);
+
+        NI windows;
+        windows.key  = QStringLiteral("windows");
+        windows.text = QStringLiteral("窗口/对话框");
+        applyGlyph(windows, 0xE73F);
+        mainItems.push_back(windows);
+    }
+    nav->setItems(mainItems);
+
+    // Footer items (e.g. Settings / Theme)
+    std::vector<NI> footerItems;
+    {
+        NI settings;
+        settings.key  = QStringLiteral("settings");
+        settings.text = QStringLiteral("设置");
+        applyGlyph(settings, 0xE713);
+        footerItems.push_back(settings);
+    }
+    nav->setFooterItems(footerItems);
+
+    // Default selection
+    nav->setSelectedKey(QStringLiteral("overview"));
+
+    // ---- Content area (stacked pages) ----
+    auto *stack = new QStackedWidget(root);
+
+    const auto jumpTo = [nav](int pageIndex) {
+        const QStringList keys = {
+            QStringLiteral("overview"),
+            QStringLiteral("basic_input"),
+            QStringLiteral("inputs"),
+            QStringLiteral("buttons"),
+            QStringLiteral("pickers"),
+            QStringLiteral("angles"),
+            QStringLiteral("dataviews"),
+            QStringLiteral("containers"),
+            QStringLiteral("windows"),
+        };
+        if (pageIndex >= 0 && pageIndex < keys.size()) {
+            nav->setSelectedKey(keys[pageIndex]);
         }
     };
 
-    tabs->addTab(Demo::Pages::createOverviewPage(&window, jumpTo), QStringLiteral("总览"));
-    tabs->addTab(Demo::Pages::createInputsPage(&window), QStringLiteral("输入"));
-    tabs->addTab(Demo::Pages::createButtonsPage(&window), QStringLiteral("按钮"));
-    tabs->addTab(Demo::Pages::createPickersPage(&window), QStringLiteral("选择器"));
-    tabs->addTab(Demo::Pages::createAngleControlsPage(&window), QStringLiteral("角度控件"));
-    tabs->addTab(Demo::Pages::createDataViewsPage(&window), QStringLiteral("数据视图"));
-    tabs->addTab(Demo::Pages::createContainersPage(&window), QStringLiteral("容器"));
-    tabs->addTab(Demo::Pages::createWindowsPage(&window), QStringLiteral("窗口"));
+    stack->addWidget(Demo::Pages::createOverviewPage(&window, jumpTo));   // 0
+    stack->addWidget(Demo::Pages::createBasicInputPage(&window, jumpTo)); // 1
+    stack->addWidget(Demo::Pages::createInputsPage(&window));             // 2
+    stack->addWidget(Demo::Pages::createButtonsPage(&window));            // 3
+    stack->addWidget(Demo::Pages::createPickersPage(&window));            // 4
+    stack->addWidget(Demo::Pages::createAngleControlsPage(&window));      // 5
+    stack->addWidget(Demo::Pages::createDataViewsPage(&window));          // 6
+    stack->addWidget(Demo::Pages::createContainersPage(&window));         // 7
+    stack->addWidget(Demo::Pages::createWindowsPage(&window));            // 8
 
-    rootLayout->addWidget(sidebar);
-    rootLayout->addWidget(tabs, 1);
+    // Settings page: reuse the DemoSidebar as a standalone settings panel
+    auto *settingsPage = new DemoSidebar(&window, nullptr, false);
+    stack->addWidget(settingsPage);                                       // 9
+
+    // Map navigation keys to stack indices
+    QObject::connect(nav, &FluentNavigationView::selectedKeyChanged, this, [stack](const QString &key) {
+        static const QHash<QString, int> keyMap = {
+            { QStringLiteral("overview"),   0 },
+            { QStringLiteral("basic_input"), 1 },
+            { QStringLiteral("inputs"),     2 },
+            { QStringLiteral("buttons"),    3 },
+            { QStringLiteral("pickers"),    4 },
+            { QStringLiteral("angles"),     5 },
+            { QStringLiteral("dataviews"),  6 },
+            { QStringLiteral("containers"), 7 },
+            { QStringLiteral("windows"),    8 },
+            { QStringLiteral("settings"),   9 },
+        };
+        auto it = keyMap.find(key);
+        if (it != keyMap.end()) {
+            stack->setCurrentIndex(it.value());
+        }
+    });
+
+    QObject::connect(settingsPage, &DemoSidebar::toastPositionChanged, this, [this](FluentToast::Position pos) {
+        m_toastPosition = pos;
+    });
+
+    rootLayout->addWidget(nav);
+    rootLayout->addSpacing(8);
+    rootLayout->addWidget(stack, 1);
 
     QObject::connect(msgInfo, &QAction::triggered, this, [this]() {
         FluentMessageBox::information(this,
@@ -243,10 +371,8 @@ DemoWindow::DemoWindow(QWidget *parent)
                                      QStringLiteral("用于展示 MessageBox 与 Theme/Accent 联动。"));
     });
 
-    QObject::connect(dlgAction, &QAction::triggered, this, [tabs]() {
-        if (tabs && tabs->count() > 7) {
-            tabs->setCurrentIndex(7);
-        }
+    QObject::connect(dlgAction, &QAction::triggered, this, [nav]() {
+        nav->setSelectedKey(QStringLiteral("windows"));
     });
 }
 

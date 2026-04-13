@@ -16,6 +16,7 @@
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentLineEdit.h"
 #include "Fluent/FluentMainWindow.h"
+#include "Fluent/FluentNavigationView.h"
 #include "Fluent/FluentProgressBar.h"
 #include "Fluent/FluentScrollArea.h"
 #include "Fluent/FluentTabWidget.h"
@@ -208,6 +209,226 @@ QWidget *createContainersPage(FluentMainWindow *window)
                 250));
 
 #undef CONTAINERS_TABS
+        }
+
+        // NavigationView
+        {
+            const QString code = QStringLiteral(R"CPP(#include "Fluent/FluentNavigationView.h"
+
+using NI = Fluent::FluentNavigationItem;
+
+auto *nav = new Fluent::FluentNavigationView();
+nav->setExpandedWidth(220);
+nav->setCompactWidth(48);
+
+auto applyGlyph = [](NI &item, ushort codePoint) {
+    item.iconGlyph = QString(QChar(codePoint));
+    item.iconFontFamily = QStringLiteral("Segoe Fluent Icons");
+};
+
+std::vector<NI> items;
+NI overview;
+overview.key = QStringLiteral("overview");
+overview.text = QStringLiteral("总览");
+applyGlyph(overview, 0xE80F);
+items.push_back(overview);
+
+NI basicInput;
+basicInput.key = QStringLiteral("basic_input");
+basicInput.text = QStringLiteral("基本输入");
+applyGlyph(basicInput, 0xE961);
+
+NI inputs;
+inputs.key = QStringLiteral("inputs");
+inputs.text = QStringLiteral("输入");
+applyGlyph(inputs, 0xEF60);
+basicInput.children.push_back(inputs);
+
+nav->setItems(items);
+nav->setSelectedKey(QStringLiteral("overview"));
+
+QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
+                 nav, [](const QString &key) {
+    qDebug() << "selected:" << key;
+});
+)CPP");
+
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentNavigationView"),
+                QStringLiteral("分层导航侧栏：支持紧凑/展开、父子项与 footer 项"),
+                QStringLiteral("要点：\n"
+                               "-父项点击可直接选中；右侧箭头只负责展开/收起子项\n"
+                               "-同一时刻只保留一个展开分组，便于保持导航层级清晰\n"
+                               "-支持 Segoe Fluent Icons glyph、headerWidget、footer items 与窄窗口自动收起\n"
+                               "-当前 Demo 主窗口左侧使用的就是同一套控件与数据模型"),
+                code,
+                [=](QVBoxLayout *body) {
+                    auto *shell = new QWidget();
+                    shell->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+                    auto *shellLayout = new QHBoxLayout(shell);
+                    shellLayout->setContentsMargins(0, 0, 0, 0);
+                    shellLayout->setSpacing(12);
+                    shellLayout->setAlignment(Qt::AlignTop);
+
+                    auto *nav = new FluentNavigationView(shell);
+                    nav->setExpandedWidth(220);
+                    nav->setCompactWidth(48);
+                    nav->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
+
+                    auto *navHeader = new QWidget();
+                    auto *navHeaderLayout = new QVBoxLayout(navHeader);
+                    navHeaderLayout->setContentsMargins(14, 12, 14, 8);
+                    navHeaderLayout->setSpacing(2);
+                    auto *navTitle = new FluentLabel(QStringLiteral("组件导航"));
+                    navTitle->setStyleSheet("font-size: 12px; font-weight: 600;");
+                    auto *navSubtitle = new FluentLabel(QStringLiteral("父项可选中，箭头单独控制展开"));
+                    navSubtitle->setStyleSheet("font-size: 11px; opacity: 0.8;");
+                    navSubtitle->setWordWrap(true);
+                    navHeaderLayout->addWidget(navTitle);
+                    navHeaderLayout->addWidget(navSubtitle);
+                    nav->setHeaderWidget(navHeader);
+
+                    auto applyGlyph = [](FluentNavigationItem &item, ushort codePoint) {
+                        item.iconGlyph = QString(QChar(codePoint));
+                        item.iconFontFamily = QStringLiteral("Segoe Fluent Icons");
+                    };
+
+                    using NI = FluentNavigationItem;
+                    std::vector<NI> items;
+                    {
+                        NI overview;
+                        overview.key = QStringLiteral("overview");
+                        overview.text = QStringLiteral("总览");
+                        applyGlyph(overview, 0xE80F);
+                        items.push_back(overview);
+
+                        NI basicInput;
+                        basicInput.key = QStringLiteral("basic_input");
+                        basicInput.text = QStringLiteral("基本输入");
+                        applyGlyph(basicInput, 0xE961);
+
+                        NI inputs;
+                        inputs.key = QStringLiteral("inputs");
+                        inputs.text = QStringLiteral("输入");
+                        applyGlyph(inputs, 0xEF60);
+                        basicInput.children.push_back(inputs);
+
+                        NI buttons;
+                        buttons.key = QStringLiteral("buttons");
+                        buttons.text = QStringLiteral("按钮/开关");
+                        applyGlyph(buttons, 0xF19F);
+                        basicInput.children.push_back(buttons);
+
+                        items.push_back(basicInput);
+
+                        NI containers;
+                        containers.key = QStringLiteral("containers");
+                        containers.text = QStringLiteral("容器/布局");
+                        applyGlyph(containers, 0xF168);
+                        items.push_back(containers);
+                    }
+                    nav->setItems(items);
+
+                    std::vector<NI> footerItems;
+                    {
+                        NI settings;
+                        settings.key = QStringLiteral("settings");
+                        settings.text = QStringLiteral("设置");
+                        applyGlyph(settings, 0xE713);
+                        footerItems.push_back(settings);
+                    }
+                    nav->setFooterItems(footerItems);
+                    nav->setSelectedKey(QStringLiteral("overview"));
+
+                    auto *detailCard = new FluentCard();
+                    detailCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+                    detailCard->setMinimumHeight(336);
+                    auto *detailLayout = new QVBoxLayout(detailCard);
+                    detailLayout->setContentsMargins(16, 16, 16, 16);
+                    detailLayout->setSpacing(10);
+
+                    auto *detailTitle = new FluentLabel();
+                    detailTitle->setStyleSheet("font-size: 14px; font-weight: 600;");
+                    auto *detailBody = new FluentLabel();
+                    detailBody->setWordWrap(true);
+                    detailBody->setStyleSheet("font-size: 12px; opacity: 0.9;");
+                    auto *detailState = new FluentLabel();
+                    detailState->setWordWrap(true);
+                    detailState->setStyleSheet("font-size: 12px; opacity: 0.82;");
+                    auto *detailHint = new FluentLabel(QStringLiteral("试试点击“基本输入”正文与右侧箭头，对比选中与展开的分离行为；再点左上角汉堡按钮切换紧凑模式。"));
+                    detailHint->setWordWrap(true);
+                    detailHint->setStyleSheet("font-size: 12px; opacity: 0.78;");
+                    detailLayout->addWidget(detailTitle);
+                    detailLayout->addWidget(detailBody);
+                    detailLayout->addWidget(detailState);
+                    detailLayout->addStretch(1);
+                    detailLayout->addWidget(detailHint);
+
+                    auto *actions = new QHBoxLayout();
+                    actions->setContentsMargins(0, 0, 0, 0);
+                    actions->setSpacing(8);
+                    auto *toggleButton = new FluentButton(QStringLiteral("切换展开态"));
+                    auto *selectParentButton = new FluentButton(QStringLiteral("选中父项"));
+                    auto *selectSettingsButton = new FluentButton(QStringLiteral("跳到 Footer"));
+                    actions->addWidget(toggleButton);
+                    actions->addWidget(selectParentButton);
+                    actions->addWidget(selectSettingsButton);
+                    actions->addStretch(1);
+                    detailLayout->addLayout(actions);
+
+                    const auto updateDetail = [=]() {
+                        const QString key = nav->selectedKey();
+                        if (key == QStringLiteral("overview")) {
+                            detailTitle->setText(QStringLiteral("总览"));
+                            detailBody->setText(QStringLiteral("适合放欢迎页、目录页或父分组整合页。当前 Demo 的 Overview 和 Basic Input 都是这种入口型页面。"));
+                        } else if (key == QStringLiteral("basic_input")) {
+                            detailTitle->setText(QStringLiteral("基本输入（父项）"));
+                            detailBody->setText(QStringLiteral("父项可以单独点击跳转到整合页；只有右侧箭头区域负责控制子项显隐。"));
+                        } else if (key == QStringLiteral("inputs")) {
+                            detailTitle->setText(QStringLiteral("输入（子项）"));
+                            detailBody->setText(QStringLiteral("当选中子项时，NavigationView 会自动确保父分组展开，并把选中指示器平滑移动到对应行。"));
+                        } else if (key == QStringLiteral("buttons")) {
+                            detailTitle->setText(QStringLiteral("按钮/开关（子项）"));
+                            detailBody->setText(QStringLiteral("子项适合承载更细分的页面；同级父分组采用 accordion 行为，展开一个时会收起其他已展开分组。"));
+                        } else if (key == QStringLiteral("containers")) {
+                            detailTitle->setText(QStringLiteral("容器/布局"));
+                            detailBody->setText(QStringLiteral("没有子项的顶层项就是普通导航入口，适合映射到单一页面或模块。"));
+                        } else if (key == QStringLiteral("settings")) {
+                            detailTitle->setText(QStringLiteral("设置（Footer）"));
+                            detailBody->setText(QStringLiteral("Footer items 会固定在底部，适合放设置、账户、帮助等全局入口。"));
+                        } else {
+                            detailTitle->setText(QStringLiteral("NavigationView"));
+                            detailBody->setText(QStringLiteral("使用 setItems / setFooterItems 配置数据，使用 selectedKeyChanged 监听导航切换。"));
+                        }
+
+                        detailState->setText(
+                            QStringLiteral("当前 key：%1\n模式：%2\n说明：compact 模式保留图标，expanded 模式显示文本与 header")
+                                .arg(key.isEmpty() ? QStringLiteral("<empty>") : key)
+                                .arg(nav->isExpanded() ? QStringLiteral("expanded") : QStringLiteral("compact")));
+                    };
+
+                    QObject::connect(nav, &FluentNavigationView::selectedKeyChanged, detailCard, [=](const QString &) {
+                        updateDetail();
+                    });
+                    QObject::connect(nav, &FluentNavigationView::expandedChanged, detailCard, [=](bool) {
+                        updateDetail();
+                    });
+                    QObject::connect(toggleButton, &QPushButton::clicked, nav, &FluentNavigationView::toggleExpanded);
+                    QObject::connect(selectParentButton, &QPushButton::clicked, nav, [=]() {
+                        nav->setSelectedKey(QStringLiteral("basic_input"));
+                    });
+                    QObject::connect(selectSettingsButton, &QPushButton::clicked, nav, [=]() {
+                        nav->setSelectedKey(QStringLiteral("settings"));
+                    });
+
+                    updateDetail();
+
+                    shellLayout->addWidget(nav);
+                    shellLayout->addWidget(detailCard, 1);
+                    body->addWidget(shell);
+                },
+                false,
+                290));
         }
 
         // ScrollArea
