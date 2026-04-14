@@ -21,8 +21,8 @@ QWidget *createAngleControlsPage(FluentMainWindow *window)
     Q_UNUSED(window)
 
     return Demo::makePage([&](QVBoxLayout *page) {
-        auto s = Demo::makeSection(QStringLiteral("角度控件"),
-                                   QStringLiteral("FluentDial / FluentAngleSelector：指针、高亮、复合编辑器"));
+        auto s = Demo::makeSection(DEMO_TEXT("角度控件", "Angle Controls"),
+                                   DEMO_TEXT("FluentDial / FluentAngleSelector：指针、高亮、复合编辑器", "FluentDial / FluentAngleSelector: indicator, highlight, and composite editor"));
         page->addWidget(s.card);
 
         {
@@ -48,10 +48,13 @@ QWidget *createAngleControlsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentDial"),
-                QStringLiteral("基础角度旋钮"),
-                QStringLiteral("要点：\n"
-                               "-角度指针\n"
-                               "-hover/focus 高亮"),
+                DEMO_TEXT("基础角度旋钮", "Basic angle dial"),
+                DEMO_TEXT("要点：\n"
+                          "-角度指针\n"
+                          "-hover/focus 高亮",
+                          "Highlights:\n"
+                          "-Angle indicator\n"
+                          "-Hover and focus highlight"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -85,11 +88,15 @@ QWidget *createAngleControlsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentAngleSelector"),
-                QStringLiteral("复合角度编辑器"),
-                QStringLiteral("要点：\n"
-                               "-标签 + Dial + SpinBox 一体化\n"
-                               "-只暴露一个 valueChanged(int)\n"
-                               "-可直接复用到渐变、图形旋转等场景"),
+                DEMO_TEXT("复合角度编辑器", "Composite angle editor"),
+                DEMO_TEXT("要点：\n"
+                          "-标签 + Dial + SpinBox 一体化\n"
+                          "-只暴露一个 valueChanged(int)\n"
+                          "-可直接复用到渐变、图形旋转等场景",
+                          "Highlights:\n"
+                          "-Combines label, dial, and spin box\n"
+                          "-Exposes a single valueChanged(int) signal\n"
+                          "-Ready for gradients, object rotation, and similar scenarios"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -126,11 +133,15 @@ QWidget *createAngleControlsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentAngleSelector（可见性变体）"),
-                QStringLiteral("支持单独隐藏标签或 Dial"),
-                QStringLiteral("要点：\n"
-                               "-setLabelVisible(bool)\n"
-                               "-setDialVisible(bool)\n"
-                               "-适应紧凑布局和无标题表单"),
+                DEMO_TEXT("支持单独隐藏标签或 Dial", "Supports hiding the label or the dial independently"),
+                DEMO_TEXT("要点：\n"
+                          "-setLabelVisible(bool)\n"
+                          "-setDialVisible(bool)\n"
+                          "-适应紧凑布局和无标题表单",
+                          "Highlights:\n"
+                          "-Use setLabelVisible(bool)\n"
+                          "-Use setDialVisible(bool)\n"
+                          "-Fits compact layouts and label-free forms"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line

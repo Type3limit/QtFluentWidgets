@@ -86,6 +86,7 @@ FluentCalendarPopup::FluentCalendarPopup(QWidget *anchor)
     setAutoFillBackground(false);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
+    m_todayText = tr("今天");
     m_selected = QDate::currentDate();
     ensurePageFromSelected();
 

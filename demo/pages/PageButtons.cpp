@@ -22,8 +22,8 @@ using namespace Fluent;
 QWidget *createButtonsPage(FluentMainWindow *window)
 {
     return Demo::makePage([&](QVBoxLayout *page) {
-        auto s = Demo::makeSection(QStringLiteral("按钮 / 开关"),
-                                   QStringLiteral("包含 primary/secondary、disabled、checked，以及 CheckBox/Radio/Toggle"));
+        auto s = Demo::makeSection(DEMO_TEXT("按钮 / 开关", "Buttons / Toggles"),
+                                   DEMO_TEXT("包含 primary/secondary、disabled、checked，以及 CheckBox/Radio/Toggle", "Includes primary / secondary, disabled, checked, plus CheckBox / Radio / Toggle"));
 
         page->addWidget(s.card);
 
@@ -56,11 +56,15 @@ QWidget *createButtonsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentButton"),
-                QStringLiteral("Primary/Secondary、禁用、可勾选状态"),
-                QStringLiteral("要点：\n"
-                               "-setPrimary(true) 切换主按钮样式\n"
-                               "-setDisabled(true) 展示禁用态\n"
-                               "-setCheckable(true) + setChecked(true) 展示 Checked"),
+                DEMO_TEXT("Primary/Secondary、禁用、可勾选状态", "Primary / secondary, disabled, and checkable states"),
+                DEMO_TEXT("要点：\n"
+                          "-setPrimary(true) 切换主按钮样式\n"
+                          "-setDisabled(true) 展示禁用态\n"
+                          "-setCheckable(true) + setChecked(true) 展示 Checked",
+                          "Highlights:\n"
+                          "-Use setPrimary(true) to switch to the primary button style\n"
+                          "-Use setDisabled(true) to show the disabled state\n"
+                          "-Use setCheckable(true) + setChecked(true) to show the checked state"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -94,10 +98,13 @@ QWidget *createButtonsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentToolButton"),
-                QStringLiteral("更紧凑的按钮，适合工具栏/图标动作"),
-                QStringLiteral("要点：\n"
-                               "-可 checkable（用于 Toggle 工具）\n"
-                               "-尺寸更小，适合与菜单/弹出配合"),
+                DEMO_TEXT("更紧凑的按钮，适合工具栏/图标动作", "A more compact button suited to toolbars and icon actions"),
+                DEMO_TEXT("要点：\n"
+                          "-可 checkable（用于 Toggle 工具）\n"
+                          "-尺寸更小，适合与菜单/弹出配合",
+                          "Highlights:\n"
+                          "-Can be checkable for toggle-style tools\n"
+                          "-Smaller footprint, ideal next to menus and popups"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -134,11 +141,15 @@ QWidget *createButtonsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("CheckBox / RadioButton / ToggleSwitch"),
-                QStringLiteral("常见选择/开关控件"),
-                QStringLiteral("要点：\n"
-                               "-CheckBox：多选\n"
-                               "-RadioButton：单选（同父布局/同组）\n"
-                               "-ToggleSwitch：开关语义更明确"),
+                DEMO_TEXT("常见选择/开关控件", "Common selection and toggle controls"),
+                DEMO_TEXT("要点：\n"
+                          "-CheckBox：多选\n"
+                          "-RadioButton：单选（同父布局/同组）\n"
+                          "-ToggleSwitch：开关语义更明确",
+                          "Highlights:\n"
+                          "-CheckBox: multi-selection\n"
+                          "-RadioButton: single-selection within the same parent or group\n"
+                          "-ToggleSwitch: clearer on/off semantics"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -165,10 +176,13 @@ QWidget *createButtonsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentProgressBar"),
-                QStringLiteral("进度条（Accent 会影响进度颜色）"),
-                QStringLiteral("要点：\n"
-                               "-setRange()/setValue()\n"
-                               "-主题/Accent 联动（填充色、背景）"),
+                DEMO_TEXT("进度条（Accent 会影响进度颜色）", "Progress bar (Accent affects the progress color)"),
+                DEMO_TEXT("要点：\n"
+                          "-setRange()/setValue()\n"
+                          "-主题/Accent 联动（填充色、背景）",
+                          "Highlights:\n"
+                          "-Use setRange() and setValue()\n"
+                          "-Theme and Accent both influence the fill and background"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line

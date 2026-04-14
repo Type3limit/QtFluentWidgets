@@ -132,9 +132,9 @@ static QWidget *makeAccentBorderAnimWidget(QWidget *parent)
         layout->addWidget(rowW);
     };
 
-    makeRow(QStringLiteral("时长"), durSlider, durSpin);
-    makeRow(QStringLiteral("弹性"), overSlider, overSpin);
-    makeRow(QStringLiteral("弹性点"), atSlider, atSpin);
+    makeRow(DEMO_TEXT("时长", "Duration"), durSlider, durSpin);
+    makeRow(DEMO_TEXT("弹性", "Overshoot"), overSlider, overSpin);
+    makeRow(DEMO_TEXT("弹性点", "Overshoot point"), atSlider, atSpin);
 
     QObject::connect(durSlider, &QSlider::valueChanged, w, [durSpin](int v) {
         if (durSpin->value() != v) {
@@ -282,11 +282,32 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
         themeLayout->addWidget(lab);
     };
 
-    addGroupTitle(QStringLiteral("主题"));
+    addGroupTitle(DEMO_TEXT("语言", "Language"));
+
+    auto *languageRow = new QHBoxLayout();
+    languageRow->setContentsMargins(0, 0, 0, 0);
+    auto *languageLabel = new FluentLabel(DEMO_TEXT("显示语言", "Display language"));
+    auto *languageCombo = new FluentComboBox();
+    languageCombo->addItem(DEMO_TEXT("简体中文", "Chinese (Simplified)"), static_cast<int>(DemoLanguage::Chinese));
+    languageCombo->addItem(QStringLiteral("English"), static_cast<int>(DemoLanguage::English));
+    languageCombo->setCurrentIndex(currentLanguage() == DemoLanguage::English ? 1 : 0);
+    languageRow->addWidget(languageLabel);
+    languageRow->addStretch(1);
+    languageRow->addWidget(languageCombo);
+    themeLayout->addLayout(languageRow);
+
+    QObject::connect(languageCombo,
+                     QOverload<int>::of(&QComboBox::currentIndexChanged),
+                     this,
+                     [this, languageCombo](int) {
+                         emit languageChanged(static_cast<DemoLanguage>(languageCombo->currentData().toInt()));
+                     });
+
+    addGroupTitle(DEMO_TEXT("主题", "Theme"));
 
     auto *modeRow = new QHBoxLayout();
     modeRow->setContentsMargins(0, 0, 0, 0);
-    auto *modeLabel = new FluentLabel(QStringLiteral("深色模式"));
+    auto *modeLabel = new FluentLabel(DEMO_TEXT("深色模式", "Dark mode"));
     auto *darkToggle = new FluentToggleSwitch();
     modeRow->addWidget(modeLabel);
     modeRow->addStretch(1);
@@ -304,11 +325,11 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
     });
     darkToggle->setChecked(ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark);
 
-    addGroupTitle(QStringLiteral("描边"));
+    addGroupTitle(DEMO_TEXT("描边", "Border"));
 
     auto *borderRow = new QHBoxLayout();
     borderRow->setContentsMargins(0, 0, 0, 0);
-    auto *borderLabel = new FluentLabel(QStringLiteral("Accent 描边"));
+    auto *borderLabel = new FluentLabel(DEMO_TEXT("Accent 描边", "Accent border"));
     auto *borderToggle = new FluentToggleSwitch();
     borderToggle->setChecked(ThemeManager::instance().accentBorderEnabled());
     borderRow->addWidget(borderLabel);
@@ -328,20 +349,24 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
 
     // Border trace animation tuning as sub-widget
     {
-        auto *animTitle = new FluentLabel(QStringLiteral("动画参数"));
+        auto *animTitle = new FluentLabel(DEMO_TEXT("动画参数", "Animation parameters"));
         animTitle->setStyleSheet("font-size: 12px; font-weight: 600; opacity: 0.9;");
         themeLayout->addWidget(animTitle);
         themeLayout->addWidget(makeAccentBorderAnimWidget(this));
     }
 
-    addGroupTitle(QStringLiteral("颜色"));
+    addGroupTitle(DEMO_TEXT("颜色", "Colors"));
 
     {
-        auto *hint = new FluentLabel(QStringLiteral(
+        auto *hint = new FluentLabel(DEMO_TEXT(
             "-Accent：强调色（Primary 按钮、开关高亮、进度条、焦点边框等）\n"
             "-Background：窗口底色（大面积背景）\n"
             "-Surface：卡片/控件表面底色（更适合承载内容）\n"
-            "提示：如果你只改 Accent，整体不会变暗/变亮；想要氛围变化请配合 Theme 或 Background/Surface。"));
+            "提示：如果你只改 Accent，整体不会变暗/变亮；想要氛围变化请配合 Theme 或 Background/Surface。",
+            "-Accent: emphasis color for primary buttons, toggles, progress bars, focus borders, and more\n"
+            "-Background: main window background tone\n"
+            "-Surface: card and control surface color for content\n"
+            "Tip: changing only Accent will not shift the whole atmosphere. Pair it with Theme or Background/Surface for a broader change."));
         hint->setWordWrap(true);
         hint->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         hint->setMinimumWidth(0);
@@ -352,7 +377,7 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
     themeLayout->addWidget(makeColorPreviewCard(this));
 
     {
-        auto *t = new FluentLabel(QStringLiteral("Accent 预设"));
+        auto *t = new FluentLabel(DEMO_TEXT("Accent 预设", "Accent presets"));
         t->setStyleSheet("font-size: 12px; font-weight: 600; opacity: 0.9;");
         themeLayout->addWidget(t);
     }
@@ -366,10 +391,10 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
     accentFlow->setAnimationEnabled(true);
     accentButtonsHost->setLayout(accentFlow);
 
-    auto *accentBlue = new FluentButton(QStringLiteral("蓝"));
-    auto *accentGreen = new FluentButton(QStringLiteral("绿"));
-    auto *accentPurple = new FluentButton(QStringLiteral("紫"));
-    auto *accentPick = new FluentButton(QStringLiteral("自定义…"));
+    auto *accentBlue = new FluentButton(DEMO_TEXT("蓝", "Blue"));
+    auto *accentGreen = new FluentButton(DEMO_TEXT("绿", "Green"));
+    auto *accentPurple = new FluentButton(DEMO_TEXT("紫", "Purple"));
+    auto *accentPick = new FluentButton(DEMO_TEXT("自定义…", "Custom..."));
     accentFlow->addWidget(accentBlue);
     accentFlow->addWidget(accentGreen);
     accentFlow->addWidget(accentPurple);
@@ -403,7 +428,7 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
     });
 
     {
-        auto *t = new FluentLabel(QStringLiteral("背景 / 表面"));
+        auto *t = new FluentLabel(DEMO_TEXT("背景 / 表面", "Background / Surface"));
         t->setStyleSheet("font-size: 12px; font-weight: 600; opacity: 0.9;");
         themeLayout->addWidget(t);
     }
@@ -419,7 +444,7 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
 
     auto *bgPick = new FluentButton(QStringLiteral("Background…"));
     auto *surfacePick = new FluentButton(QStringLiteral("Surface…"));
-    auto *toneReset = new FluentButton(QStringLiteral("重置"));
+    auto *toneReset = new FluentButton(DEMO_TEXT("重置", "Reset"));
     toneFlow->addWidget(bgPick);
     toneFlow->addWidget(surfacePick);
     toneFlow->addWidget(toneReset);
@@ -483,7 +508,7 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
         ThemeManager::instance().setColors(colors);
     });
 
-    addGroupTitle(QStringLiteral("信息"));
+    addGroupTitle(DEMO_TEXT("信息", "Info"));
 
     auto *themeInfo = new FluentLabel();
     themeInfo->setWordWrap(true);
@@ -496,12 +521,16 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
         const auto &c = ThemeManager::instance().colors();
         const bool isDark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
         const auto m = Style::metrics();
-        themeInfo->setText(QStringLiteral(
-                               "Theme: %1\n"
-                               "Accent: %2\n"
-                               "BG: %3  Surface: %4\n"
-                               "Style: height=%5  radius=%6  paddingX=%7  paddingY=%8")
-                              .arg(isDark ? QStringLiteral("Dark") : QStringLiteral("Light"))
+        themeInfo->setText(DEMO_TEXT(
+                       "主题：%1\n"
+                       "Accent：%2\n"
+                       "背景：%3  表面：%4\n"
+                       "样式：height=%5  radius=%6  paddingX=%7  paddingY=%8",
+                       "Theme: %1\n"
+                       "Accent: %2\n"
+                       "Background: %3  Surface: %4\n"
+                       "Style: height=%5  radius=%6  paddingX=%7  paddingY=%8")
+                      .arg(isDark ? DEMO_TEXT("深色", "Dark") : DEMO_TEXT("浅色", "Light"))
                               .arg(c.accent.name())
                               .arg(c.background.name())
                               .arg(c.surface.name())
@@ -524,16 +553,16 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
 
         auto *toastPosCombo = new FluentComboBox();
         toastPosCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        toastPosCombo->addItem(QStringLiteral("左上"), static_cast<int>(FluentToast::Position::TopLeft));
-        toastPosCombo->addItem(QStringLiteral("顶部居中"), static_cast<int>(FluentToast::Position::TopCenter));
-        toastPosCombo->addItem(QStringLiteral("右上"), static_cast<int>(FluentToast::Position::TopRight));
-        toastPosCombo->addItem(QStringLiteral("左下"), static_cast<int>(FluentToast::Position::BottomLeft));
-        toastPosCombo->addItem(QStringLiteral("底部居中"), static_cast<int>(FluentToast::Position::BottomCenter));
-        toastPosCombo->addItem(QStringLiteral("右下"), static_cast<int>(FluentToast::Position::BottomRight));
+        toastPosCombo->addItem(DEMO_TEXT("左上", "Top left"), static_cast<int>(FluentToast::Position::TopLeft));
+        toastPosCombo->addItem(DEMO_TEXT("顶部居中", "Top center"), static_cast<int>(FluentToast::Position::TopCenter));
+        toastPosCombo->addItem(DEMO_TEXT("右上", "Top right"), static_cast<int>(FluentToast::Position::TopRight));
+        toastPosCombo->addItem(DEMO_TEXT("左下", "Bottom left"), static_cast<int>(FluentToast::Position::BottomLeft));
+        toastPosCombo->addItem(DEMO_TEXT("底部居中", "Bottom center"), static_cast<int>(FluentToast::Position::BottomCenter));
+        toastPosCombo->addItem(DEMO_TEXT("右下", "Bottom right"), static_cast<int>(FluentToast::Position::BottomRight));
         toastPosCombo->setCurrentIndex(5);
 
-        auto *toastOne = new FluentButton(QStringLiteral("发一条"));
-        auto *toastAll = new FluentButton(QStringLiteral("全位置"));
+        auto *toastOne = new FluentButton(DEMO_TEXT("发一条", "Send one"));
+        auto *toastAll = new FluentButton(DEMO_TEXT("全位置", "All positions"));
         toastOne->setFixedHeight(28);
         toastAll->setFixedHeight(28);
         toastOne->setFixedWidth(72);
@@ -547,19 +576,19 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
         auto posName = [](FluentToast::Position p) {
             switch (p) {
             case FluentToast::Position::TopLeft:
-                return QStringLiteral("左上");
+                return DEMO_TEXT("左上", "Top left");
             case FluentToast::Position::TopCenter:
-                return QStringLiteral("顶部居中");
+                return DEMO_TEXT("顶部居中", "Top center");
             case FluentToast::Position::TopRight:
-                return QStringLiteral("右上");
+                return DEMO_TEXT("右上", "Top right");
             case FluentToast::Position::BottomLeft:
-                return QStringLiteral("左下");
+                return DEMO_TEXT("左下", "Bottom left");
             case FluentToast::Position::BottomCenter:
-                return QStringLiteral("底部居中");
+                return DEMO_TEXT("底部居中", "Bottom center");
             case FluentToast::Position::BottomRight:
-                return QStringLiteral("右下");
+                return DEMO_TEXT("右下", "Bottom right");
             }
-            return QStringLiteral("右下");
+            return DEMO_TEXT("右下", "Bottom right");
         };
 
         m_toastPosition = FluentToast::Position::BottomRight;
@@ -578,7 +607,7 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
             }
             FluentToast::showToast(m_hostWindow,
                                   QStringLiteral("Toast"),
-                                  QStringLiteral("当前弹出位置：%1（点击可关闭）").arg(posName(m_toastPosition)),
+                                  DEMO_TEXT("当前弹出位置：%1（点击可关闭）", "Current position: %1 (click to dismiss)").arg(posName(m_toastPosition)),
                                   m_toastPosition,
                                   2600);
         });
@@ -604,7 +633,7 @@ DemoThemePanel::DemoThemePanel(QWidget *hostWindow, QWidget *parent, bool showTo
                     }
                     FluentToast::showToast(m_hostWindow,
                                           QStringLiteral("Toast"),
-                                          QStringLiteral("位置：%1（点击可关闭）").arg(posName(p)),
+                                          DEMO_TEXT("位置：%1（点击可关闭）", "Position: %1 (click to dismiss)").arg(posName(p)),
                                           p,
                                           2400);
                 });

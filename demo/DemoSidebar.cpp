@@ -52,7 +52,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
 
         auto *title = new FluentLabel(QStringLiteral("QtFluentWidgets"));
         title->setStyleSheet("font-size: 18px; font-weight: 650;");
-        auto *sub = new FluentLabel(QStringLiteral("全控件展示 + Theme/Style 联动"));
+        auto *sub = new FluentLabel(DEMO_TEXT("全控件展示 + Theme/Style 联动", "Full control gallery + Theme/Style linkage"));
         sub->setStyleSheet("font-size: 12px; opacity: 0.85;");
         sub->setWordWrap(true);
         sub->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
@@ -72,6 +72,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
                          m_toastPosition = pos;
                          emit toastPositionChanged(pos);
                      });
+    QObject::connect(themePanel, &DemoThemePanel::languageChanged, this, &DemoSidebar::languageChanged);
 
     QWidget *themeSection = nullptr;
     QWidget *codeEditorSection = nullptr;
@@ -79,7 +80,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
     if (showNavigation) {
         auto *themeCard = new FluentCard();
         themeCard->setCollapsible(true);
-        themeCard->setTitle(QStringLiteral("主题 / 样式"));
+        themeCard->setTitle(DEMO_TEXT("主题 / 样式", "Theme / Style"));
         themeCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
         auto *themeScroll = new FluentScrollArea(themeCard);
@@ -113,17 +114,17 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
         auto *navLayout = new QVBoxLayout(navCardInner);
         navLayout->setContentsMargins(0, 0, 0, 0);
         navLayout->setSpacing(10);
-        navLayout->addWidget(new FluentLabel(QStringLiteral("页面")));
+        navLayout->addWidget(new FluentLabel(DEMO_TEXT("页面", "Pages")));
 
         const QStringList navItems = {
-            QStringLiteral("总览"),
-            QStringLiteral("输入"),
-            QStringLiteral("按钮/开关"),
-            QStringLiteral("选择器"),
-            QStringLiteral("角度控件"),
-            QStringLiteral("数据视图"),
-            QStringLiteral("容器/布局"),
-            QStringLiteral("窗口/对话框"),
+            DEMO_TEXT("总览", "Overview"),
+            DEMO_TEXT("输入", "Inputs"),
+            DEMO_TEXT("按钮/开关", "Buttons / Toggles"),
+            DEMO_TEXT("选择器", "Pickers"),
+            DEMO_TEXT("角度控件", "Angle Controls"),
+            DEMO_TEXT("数据视图", "Data Views"),
+            DEMO_TEXT("容器/布局", "Containers / Layout"),
+            DEMO_TEXT("窗口/对话框", "Windows / Dialogs"),
         };
 
         m_navView = new FluentListView();

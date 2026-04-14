@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DemoHelpers.h"
 #include "Fluent/FluentScrollArea.h"
 #include "Fluent/FluentToast.h"
 
@@ -27,6 +28,7 @@ public:
 signals:
     void currentPageChanged(int index);
     void toastPositionChanged(Fluent::FluentToast::Position position);
+    void languageChanged(DemoLanguage language);
 
 private:
     QPointer<QWidget> m_hostWindow;

@@ -63,7 +63,7 @@ private:
         if (!m_watched || !m_label) {
             return;
         }
-        m_label->setText(QStringLiteral("预览区：%1×%2px").arg(m_watched->width()).arg(m_watched->height()));
+        m_label->setText(DEMO_TEXT("预览区：%1×%2px", "Preview: %1 x %2 px").arg(m_watched->width()).arg(m_watched->height()));
     }
 
     QWidget *m_watched = nullptr;
@@ -83,7 +83,7 @@ FluentCard *makeAnnotatedSectionCard(const QString &group, const QString &title,
     auto *titleLabel = new FluentLabel(title);
     titleLabel->setStyleSheet("font-size: 13px; font-weight: 650;");
 
-    auto *groupLabel = new FluentLabel(QStringLiteral("分组：%1").arg(group));
+    auto *groupLabel = new FluentLabel(DEMO_TEXT("分组：%1", "Group: %1").arg(group));
     groupLabel->setStyleSheet("font-size: 11px; opacity: 0.72;");
 
     auto *summaryLabel = new FluentLabel(summary);
@@ -128,7 +128,7 @@ QVector<FluentAnnotatedScrollBarSource> makeAnnotatedSources(const QVector<QPair
 QWidget *createContainersPage(FluentMainWindow *window)
 {
     return Demo::makePage([&](QVBoxLayout *page) {
-        auto s = Demo::makeSection(QStringLiteral("容器 / 布局"),
+        auto s = Demo::makeSection(DEMO_TEXT("容器 / 布局", "Containers / Layout"),
                                    QStringLiteral("Card / GroupBox / TabWidget / ScrollArea / ScrollBar / AnnotatedScrollBar / Splitter / FlowLayout"));
 
         page->addWidget(s.card);
@@ -142,8 +142,8 @@ QWidget *createContainersPage(FluentMainWindow *window)
     X(auto *l = new QVBoxLayout(card);) \
     X(l->setContentsMargins(16, 16, 16, 16);) \
     X(l->setSpacing(8);) \
-    X(l->addWidget(new FluentLabel(QStringLiteral("这是一个 FluentCard 内容容器")));) \
-    X(l->addWidget(new FluentLabel(QStringLiteral("你可以把任意控件放进来。")));) \
+    X(l->addWidget(new FluentLabel(DEMO_TEXT("这是一个 FluentCard 内容容器", "This is a FluentCard content container")));) \
+    X(l->addWidget(new FluentLabel(DEMO_TEXT("你可以把任意控件放进来。", "You can place any controls inside it.")));) \
     X(body->addWidget(card);)
 
 #define X(line) code += QStringLiteral(#line "\n");
@@ -152,10 +152,13 @@ QWidget *createContainersPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentCard"),
-                QStringLiteral("基础卡片容器（背景/边框/阴影随主题）"),
-                QStringLiteral("要点：\n"
-                               "-作为内容容器时直接给 Card 设置布局\n"
-                               "-内部子控件会随主题变化"),
+                DEMO_TEXT("基础卡片容器（背景/边框/阴影随主题）", "Basic card container with theme-aware background, border, and shadow"),
+                DEMO_TEXT("要点：\n"
+                          "-作为内容容器时直接给 Card 设置布局\n"
+                          "-内部子控件会随主题变化",
+                          "Highlights:\n"
+                          "-Set a layout on the Card directly when using it as a content container\n"
+                          "-Child controls inside it still follow theme changes"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -173,10 +176,10 @@ QWidget *createContainersPage(FluentMainWindow *window)
 #define CONTAINERS_COLLAPSIBLE_CARD(X) \
     X(auto *card = new FluentCard();) \
     X(card->setCollapsible(true);) \
-    X(card->setTitle(QStringLiteral("高级选项"));) \
+    X(card->setTitle(DEMO_TEXT("高级选项", "Advanced options"));) \
     X(card->setCollapsed(true);) \
-    X(card->contentLayout()->addWidget(new FluentLabel(QStringLiteral("-折叠时内容会隐藏")));) \
-    X(card->contentLayout()->addWidget(new FluentLabel(QStringLiteral("-适合放可选配置/高级设置")));) \
+    X(card->contentLayout()->addWidget(new FluentLabel(DEMO_TEXT("-折叠时内容会隐藏", "-Content is hidden while collapsed")));) \
+    X(card->contentLayout()->addWidget(new FluentLabel(DEMO_TEXT("-适合放可选配置/高级设置", "-Useful for optional configuration or advanced settings")));) \
     X(body->addWidget(card);)
 
 #define X(line) code += QStringLiteral(#line "\n");
@@ -185,11 +188,15 @@ QWidget *createContainersPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("Collapsible FluentCard"),
-                QStringLiteral("点击标题折叠/展开（隐藏内容区）"),
-                QStringLiteral("要点：\n"
-                               "-setCollapsible(true) 开启\n"
-                               "-setTitle() 设置标题\n"
-                               "-setCollapsed(true/false) 控制展开状态"),
+                DEMO_TEXT("点击标题折叠/展开（隐藏内容区）", "Click the title to collapse or expand the content area"),
+                DEMO_TEXT("要点：\n"
+                          "-setCollapsible(true) 开启\n"
+                          "-setTitle() 设置标题\n"
+                          "-setCollapsed(true/false) 控制展开状态",
+                          "Highlights:\n"
+                          "-Use setCollapsible(true) to enable collapsing\n"
+                          "-Use setTitle() to set the header text\n"
+                          "-Use setCollapsed(true / false) to control the expanded state"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -208,8 +215,8 @@ QWidget *createContainersPage(FluentMainWindow *window)
     X(auto *gb = new FluentGroupBox(QStringLiteral("FluentGroupBox"));) \
     X(auto *gbl = new QVBoxLayout(gb);) \
     X(auto *gbLine = new FluentLineEdit();) \
-    X(gbLine->setPlaceholderText(QStringLiteral("GroupBox 内部控件同样跟随 Theme"));) \
-    X(auto *gbToggle = new FluentToggleSwitch(QStringLiteral("开关"));) \
+    X(gbLine->setPlaceholderText(DEMO_TEXT("GroupBox 内部控件同样跟随 Theme", "Controls inside the GroupBox also follow Theme"));) \
+    X(auto *gbToggle = new FluentToggleSwitch(DEMO_TEXT("开关", "Toggle"));) \
     X(gbl->addWidget(gbLine);) \
     X(gbl->addWidget(gbToggle);) \
     X(body->addWidget(gb);)
@@ -220,10 +227,13 @@ QWidget *createContainersPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentGroupBox"),
-                QStringLiteral("带标题边框的分组容器"),
-                QStringLiteral("要点：\n"
-                               "-适合把相关控件归类\n"
-                               "-内部控件同样跟随主题"),
+                DEMO_TEXT("带标题边框的分组容器", "Grouped container with a titled border"),
+                DEMO_TEXT("要点：\n"
+                          "-适合把相关控件归类\n"
+                          "-内部控件同样跟随主题",
+                          "Highlights:\n"
+                          "-Useful for grouping related controls\n"
+                          "-Child controls remain theme-aware"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -241,8 +251,8 @@ QWidget *createContainersPage(FluentMainWindow *window)
     X(auto *tabs = new FluentTabWidget();) \
     X(auto *tab1 = new QWidget();) \
     X(auto *tab2 = new QWidget();) \
-    X({ auto *l = new QVBoxLayout(tab1); l->setContentsMargins(0, 0, 0, 0); l->setSpacing(10); l->addWidget(new FluentLabel(QStringLiteral("Tab 1：演示控件复用"))); l->addWidget(new FluentProgressBar()); }) \
-    X({ auto *l = new QVBoxLayout(tab2); l->setContentsMargins(0, 0, 0, 0); l->setSpacing(10); l->addWidget(new FluentLabel(QStringLiteral("Tab 2：滚动区域"))); auto *big = new FluentTextEdit(); big->setText(QStringLiteral("这里是一个 TextEdit，用来制造滚动内容。\n\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n")); big->setFixedHeight(160); l->addWidget(big); }) \
+    X({ auto *l = new QVBoxLayout(tab1); l->setContentsMargins(0, 0, 0, 0); l->setSpacing(10); l->addWidget(new FluentLabel(DEMO_TEXT("Tab 1：演示控件复用", "Tab 1: control reuse demo"))); l->addWidget(new FluentProgressBar()); }) \
+    X({ auto *l = new QVBoxLayout(tab2); l->setContentsMargins(0, 0, 0, 0); l->setSpacing(10); l->addWidget(new FluentLabel(DEMO_TEXT("Tab 2：滚动区域", "Tab 2: scrolling area"))); auto *big = new FluentTextEdit(); big->setText(DEMO_TEXT("这里是一个 TextEdit，用来制造滚动内容。\n\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n", "This TextEdit is here to create scrollable content.\n\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n")); big->setFixedHeight(160); l->addWidget(big); }) \
     X(tabs->addTab(tab1, QStringLiteral("Tab 1"));) \
     X(tabs->addTab(tab2, QStringLiteral("Tab 2"));) \
     X(body->addWidget(tabs);)
@@ -253,10 +263,13 @@ QWidget *createContainersPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentTabWidget"),
-                QStringLiteral("标签页容器（切换动画/主题联动）"),
-                QStringLiteral("要点：\n"
-                               "-addTab(widget, title) 添加页面\n"
-                               "-可用于设置页/多视图切换"),
+                DEMO_TEXT("标签页容器（切换动画/主题联动）", "Tab container with switch animation and theme linkage"),
+                DEMO_TEXT("要点：\n"
+                          "-addTab(widget, title) 添加页面\n"
+                          "-可用于设置页/多视图切换",
+                          "Highlights:\n"
+                          "-Use addTab(widget, title) to add pages\n"
+                          "-Useful for settings pages and multi-view switching"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -323,12 +336,17 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentNavigationView"),
-                QStringLiteral("WinUI3 风格导航栏：支持 Left / LeftCompact / Top 与显式 footer API"),
-                QStringLiteral("要点：\n"
-                               "-setPaneDisplayMode() 在 Left / LeftCompact / Top 三种布局间切换\n"
-                               "-父项可通过 selectsOnInvoked 控制“点击即选中”还是“只打开子菜单”\n"
-                               "-backRequested / itemInvoked / selectedKeyChanged 可分别接回退、点击与选中逻辑\n"
-                               "-Footer 通过 addFooterItem() 显式添加，不再暗示内置设置页"),
+                DEMO_TEXT("WinUI3 风格导航栏：支持 Left / LeftCompact / Top 与显式 footer API", "WinUI3-style navigation bar with Left / LeftCompact / Top modes and an explicit footer API"),
+                DEMO_TEXT("要点：\n"
+                          "-setPaneDisplayMode() 在 Left / LeftCompact / Top 三种布局间切换\n"
+                          "-父项可通过 selectsOnInvoked 控制“点击即选中”还是“只打开子菜单”\n"
+                          "-backRequested / itemInvoked / selectedKeyChanged 可分别接回退、点击与选中逻辑\n"
+                          "-Footer 通过 addFooterItem() 显式添加，不再暗示内置设置页",
+                          "Highlights:\n"
+                          "-Use setPaneDisplayMode() to switch between Left, LeftCompact, and Top layouts\n"
+                          "-Parent items can use selectsOnInvoked to choose between select-on-click and submenu-only behavior\n"
+                          "-backRequested, itemInvoked, and selectedKeyChanged separate back, invoke, and selection logic\n"
+                          "-Footer entries are added explicitly through addFooterItem() instead of implying a built-in settings page"),
                 code,
                 [=](QVBoxLayout *body) {
                     auto *shell = new QWidget();
@@ -397,7 +415,7 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     blocksLayout->setColumnStretch(1, 1);
                     blocksLayout->setColumnStretch(2, 1);
 
-                    auto *detailHint = new FluentLabel(QStringLiteral("切换右侧 Pane 模式观察 Left / LeftCompact / Top 三种布局；把“文档组选中父项”关闭后，点击 Document options 只会打开子菜单。"));
+                    auto *detailHint = new FluentLabel(DEMO_TEXT("切换右侧 Pane 模式观察 Left / LeftCompact / Top 三种布局；把“文档组选中父项”关闭后，点击 Document options 只会打开子菜单。", "Switch the pane mode on the right to compare Left / LeftCompact / Top layouts. When 'Select parent item for Documents' is off, clicking Document options only opens the submenu."));
                     detailHint->setWordWrap(true);
                     detailHint->setStyleSheet("font-size: 12px; opacity: 0.78;");
                     detailLayout->addWidget(detailTitle);
@@ -429,7 +447,7 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     backEnabledToggle->setChecked(true);
                     auto *footerVisibleToggle = new FluentToggleSwitch(QStringLiteral("Footer visible"));
                     footerVisibleToggle->setChecked(true);
-                    auto *documentInvokesToggle = new FluentToggleSwitch(QStringLiteral("Document组选中父项"));
+                    auto *documentInvokesToggle = new FluentToggleSwitch(DEMO_TEXT("Document组选中父项", "Select parent item for Documents"));
                     documentInvokesToggle->setChecked(false);
                     auto *paneTitleLabel = new FluentLabel(QStringLiteral("Pane title"));
                     paneTitleLabel->setStyleSheet("font-size: 12px; opacity: 0.8;");
@@ -480,13 +498,13 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                         {
                             NI profile;
                             profile.key = QStringLiteral("profile");
-                            profile.text = QStringLiteral("个人资料");
+                            profile.text = DEMO_TEXT("个人资料", "Profile");
                             applyGlyph(profile, 0xE77B);
                             account.children.push_back(profile);
 
                             NI security;
                             security.key = QStringLiteral("security");
-                            security.text = QStringLiteral("安全中心");
+                            security.text = DEMO_TEXT("安全中心", "Security Center");
                             applyGlyph(security, 0xE72E);
                             account.children.push_back(security);
                         }
@@ -500,13 +518,13 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                         {
                             NI recent;
                             recent.key = QStringLiteral("recent_files");
-                            recent.text = QStringLiteral("最近文件");
+                            recent.text = DEMO_TEXT("最近文件", "Recent Files");
                             applyGlyph(recent, 0xE823);
                             documents.children.push_back(recent);
 
                             NI templates;
                             templates.key = QStringLiteral("templates");
-                            templates.text = QStringLiteral("模板库");
+                            templates.text = DEMO_TEXT("模板库", "Template Library");
                             applyGlyph(templates, 0xE7C3);
                             documents.children.push_back(templates);
                         }
@@ -517,13 +535,13 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
 
                         NI help;
                         help.key = QStringLiteral("help_center");
-                        help.text = QStringLiteral("帮助中心");
+                        help.text = DEMO_TEXT("帮助中心", "Help Center");
                         applyGlyph(help, 0xE897);
                         nav->addFooterItem(help);
 
                         NI feedback;
                         feedback.key = QStringLiteral("feedback");
-                        feedback.text = QStringLiteral("反馈");
+                        feedback.text = DEMO_TEXT("反馈", "Feedback");
                         applyGlyph(feedback, 0xE939);
                         nav->addFooterItem(feedback);
 
@@ -557,43 +575,43 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                         const QString key = nav->selectedKey();
                         if (key == QStringLiteral("home")) {
                             detailTitle->setText(QStringLiteral("Sample Page 1"));
-                            detailBody->setText(QStringLiteral("首页适合映射欢迎页或仪表板。当前示例右侧这块内容不依赖具体布局，所以同一份页面可以随 NavigationView 在 Left / LeftCompact / Top 三种模式间切换。"));
+                            detailBody->setText(DEMO_TEXT("首页适合映射欢迎页或仪表板。当前示例右侧这块内容不依赖具体布局，所以同一份页面可以随 NavigationView 在 Left / LeftCompact / Top 三种模式间切换。", "The home item is a good fit for a welcome page or dashboard. The content block on the right is layout-agnostic, so the same page can switch with NavigationView across Left, LeftCompact, and Top modes."));
                         } else if (key == QStringLiteral("account")) {
                             detailTitle->setText(QStringLiteral("Account"));
-                            detailBody->setText(QStringLiteral("父项默认仍可点击选中；如果在 Top 或 LeftCompact 模式下点击它，也会同时弹出子菜单，接近 WinUI3 的层级导航体验。"));
+                            detailBody->setText(DEMO_TEXT("父项默认仍可点击选中；如果在 Top 或 LeftCompact 模式下点击它，也会同时弹出子菜单，接近 WinUI3 的层级导航体验。", "Parent items remain selectable by default. In Top or LeftCompact mode, clicking them can also open the submenu for a WinUI3-like hierarchical navigation experience."));
                         } else if (key == QStringLiteral("profile")) {
-                            detailTitle->setText(QStringLiteral("个人资料"));
-                            detailBody->setText(QStringLiteral("选中子项时，Left 模式会自动展开父组；Top 模式则保持父项高亮，并通过 flyout 进入具体页面。"));
+                            detailTitle->setText(DEMO_TEXT("个人资料", "Profile"));
+                            detailBody->setText(DEMO_TEXT("选中子项时，Left 模式会自动展开父组；Top 模式则保持父项高亮，并通过 flyout 进入具体页面。", "Selecting a child item auto-expands the parent group in Left mode. In Top mode, the parent stays highlighted and the flyout routes into the specific page."));
                         } else if (key == QStringLiteral("security")) {
-                            detailTitle->setText(QStringLiteral("安全中心"));
-                            detailBody->setText(QStringLiteral("itemInvoked 和 selectedKeyChanged 被拆开后，可以分别处理“点击动作”和“选中状态”，便于接导航、分析埋点或只展开不选中的父项。"));
+                            detailTitle->setText(DEMO_TEXT("安全中心", "Security Center"));
+                            detailBody->setText(DEMO_TEXT("itemInvoked 和 selectedKeyChanged 被拆开后，可以分别处理“点击动作”和“选中状态”，便于接导航、分析埋点或只展开不选中的父项。", "Once itemInvoked and selectedKeyChanged are separated, you can handle invoke behavior and selection state independently. That helps with routing, analytics, or parent items that expand without selecting."));
                         } else if (key == QStringLiteral("documents")) {
                             detailTitle->setText(QStringLiteral("Document options"));
                             detailBody->setText(documentInvokesToggle->isChecked()
-                                                    ? QStringLiteral("当前开启“选中父项”。点击正文会选中 Document options，点击箭头或 Top 模式下的下拉区域则打开子菜单。")
-                                                    : QStringLiteral("当前关闭“选中父项”。点击 Document options 只会打开子菜单，不会修改 selectedKey，这和 WinUI3 文档里的 submenu-only 行为一致。"));
+                                                    ? DEMO_TEXT("当前开启“选中父项”。点击正文会选中 Document options，点击箭头或 Top 模式下的下拉区域则打开子菜单。", "Parent selection is currently enabled. Clicking the body selects Document options, while the chevron or the Top-mode dropdown area opens the submenu.")
+                                                    : DEMO_TEXT("当前关闭“选中父项”。点击 Document options 只会打开子菜单，不会修改 selectedKey，这和 WinUI3 文档里的 submenu-only 行为一致。", "Parent selection is currently disabled. Clicking Document options only opens the submenu and leaves selectedKey unchanged, which matches WinUI3's submenu-only behavior."));
                         } else if (key == QStringLiteral("recent_files")) {
-                            detailTitle->setText(QStringLiteral("最近文件"));
-                            detailBody->setText(QStringLiteral("这类真正落到页面的叶子节点通常保持 selectsOnInvoked = true；如果你只想拿点击回调而不切换当前页，也可以单独把叶子节点的 selectsOnInvoked 设为 false。"));
+                            detailTitle->setText(DEMO_TEXT("最近文件", "Recent Files"));
+                            detailBody->setText(DEMO_TEXT("这类真正落到页面的叶子节点通常保持 selectsOnInvoked = true；如果你只想拿点击回调而不切换当前页，也可以单独把叶子节点的 selectsOnInvoked 设为 false。", "Leaf items that map to real pages usually keep selectsOnInvoked = true. If you only need the invoke callback without changing the current page, you can turn selectsOnInvoked off on the leaf item as well."));
                         } else if (key == QStringLiteral("templates")) {
-                            detailTitle->setText(QStringLiteral("模板库"));
-                            detailBody->setText(QStringLiteral("Top 模式下，当前高亮会挂在父级顶部 item 上；Left / LeftCompact 模式则保持与当前 key 一致的视觉反馈。"));
+                            detailTitle->setText(DEMO_TEXT("模板库", "Template Library"));
+                            detailBody->setText(DEMO_TEXT("Top 模式下，当前高亮会挂在父级顶部 item 上；Left / LeftCompact 模式则保持与当前 key 一致的视觉反馈。", "In Top mode, the active highlight stays on the parent top item. In Left and LeftCompact modes, the feedback stays aligned with the current key."));
                         } else if (key == QStringLiteral("help_center")) {
-                            detailTitle->setText(QStringLiteral("帮助中心"));
-                            detailBody->setText(QStringLiteral("这里的 footer 是通过 addFooterItem() 显式加入的普通导航项，不再默认绑定成“设置页”。你可以自由放帮助、账户、反馈或关于入口。"));
+                            detailTitle->setText(DEMO_TEXT("帮助中心", "Help Center"));
+                            detailBody->setText(DEMO_TEXT("这里的 footer 是通过 addFooterItem() 显式加入的普通导航项，不再默认绑定成“设置页”。你可以自由放帮助、账户、反馈或关于入口。", "The footer here is made of ordinary navigation items added explicitly through addFooterItem(). It is no longer implicitly bound to a built-in settings page. You can place help, account, feedback, or about entries freely."));
                         } else if (key == QStringLiteral("feedback")) {
-                            detailTitle->setText(QStringLiteral("反馈"));
-                            detailBody->setText(QStringLiteral("Footer 在 Left / LeftCompact 模式下会固定到底部，在 Top 模式下会挪到右侧；也可以通过 setFooterVisible(false) 整体隐藏。"));
+                            detailTitle->setText(DEMO_TEXT("反馈", "Feedback"));
+                            detailBody->setText(DEMO_TEXT("Footer 在 Left / LeftCompact 模式下会固定到底部，在 Top 模式下会挪到右侧；也可以通过 setFooterVisible(false) 整体隐藏。", "The footer stays pinned to the bottom in Left and LeftCompact modes, and moves to the right side in Top mode. You can also hide it entirely with setFooterVisible(false)."));
                         } else {
                             detailTitle->setText(QStringLiteral("NavigationView"));
-                            detailBody->setText(QStringLiteral("使用 addItem / addFooterItem 追加导航项，使用 paneDisplayMode / backRequested / itemInvoked 组织不同布局和交互。"));
+                            detailBody->setText(DEMO_TEXT("使用 addItem / addFooterItem 追加导航项，使用 paneDisplayMode / backRequested / itemInvoked 组织不同布局和交互。", "Use addItem() and addFooterItem() to append navigation entries, then use paneDisplayMode, backRequested, and itemInvoked to organize layout and interaction."));
                         }
 
-                        detailState->setText(QStringLiteral("当前 key：%1\nPane 模式：%2\n文档组选中父项：%3\nFooter：%4（通过 addFooterItem() 显式追加）")
+                        detailState->setText(DEMO_TEXT("当前 key：%1\nPane 模式：%2\n文档组选中父项：%3\nFooter：%4（通过 addFooterItem() 显式追加）", "Current key: %1\nPane mode: %2\nSelect parent item for Documents: %3\nFooter: %4 (added explicitly via addFooterItem())")
                                                  .arg(key.isEmpty() ? QStringLiteral("<empty>") : key)
                                                  .arg(modeName(nav->paneDisplayMode()))
-                                                 .arg(documentInvokesToggle->isChecked() ? QStringLiteral("开启") : QStringLiteral("关闭"))
-                                                 .arg(nav->isFooterVisible() ? QStringLiteral("可见") : QStringLiteral("隐藏")));
+                                                 .arg(documentInvokesToggle->isChecked() ? DEMO_TEXT("开启", "On") : DEMO_TEXT("关闭", "Off"))
+                                                 .arg(nav->isFooterVisible() ? DEMO_TEXT("可见", "Visible") : DEMO_TEXT("隐藏", "Hidden")));
                     };
 
                     rebuildNavigation();
@@ -601,14 +619,14 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     relayoutPreview();
 
                     QObject::connect(nav, &FluentNavigationView::selectedKeyChanged, detailCard, [=](const QString &) {
-                        detailEvent->setText(QStringLiteral("最近事件：selectedKeyChanged -> %1").arg(nav->selectedKey()));
+                        detailEvent->setText(DEMO_TEXT("最近事件：selectedKeyChanged -> %1", "Latest event: selectedKeyChanged -> %1").arg(nav->selectedKey()));
                         updateDetail();
                     });
                     QObject::connect(nav, &FluentNavigationView::itemInvoked, detailCard, [=](const QString &key) {
-                        detailEvent->setText(QStringLiteral("最近事件：itemInvoked -> %1").arg(key));
+                        detailEvent->setText(DEMO_TEXT("最近事件：itemInvoked -> %1", "Latest event: itemInvoked -> %1").arg(key));
                     });
                     QObject::connect(nav, &FluentNavigationView::backRequested, detailCard, [=]() {
-                        detailEvent->setText(QStringLiteral("最近事件：backRequested"));
+                        detailEvent->setText(DEMO_TEXT("最近事件：backRequested", "Latest event: backRequested"));
                     });
                     QObject::connect(nav, &FluentNavigationView::paneDisplayModeChanged, detailCard, [=](FluentNavigationView::PaneDisplayMode) {
                         relayoutPreview();
@@ -650,7 +668,7 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     });
 
                     updateDetail();
-                    detailEvent->setText(QStringLiteral("最近事件：itemInvoked -> home"));
+                    detailEvent->setText(DEMO_TEXT("最近事件：itemInvoked -> home", "Latest event: itemInvoked -> home"));
 
                     shellLayout->addWidget(previewHost, 1);
                     shellLayout->addWidget(optionsCard);
@@ -674,7 +692,7 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
     X(auto *sl = new QVBoxLayout(scrollContent);) \
     X(sl->setContentsMargins(12, 12, 12, 12);) \
     X(sl->setSpacing(6);) \
-    X(for (int i = 1; i <= 18; ++i) { sl->addWidget(new FluentLabel(QStringLiteral("滚动内容 %1").arg(i))); }) \
+    X(for (int i = 1; i <= 18; ++i) { sl->addWidget(new FluentLabel(DEMO_TEXT("滚动内容 %1", "Scrollable content %1").arg(i))); }) \
     X(body->addWidget(area);)
 
 #define X(line) code += QStringLiteral(#line "\n");
@@ -683,10 +701,13 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentScrollArea"),
-                QStringLiteral("滚动区域（可选 overlay 滚动条）"),
-                QStringLiteral("要点：\n"
-                               "-setOverlayScrollBarsEnabled(true) 显示 overlay 滚动条\n"
-                               "-setWidgetResizable(true) 常用配置"),
+                DEMO_TEXT("滚动区域（可选 overlay 滚动条）", "Scrolling area with optional overlay scrollbars"),
+                DEMO_TEXT("要点：\n"
+                          "-setOverlayScrollBarsEnabled(true) 显示 overlay 滚动条\n"
+                          "-setWidgetResizable(true) 常用配置",
+                          "Highlights:\n"
+                          "-Use setOverlayScrollBarsEnabled(true) for overlay scrollbars\n"
+                          "-setWidgetResizable(true) is a common configuration"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -760,27 +781,27 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
                     contentLayout->setSpacing(10);
 
                     const QVector<QPair<QString, QString>> items = {
-                        {QStringLiteral("概览"), QStringLiteral("欢迎页")},
-                        {QStringLiteral("概览"), QStringLiteral("快速操作")},
-                        {QStringLiteral("项目"), QStringLiteral("项目列表")},
-                        {QStringLiteral("项目"), QStringLiteral("里程碑")},
-                        {QStringLiteral("同步"), QStringLiteral("队列状态")},
-                        {QStringLiteral("同步"), QStringLiteral("同步历史")}
+                        {DEMO_TEXT("概览", "Overview"), DEMO_TEXT("欢迎页", "Welcome page")},
+                        {DEMO_TEXT("概览", "Overview"), DEMO_TEXT("快速操作", "Quick actions")},
+                        {DEMO_TEXT("项目", "Projects"), DEMO_TEXT("项目列表", "Project list")},
+                        {DEMO_TEXT("项目", "Projects"), DEMO_TEXT("里程碑", "Milestones")},
+                        {DEMO_TEXT("同步", "Sync"), DEMO_TEXT("队列状态", "Queue status")},
+                        {DEMO_TEXT("同步", "Sync"), DEMO_TEXT("同步历史", "Sync history")}
                     };
                     const QStringList summaries = {
-                        QStringLiteral("首页入口、摘要卡片和欢迎提示。"),
-                        QStringLiteral("常用按钮、最近访问和推荐操作。"),
-                        QStringLiteral("当前项目、筛选器和统计摘要。"),
-                        QStringLiteral("任务进度、负责人和交付节奏。"),
-                        QStringLiteral("后台同步队列、重试数和实时状态。"),
-                        QStringLiteral("历史执行记录、完成时间和结果摘要。")
+                        DEMO_TEXT("首页入口、摘要卡片和欢迎提示。", "Home entry, summary cards, and welcome hints."),
+                        DEMO_TEXT("常用按钮、最近访问和推荐操作。", "Common actions, recent visits, and recommended operations."),
+                        DEMO_TEXT("当前项目、筛选器和统计摘要。", "Current projects, filters, and statistic summaries."),
+                        DEMO_TEXT("任务进度、负责人和交付节奏。", "Task progress, owners, and delivery cadence."),
+                        DEMO_TEXT("后台同步队列、重试数和实时状态。", "Background sync queue, retries, and live status."),
+                        DEMO_TEXT("历史执行记录、完成时间和结果摘要。", "Historical runs, completion times, and result summaries.")
                     };
 
                     for (int i = 0; i < items.size() && i < summaries.size(); ++i) {
                         contentLayout->addWidget(makeAnnotatedSectionCard(items.at(i).first, items.at(i).second, summaries.at(i)));
                     }
 
-                    auto *status = new FluentLabel(QStringLiteral("当前 source：概览 / 欢迎页"));
+                    auto *status = new FluentLabel(DEMO_TEXT("当前 source：概览 / 欢迎页", "Current source: Overview / Welcome page"));
                     status->setStyleSheet("font-size: 12px; opacity: 0.82;");
 
                     auto *annotated = new FluentAnnotatedScrollBar();
@@ -792,12 +813,12 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
                     QObject::connect(annotated, &FluentAnnotatedScrollBar::currentSourceChanged, status,
                                      [status](int, const QString &group, const QString &text) {
                         if (group.isEmpty() && text.isEmpty()) {
-                            status->setText(QStringLiteral("当前 source：<none>"));
+                            status->setText(DEMO_TEXT("当前 source：<none>", "Current source: <none>"));
                             return;
                         }
-                        status->setText(QStringLiteral("当前 source：%1 / %2").arg(group, text));
+                        status->setText(DEMO_TEXT("当前 source：%1 / %2", "Current source: %1 / %2").arg(group, text));
                     });
-                    annotated->setCurrentGroup(QStringLiteral("项目"));
+                    annotated->setCurrentGroup(DEMO_TEXT("项目", "Projects"));
 
                     row->addWidget(area, 1);
                     row->addWidget(annotated);
@@ -819,13 +840,13 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
     X(l->setSpacing(10);) \
     X(auto *h = new FluentSplitter(Qt::Horizontal);) \
     X(h->setFixedHeight(120);) \
-    X(h->addWidget(Demo::makeSidebarCard(new FluentLabel(QStringLiteral("左侧"))));) \
-    X(h->addWidget(Demo::makeSidebarCard(new FluentLabel(QStringLiteral("右侧"))));) \
+    X(h->addWidget(Demo::makeSidebarCard(new FluentLabel(DEMO_TEXT("左侧", "Left"))));) \
+    X(h->addWidget(Demo::makeSidebarCard(new FluentLabel(DEMO_TEXT("右侧", "Right"))));) \
     X(h->setSizes({320, 520});) \
     X(auto *v = new FluentSplitter(Qt::Vertical);) \
     X(v->setFixedHeight(160);) \
-    X(v->addWidget(Demo::makeSidebarCard(new FluentLabel(QStringLiteral("上方"))));) \
-    X(v->addWidget(Demo::makeSidebarCard(new FluentLabel(QStringLiteral("下方"))));) \
+    X(v->addWidget(Demo::makeSidebarCard(new FluentLabel(DEMO_TEXT("上方", "Top"))));) \
+    X(v->addWidget(Demo::makeSidebarCard(new FluentLabel(DEMO_TEXT("下方", "Bottom"))));) \
     X(v->setSizes({90, 70});) \
     X(l->addWidget(h);) \
     X(l->addWidget(v);) \
@@ -837,11 +858,15 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentSplitter"),
-                QStringLiteral("可拖拽分隔的布局容器（横向/纵向）"),
-                QStringLiteral("要点：\n"
-                               "-横向：Qt::Horizontal，拖拽竖向分隔条调整左右宽度\n"
-                               "-纵向：Qt::Vertical，拖拽横向分隔条调整上下高度\n"
-                               "-适合可调整的面板布局（预览/设置/属性面板等）"),
+                DEMO_TEXT("可拖拽分隔的布局容器（横向/纵向）", "Draggable splitter layout container in horizontal or vertical orientation"),
+                DEMO_TEXT("要点：\n"
+                          "-横向：Qt::Horizontal，拖拽竖向分隔条调整左右宽度\n"
+                          "-纵向：Qt::Vertical，拖拽横向分隔条调整上下高度\n"
+                          "-适合可调整的面板布局（预览/设置/属性面板等）",
+                          "Highlights:\n"
+                          "-Horizontal: Qt::Horizontal lets you drag the vertical splitter to resize left and right panes\n"
+                          "-Vertical: Qt::Vertical lets you drag the horizontal splitter to resize top and bottom panes\n"
+                          "-A good fit for adjustable preview, settings, or properties layouts"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -867,15 +892,15 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
     X(auto *ctrlL = new QVBoxLayout(ctrl);) \
     X(ctrlL->setContentsMargins(0, 0, 0, 0);) \
     X(ctrlL->setSpacing(8);) \
-    X(auto *sizeLabel = new FluentLabel(QStringLiteral("预览区：--×--px"));) \
+    X(auto *sizeLabel = new FluentLabel(DEMO_TEXT("预览区：--×--px", "Preview: -- x -- px"));) \
     X(sizeLabel->setStyleSheet("font-size: 12px; opacity: 0.9;");) \
-    X(auto *tip = new FluentLabel(QStringLiteral("拖拽分隔条调整宽度/高度，观察 FlowLayout 自动换行与可视行数变化。"));) \
+    X(auto *tip = new FluentLabel(DEMO_TEXT("拖拽分隔条调整宽度/高度，观察 FlowLayout 自动换行与可视行数变化。", "Drag the splitter to adjust width and height, then observe FlowLayout's automatic wrapping and visible row count changes."));) \
     X(tip->setWordWrap(true);) \
     X(tip->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);) \
     X(tip->setStyleSheet("font-size: 12px; opacity: 0.85;");) \
     X(ctrlL->addWidget(sizeLabel);) \
     X(ctrlL->addWidget(tip);) \
-    X(auto *uniformSwitch = new FluentToggleSwitch(QStringLiteral("Uniform item width"));) \
+    X(auto *uniformSwitch = new FluentToggleSwitch(DEMO_TEXT("统一项宽度", "Uniform item width"));) \
     X(uniformSwitch->setChecked(true);) \
     X(ctrlL->addWidget(uniformSwitch);) \
     X(ctrlL->addStretch(1);) \
@@ -887,7 +912,7 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
     X(auto *pl = new QVBoxLayout(preview);) \
     X(pl->setContentsMargins(12, 12, 12, 12);) \
     X(pl->setSpacing(10);) \
-    X(auto *previewTitle = new FluentLabel(QStringLiteral("FlowLayout 预览区"));) \
+    X(auto *previewTitle = new FluentLabel(DEMO_TEXT("FlowLayout 预览区", "FlowLayout preview"));) \
     X(previewTitle->setStyleSheet("font-size: 12px; font-weight: 600; opacity: 0.95;");) \
     X(pl->addWidget(previewTitle);) \
     X(auto *area = new FluentScrollArea();) \
@@ -913,7 +938,7 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
             b->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed); \
           flow->addWidget(b); \
       }) \
-    X(auto *bottomLab = new FluentLabel(QStringLiteral("拖拽上方分隔条调整预览区高度"));) \
+    X(auto *bottomLab = new FluentLabel(DEMO_TEXT("拖拽上方分隔条调整预览区高度", "Drag the splitter above to adjust the preview height"));) \
     X(bottomLab->setWordWrap(true);) \
     X(bottomLab->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);) \
     X(auto *bottom = Demo::makeSidebarCard(bottomLab);) \
@@ -932,12 +957,17 @@ QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChan
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentFlowLayout"),
-                QStringLiteral("自适应换行布局：拖拽 Splitter 调整宽高"),
-                QStringLiteral("要点：\n"
-                               "-用于 Tag/Tile/按钮组 等自适应换行场景\n"
-                               "-只需 flow->addWidget(...)，无需手动算行列\n"
-                               "-setUniformItemWidthEnabled(true) 开启自动对齐宽度（demo 内可随时开关对比）\n"
-                               "-宽度变化会触发自动换行；高度变化会改变可视行数（可滚动）"),
+                DEMO_TEXT("自适应换行布局：拖拽 Splitter 调整宽高", "Adaptive wrapping layout: drag the splitter to change width and height"),
+                DEMO_TEXT("要点：\n"
+                          "-用于 Tag/Tile/按钮组 等自适应换行场景\n"
+                          "-只需 flow->addWidget(...)，无需手动算行列\n"
+                          "-setUniformItemWidthEnabled(true) 开启自动对齐宽度（demo 内可随时开关对比）\n"
+                          "-宽度变化会触发自动换行；高度变化会改变可视行数（可滚动）",
+                          "Highlights:\n"
+                          "-Ideal for adaptive wrapping scenarios such as tags, tiles, or button groups\n"
+                          "-Just call flow->addWidget(...) without calculating rows or columns manually\n"
+                          "-setUniformItemWidthEnabled(true) aligns item widths automatically and can be toggled in the demo for comparison\n"
+                          "-Width changes trigger automatic wrapping, while height changes affect the visible row count and scrolling"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line

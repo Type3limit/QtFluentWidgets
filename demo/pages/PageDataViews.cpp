@@ -24,8 +24,8 @@ using namespace Fluent;
 QWidget *createDataViewsPage(FluentMainWindow *window)
 {
     return Demo::makePage([&](QVBoxLayout *page) {
-        auto s = Demo::makeSection(QStringLiteral("数据视图"),
-                                   QStringLiteral("ListView / TableView / TreeView（选择变化联动到详情区）"));
+        auto s = Demo::makeSection(DEMO_TEXT("数据视图", "Data Views"),
+                                   DEMO_TEXT("ListView / TableView / TreeView（选择变化联动到详情区）", "ListView / TableView / TreeView with selection-driven detail updates"));
 
         page->addWidget(s.card);
 
@@ -33,7 +33,7 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
         {
             QString code;
 #define DATAVIEWS_LIST(X) \
-    X(auto *detail = new FluentLabel(QStringLiteral("选择任意项查看详情"));) \
+    X(auto *detail = new FluentLabel(DEMO_TEXT("选择任意项查看详情", "Select any item to view details"));) \
     X(detail->setStyleSheet("font-size: 12px; opacity: 0.9;");) \
     X(body->addWidget(detail);) \
     X(auto *list = new FluentListView();) \
@@ -50,11 +50,15 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentListView"),
-                QStringLiteral("列表视图（QAbstractItemView 风格）"),
-                QStringLiteral("要点：\n"
-                               "-setModel() 绑定 QStringListModel/QStandardItemModel\n"
-                               "-selectionModel()->selectionChanged 监听选择变化\n"
-                               "-适合轻量列表/侧栏"),
+                DEMO_TEXT("列表视图（QAbstractItemView 风格）", "List view in a QAbstractItemView style"),
+                DEMO_TEXT("要点：\n"
+                          "-setModel() 绑定 QStringListModel/QStandardItemModel\n"
+                          "-selectionModel()->selectionChanged 监听选择变化\n"
+                          "-适合轻量列表/侧栏",
+                          "Highlights:\n"
+                          "-Use setModel() with QStringListModel or QStandardItemModel\n"
+                          "-Listen to selectionModel()->selectionChanged for updates\n"
+                          "-A good fit for lightweight lists and side panels"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -71,12 +75,12 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
         {
             QString code;
 #define DATAVIEWS_TABLE(X) \
-    X(auto *detail = new FluentLabel(QStringLiteral("选择任意项查看详情"));) \
+    X(auto *detail = new FluentLabel(DEMO_TEXT("选择任意项查看详情", "Select any item to view details"));) \
     X(detail->setStyleSheet("font-size: 12px; opacity: 0.9;");) \
     X(body->addWidget(detail);) \
     X(auto *table = new FluentTableView();) \
     X(auto *tableModel = new QStandardItemModel(8, 2, window);) \
-    X(tableModel->setHorizontalHeaderLabels({QStringLiteral("名称"), QStringLiteral("值")});) \
+    X(tableModel->setHorizontalHeaderLabels({DEMO_TEXT("名称", "Name"), DEMO_TEXT("值", "Value")});) \
     X(for (int r = 0; r < tableModel->rowCount(); ++r) { tableModel->setItem(r, 0, new QStandardItem(QStringLiteral("Item %1").arg(r + 1))); tableModel->setItem(r, 1, new QStandardItem(QStringLiteral("%1").arg((r + 1) * 7))); }) \
     X(table->setModel(tableModel);) \
     X(table->horizontalHeader()->setStretchLastSection(true);) \
@@ -90,11 +94,15 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentTableView"),
-                QStringLiteral("表格视图（Header/列伸缩/选择行为）"),
-                QStringLiteral("要点：\n"
-                               "-horizontalHeader()->setStretchLastSection(true)\n"
-                               "-setSelectionBehavior(SelectRows) 常用于表格\n"
-                               "-setEditTriggers(NoEditTriggers) 仅展示"),
+                DEMO_TEXT("表格视图（Header/列伸缩/选择行为）", "Table view with header stretching and row selection"),
+                DEMO_TEXT("要点：\n"
+                          "-horizontalHeader()->setStretchLastSection(true)\n"
+                          "-setSelectionBehavior(SelectRows) 常用于表格\n"
+                          "-setEditTriggers(NoEditTriggers) 仅展示",
+                          "Highlights:\n"
+                          "-Use horizontalHeader()->setStretchLastSection(true)\n"
+                          "-setSelectionBehavior(SelectRows) is common for tables\n"
+                          "-Use setEditTriggers(NoEditTriggers) for display-only tables"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -111,12 +119,12 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
         {
             QString code;
 #define DATAVIEWS_TREE(X) \
-    X(auto *detail = new FluentLabel(QStringLiteral("选择任意项查看详情"));) \
+    X(auto *detail = new FluentLabel(DEMO_TEXT("选择任意项查看详情", "Select any item to view details"));) \
     X(detail->setStyleSheet("font-size: 12px; opacity: 0.9;");) \
     X(body->addWidget(detail);) \
     X(auto *tree = new FluentTreeView();) \
     X(auto *treeModel = new QStandardItemModel(window);) \
-    X(treeModel->setHorizontalHeaderLabels({QStringLiteral("层级"), QStringLiteral("说明")});) \
+    X(treeModel->setHorizontalHeaderLabels({DEMO_TEXT("层级", "Hierarchy"), DEMO_TEXT("说明", "Description")});) \
     X(auto *rootA = new QStandardItem(QStringLiteral("Root A"));) \
     X(rootA->appendRow({new QStandardItem(QStringLiteral("A-1")), new QStandardItem(QStringLiteral("Leaf"))});) \
     X(auto *a2 = new QStandardItem(QStringLiteral("A-2"));) \
@@ -141,11 +149,15 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentTreeView"),
-                QStringLiteral("树视图（层级数据、展开/折叠）"),
-                QStringLiteral("要点：\n"
-                               "-QStandardItemModel 构建树\n"
-                               "-expandAll()/collapseAll()\n"
-                               "-selectionModel 监听当前项"),
+                DEMO_TEXT("树视图（层级数据、展开/折叠）", "Tree view for hierarchical data with expand/collapse"),
+                DEMO_TEXT("要点：\n"
+                          "-QStandardItemModel 构建树\n"
+                          "-expandAll()/collapseAll()\n"
+                          "-selectionModel 监听当前项",
+                          "Highlights:\n"
+                          "-Build the tree with QStandardItemModel\n"
+                          "-Use expandAll() and collapseAll()\n"
+                          "-Use selectionModel() to track the current item"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line

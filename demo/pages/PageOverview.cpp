@@ -70,9 +70,10 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
     overviewLayout->setSpacing(14);
 
     {
-        auto *t = new FluentLabel(QStringLiteral("控件画廊"));
+        auto *t = new FluentLabel(DEMO_TEXT("控件画廊", "Control gallery"));
         t->setStyleSheet("font-size: 18px; font-weight: 650;");
-        auto *st = new FluentLabel(QStringLiteral("FlowLayout 自适应换行：窗口越宽，一行展示越多；新增控件也只需添加一个 tile。"));
+        auto *st = new FluentLabel(DEMO_TEXT("FlowLayout 自适应换行：窗口越宽，一行展示越多；新增控件也只需添加一个 tile。",
+                                              "FlowLayout wraps adaptively: the wider the window, the more tiles fit on each row; adding a new control only requires one more tile."));
         st->setStyleSheet("font-size: 12px; opacity: 0.85;");
         st->setWordWrap(true);
         overviewLayout->addWidget(t);
@@ -144,7 +145,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         auto *lab = new FluentLabel(hint);
         lab->setStyleSheet("font-size: 12px; opacity: 0.88;");
 
-        auto *btn = new FluentButton(QStringLiteral("进入该页 →"));
+        auto *btn = new FluentButton(DEMO_TEXT("进入该页 →", "Open page ->"));
         QObject::connect(btn, &QPushButton::clicked, window, [jumpTo, pageIndex]() { jumpTo(pageIndex); });
 
         l->addWidget(lab);
@@ -153,8 +154,8 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         flow->addWidget(card);
     };
 
-    addGroupTitle(QStringLiteral("按钮 / 开关"));
-    flow->addWidget(makeTile(QStringLiteral("Label"), QStringLiteral("主题切换不应覆盖粗体"), [&](QVBoxLayout *body) {
+    addGroupTitle(DEMO_TEXT("按钮 / 开关", "Buttons / Toggles"));
+    flow->addWidget(makeTile(QStringLiteral("Label"), DEMO_TEXT("主题切换不应覆盖粗体", "Theme switching should not override bold text"), [&](QVBoxLayout *body) {
         auto *a = new FluentLabel(QStringLiteral("FluentLabel Normal"));
         auto *b = new FluentLabel(QStringLiteral("FluentLabel Bold"));
         b->setStyleSheet("font-weight: 650;");
@@ -179,16 +180,16 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addLayout(row);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("Toggle / Check / Radio"), QStringLiteral("常见开关与选择控件"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("Toggle / Check / Radio"), DEMO_TEXT("常见开关与选择控件", "Common selection and toggle controls"), [&](QVBoxLayout *body) {
         auto *row = new QHBoxLayout();
         row->setContentsMargins(0, 0, 0, 0);
         row->setSpacing(10);
 
-        auto *toggle = new FluentToggleSwitch(QStringLiteral("开关"));
+        auto *toggle = new FluentToggleSwitch(DEMO_TEXT("开关", "Toggle"));
         toggle->setChecked(true);
-        auto *check = new FluentCheckBox(QStringLiteral("复选"));
+        auto *check = new FluentCheckBox(DEMO_TEXT("复选", "Check"));
         check->setChecked(true);
-        auto *radio = new FluentRadioButton(QStringLiteral("单选"));
+        auto *radio = new FluentRadioButton(DEMO_TEXT("单选", "Radio"));
         radio->setChecked(true);
 
         row->addWidget(toggle);
@@ -198,23 +199,23 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addLayout(row);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("ProgressBar"), QStringLiteral("Accent 会影响进度条颜色"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("ProgressBar"), DEMO_TEXT("Accent 会影响进度条颜色", "Accent affects the progress-bar color"), [&](QVBoxLayout *body) {
         auto *p = new FluentProgressBar();
         p->setRange(0, 100);
         p->setValue(66);
         body->addWidget(p);
     }));
 
-    addJumpCard(QStringLiteral("按钮/开关页：Button / ToolButton / ToggleSwitch / CheckBox / RadioButton / ProgressBar"), 3);
+    addJumpCard(DEMO_TEXT("按钮/开关页：Button / ToolButton / ToggleSwitch / CheckBox / RadioButton / ProgressBar", "Buttons page: Button / ToolButton / ToggleSwitch / CheckBox / RadioButton / ProgressBar"), 3);
 
-    addGroupTitle(QStringLiteral("输入"));
+    addGroupTitle(DEMO_TEXT("输入", "Inputs"));
     flow->addWidget(makeTile(QStringLiteral("LineEdit"), QString(), [&](QVBoxLayout *body) {
         auto *le = new FluentLineEdit();
         le->setPlaceholderText(QStringLiteral("FluentLineEdit"));
         body->addWidget(le);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("Slider"), QStringLiteral("拖动观察 Hover/Pressed"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("Slider"), DEMO_TEXT("拖动观察 Hover/Pressed", "Drag to inspect hover / pressed states"), [&](QVBoxLayout *body) {
         auto *row = new QHBoxLayout();
         row->setContentsMargins(0, 0, 0, 0);
         row->setSpacing(10);
@@ -250,12 +251,12 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
 
     flow->addWidget(makeTile(QStringLiteral("ComboBox"), QString(), [&](QVBoxLayout *body) {
         auto *cb = new FluentComboBox();
-        cb->addItems({QStringLiteral("选项 A"), QStringLiteral("选项 B"), QStringLiteral("选项 C")});
+        cb->addItems({DEMO_TEXT("选项 A", "Option A"), DEMO_TEXT("选项 B", "Option B"), DEMO_TEXT("选项 C", "Option C")});
         cb->setCurrentIndex(1);
         body->addWidget(cb);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("TextEdit"), QStringLiteral("包含 FluentScrollBar"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("TextEdit"), DEMO_TEXT("包含 FluentScrollBar", "Includes FluentScrollBar"), [&](QVBoxLayout *body) {
         auto *te = new FluentTextEdit();
         te->setPlaceholderText(QStringLiteral("FluentTextEdit"));
         te->setText(QStringLiteral("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"));
@@ -263,7 +264,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(te);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("CodeEditor"), QStringLiteral("语法高亮 + 格式化（Ctrl+Shift+F）"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("CodeEditor"), DEMO_TEXT("语法高亮 + 格式化（Ctrl+Shift+F）", "Syntax highlighting + formatting (Ctrl+Shift+F)"), [&](QVBoxLayout *body) {
         auto *ed = new FluentCodeEditor();
         ed->setFixedHeight(140);
         ed->setPlainText(QStringLiteral(
@@ -273,10 +274,10 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(ed);
     }));
 
-    addJumpCard(QStringLiteral("输入页：LineEdit / TextEdit / Slider / SpinBox / ComboBox"), 2);
+    addJumpCard(DEMO_TEXT("输入页：LineEdit / TextEdit / Slider / SpinBox / ComboBox", "Inputs page: LineEdit / TextEdit / Slider / SpinBox / ComboBox"), 2);
 
-    addGroupTitle(QStringLiteral("选择器"));
-    flow->addWidget(makeTile(QStringLiteral("DatePicker"), QStringLiteral("滚轮式月 / 日 / 年选择"), [&](QVBoxLayout *body) {
+    addGroupTitle(DEMO_TEXT("选择器", "Pickers"));
+    flow->addWidget(makeTile(QStringLiteral("DatePicker"), DEMO_TEXT("滚轮式月 / 日 / 年选择", "Wheel-style month / day / year selection"), [&](QVBoxLayout *body) {
         auto *p = new FluentDatePicker();
         p->setDate(QDate::currentDate());
         body->addWidget(p);
@@ -286,12 +287,12 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         p->setDate(QDate::currentDate());
         body->addWidget(p);
     }));
-    flow->addWidget(makeTile(QStringLiteral("TimePicker"), QStringLiteral("滚轮式时间选择"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("TimePicker"), DEMO_TEXT("滚轮式时间选择", "Wheel-style time selection"), [&](QVBoxLayout *body) {
         auto *p = new FluentTimePicker();
         p->setTime(QTime::currentTime());
         body->addWidget(p);
     }));
-    flow->addWidget(makeTile(QStringLiteral("ColorPicker"), QStringLiteral("内置颜色选择按钮"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("ColorPicker"), DEMO_TEXT("内置颜色选择按钮", "Built-in color picker button"), [&](QVBoxLayout *body) {
         auto *p = new FluentColorPicker();
         p->setColor(ThemeManager::instance().colors().accent);
         QObject::connect(p, &FluentColorPicker::colorChanged, window, [](const QColor &c) {
@@ -301,8 +302,8 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         });
         body->addWidget(p);
     }));
-    flow->addWidget(makeTile(QStringLiteral("ColorDialog"), QStringLiteral("对话框类控件在示例页更完整"), [&](QVBoxLayout *body) {
-        auto *btn = new FluentButton(QStringLiteral("打开 FluentColorDialog…"));
+    flow->addWidget(makeTile(QStringLiteral("ColorDialog"), DEMO_TEXT("对话框类控件在示例页更完整", "Dialog-based control with a fuller example page"), [&](QVBoxLayout *body) {
+        auto *btn = new FluentButton(DEMO_TEXT("打开 FluentColorDialog…", "Open FluentColorDialog..."));
         QObject::connect(btn, &QPushButton::clicked, window, [window]() {
             const QColor before = ThemeManager::instance().colors().accent;
             FluentColorDialog dlg(before, window);
@@ -324,10 +325,10 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         });
         body->addWidget(btn);
     }));
-    addJumpCard(QStringLiteral("选择器页：CalendarPicker / TimePicker / ColorPicker / ColorDialog"), 4);
-    addJumpCard(QStringLiteral("角度控件页：FluentDial / FluentAngleSelector / 可见性变体"), 5);
+    addJumpCard(DEMO_TEXT("选择器页：CalendarPicker / TimePicker / ColorPicker / ColorDialog", "Pickers page: CalendarPicker / TimePicker / ColorPicker / ColorDialog"), 4);
+    addJumpCard(DEMO_TEXT("角度控件页：FluentDial / FluentAngleSelector / 可见性变体", "Angle Controls page: FluentDial / FluentAngleSelector / visibility variants"), 5);
 
-    addGroupTitle(QStringLiteral("数据视图"));
+    addGroupTitle(DEMO_TEXT("数据视图", "Data Views"));
     flow->addWidget(makeTile(QStringLiteral("ListView"), QString(), [&](QVBoxLayout *body) {
         auto *view = new FluentListView();
         view->setFixedHeight(110);
@@ -345,7 +346,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         auto *view = new FluentTableView();
         view->setFixedHeight(130);
         auto *model = new QStandardItemModel(3, 3, view);
-        model->setHorizontalHeaderLabels({QStringLiteral("列 1"), QStringLiteral("列 2"), QStringLiteral("列 3")});
+        model->setHorizontalHeaderLabels({DEMO_TEXT("列 1", "Column 1"), DEMO_TEXT("列 2", "Column 2"), DEMO_TEXT("列 3", "Column 3")});
         for (int r = 0; r < 3; ++r) {
             for (int c = 0; c < 3; ++c) {
                 model->setItem(r, c, new QStandardItem(QStringLiteral("%1,%2").arg(r + 1).arg(c + 1)));
@@ -364,7 +365,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         auto *view = new FluentTreeView();
         view->setFixedHeight(150);
         auto *model = new QStandardItemModel(view);
-        model->setHorizontalHeaderLabels({QStringLiteral("树"), QStringLiteral("值")});
+        model->setHorizontalHeaderLabels({DEMO_TEXT("树", "Tree"), DEMO_TEXT("值", "Value")});
         auto *root = model->invisibleRootItem();
         auto *parentItem = new QStandardItem(QStringLiteral("Parent"));
         parentItem->appendRow({new QStandardItem(QStringLiteral("Child 1")), new QStandardItem(QStringLiteral("42"))});
@@ -377,37 +378,37 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         view->setEditTriggers(QAbstractItemView::NoEditTriggers);
         body->addWidget(view);
     }));
-    addJumpCard(QStringLiteral("数据视图页：ListView / TableView / TreeView"), 6);
+    addJumpCard(DEMO_TEXT("数据视图页：ListView / TableView / TreeView", "Data Views page: ListView / TableView / TreeView"), 6);
 
-    addGroupTitle(QStringLiteral("容器/布局"));
-    flow->addWidget(makeTile(QStringLiteral("Card"), QStringLiteral("FluentCard 作为内容容器"), [&](QVBoxLayout *body) {
+    addGroupTitle(DEMO_TEXT("容器/布局", "Containers / Layout"));
+    flow->addWidget(makeTile(QStringLiteral("Card"), DEMO_TEXT("FluentCard 作为内容容器", "FluentCard used as a content container"), [&](QVBoxLayout *body) {
         auto *inner = new FluentCard();
         inner->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         auto *l = new QVBoxLayout(inner);
         l->setContentsMargins(12, 10, 12, 10);
-        l->addWidget(new FluentLabel(QStringLiteral("这是一个嵌套的 FluentCard")));
+        l->addWidget(new FluentLabel(DEMO_TEXT("这是一个嵌套的 FluentCard", "This is a nested FluentCard")));
         body->addWidget(inner);
     }));
-    flow->addWidget(makeTile(QStringLiteral("Collapsible Card"), QStringLiteral("点击标题折叠/展开（仅显示标题）"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("Collapsible Card"), DEMO_TEXT("点击标题折叠/展开（仅显示标题）", "Click the title to collapse or expand (title-only when collapsed)"), [&](QVBoxLayout *body) {
         auto *card = new FluentCard();
         card->setCollapsible(true);
-        card->setTitle(QStringLiteral("高级选项"));
+        card->setTitle(DEMO_TEXT("高级选项", "Advanced options"));
         card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
         auto *cl = card->contentLayout();
         if (cl) {
             cl->setSpacing(6);
-            cl->addWidget(new FluentLabel(QStringLiteral("-这里放更复杂的设置项")));
-            cl->addWidget(new FluentLabel(QStringLiteral("-折叠后内容会隐藏并收缩高度")));
+            cl->addWidget(new FluentLabel(DEMO_TEXT("-这里放更复杂的设置项", "-Place more advanced settings here")));
+            cl->addWidget(new FluentLabel(DEMO_TEXT("-折叠后内容会隐藏并收缩高度", "-When collapsed, the content hides and the height shrinks")));
         }
 
         body->addWidget(card);
     }));
     flow->addWidget(makeTile(QStringLiteral("GroupBox"), QString(), [&](QVBoxLayout *body) {
-        auto *gb = new FluentGroupBox(QStringLiteral("分组"));
+        auto *gb = new FluentGroupBox(DEMO_TEXT("分组", "Group"));
         auto *l = new QVBoxLayout(gb);
         l->setContentsMargins(12, 10, 12, 10);
-        l->addWidget(new FluentLabel(QStringLiteral("把相关控件组织在一起")));
+        l->addWidget(new FluentLabel(DEMO_TEXT("把相关控件组织在一起", "Organize related controls together")));
         body->addWidget(gb);
     }));
     flow->addWidget(makeTile(QStringLiteral("TabWidget"), QString(), [&](QVBoxLayout *body) {
@@ -417,7 +418,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         tabs->addTab(new FluentLabel(QStringLiteral("Tab B 内容")), QStringLiteral("Tab B"));
         body->addWidget(tabs);
     }));
-    flow->addWidget(makeTile(QStringLiteral("ScrollArea"), QStringLiteral("overlay 滚动条（可见滚动）"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("ScrollArea"), DEMO_TEXT("overlay 滚动条（可见滚动）", "Overlay scrollbars with visible scrolling"), [&](QVBoxLayout *body) {
         auto *area = new FluentScrollArea();
         area->setOverlayScrollBarsEnabled(true);
         area->setWidgetResizable(true);
@@ -429,7 +430,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         sl->setContentsMargins(12, 12, 12, 12);
         sl->setSpacing(6);
         for (int i = 1; i <= 18; ++i) {
-            sl->addWidget(new FluentLabel(QStringLiteral("滚动内容 %1").arg(i)));
+            sl->addWidget(new FluentLabel(DEMO_TEXT("滚动内容 %1", "Scrollable content %1").arg(i)));
         }
         body->addWidget(area);
     }));
@@ -441,7 +442,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(sb);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("AnnotatedScrollBar"), QStringLiteral("滚动时右侧显示当前分段"), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("AnnotatedScrollBar"), DEMO_TEXT("滚动时右侧显示当前分段", "Shows the current section on the right while scrolling"), [&](QVBoxLayout *body) {
         auto *shell = new FluentWidget();
         shell->setBackgroundRole(FluentWidget::BackgroundRole::Transparent);
 
@@ -466,10 +467,10 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         contentLayout->setSpacing(8);
 
         const QVector<FluentAnnotatedScrollBarSource> sources = {
-            {QStringLiteral("首页"), QStringLiteral("欢迎概览"), 8, 83},
-            {QStringLiteral("首页"), QStringLiteral("快捷入口"), 92, 167},
-            {QStringLiteral("库存"), QStringLiteral("仓储列表"), 176, 251},
-            {QStringLiteral("设置"), QStringLiteral("参数设置"), 260, 335}
+            {DEMO_TEXT("首页", "Home"), DEMO_TEXT("欢迎概览", "Welcome overview"), 8, 83},
+            {DEMO_TEXT("首页", "Home"), DEMO_TEXT("快捷入口", "Quick entry"), 92, 167},
+            {DEMO_TEXT("库存", "Inventory"), DEMO_TEXT("仓储列表", "Warehouse list"), 176, 251},
+            {DEMO_TEXT("设置", "Settings"), DEMO_TEXT("参数设置", "Parameter settings"), 260, 335}
         };
 
         for (const FluentAnnotatedScrollBarSource &source : sources) {
@@ -480,7 +481,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
             cardLayout->setSpacing(4);
             auto *title = new FluentLabel(source.text);
             title->setStyleSheet("font-size: 12px; font-weight: 650;");
-            auto *summary = new FluentLabel(QStringLiteral("所属分组：%1").arg(source.group));
+            auto *summary = new FluentLabel(DEMO_TEXT("所属分组：%1", "Group: %1").arg(source.group));
             summary->setStyleSheet("font-size: 11px; opacity: 0.84;");
             summary->setWordWrap(true);
             cardLayout->addWidget(title);
@@ -499,70 +500,77 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(shell);
     }));
 
-    flow->addWidget(makeTile(QStringLiteral("FlowLayout"), QStringLiteral("总览页/侧栏卡片均使用 FlowLayout"), [&](QVBoxLayout *body) {
-        auto *lab = new FluentLabel(QStringLiteral(
+    flow->addWidget(makeTile(QStringLiteral("FlowLayout"), DEMO_TEXT("总览页/侧栏卡片均使用 FlowLayout", "The overview and sidebar cards both use FlowLayout"), [&](QVBoxLayout *body) {
+        auto *lab = new FluentLabel(DEMO_TEXT(
             "-FluentFlowLayout：自适应换行\n"
             "-uniformItemWidth：统一卡片宽度\n"
-            "-resize 动画：缩放时更顺滑"));
+            "-resize 动画：缩放时更顺滑",
+            "-FluentFlowLayout: adaptive wrapping\n"
+            "-uniformItemWidth: aligned card widths\n"
+            "-resize animation: smoother transitions while resizing"));
         lab->setWordWrap(true);
         body->addWidget(lab);
     }));
 
-    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / AnnotatedScrollBar / Splitter / FlowLayout"), 7);
+    addJumpCard(DEMO_TEXT("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / AnnotatedScrollBar / Splitter / FlowLayout", "Containers page: Card / GroupBox / TabWidget / ScrollArea / ScrollBar / AnnotatedScrollBar / Splitter / FlowLayout"), 7);
 
-    addGroupTitle(QStringLiteral("窗口 / 对话框"));
-    flow->addWidget(makeTile(QStringLiteral("Dialog"), QStringLiteral("支持可选蒙版 overlay"), [&](QVBoxLayout *body) {
-        auto *btn = new FluentButton(QStringLiteral("打开 FluentDialog…"));
+    addGroupTitle(DEMO_TEXT("窗口 / 对话框", "Windows / Dialogs"));
+    flow->addWidget(makeTile(QStringLiteral("Dialog"), DEMO_TEXT("支持可选蒙版 overlay", "Supports an optional overlay mask"), [&](QVBoxLayout *body) {
+        auto *btn = new FluentButton(DEMO_TEXT("打开 FluentDialog…", "Open FluentDialog..."));
         QObject::connect(btn, &QPushButton::clicked, window, [window]() {
             FluentDialog dlg(window);
             dlg.setMaskEnabled(true);
             auto *l = new QVBoxLayout(&dlg);
             l->setContentsMargins(16, 16, 16, 16);
-            l->addWidget(new FluentLabel(QStringLiteral("这是一个 FluentDialog（带蒙版）")));
+            l->addWidget(new FluentLabel(DEMO_TEXT("这是一个 FluentDialog（带蒙版）", "This is a FluentDialog with an overlay mask")));
             dlg.resize(520, 260);
             dlg.exec();
         });
         body->addWidget(btn);
     }));
     flow->addWidget(makeTile(QStringLiteral("MessageBox"), QString(), [&](QVBoxLayout *body) {
-        auto *btn = new FluentButton(QStringLiteral("弹出 FluentMessageBox…"));
+        auto *btn = new FluentButton(DEMO_TEXT("弹出 FluentMessageBox…", "Show FluentMessageBox..."));
         QObject::connect(btn, &QPushButton::clicked, window, [window]() {
             FluentMessageBox::information(window,
                                          QStringLiteral("MessageBox"),
-                                         QStringLiteral("这是一条信息提示（带蒙版 overlay）"),
+                                         DEMO_TEXT("这是一条信息提示（带蒙版 overlay）", "This is an informational prompt with an overlay mask"),
                                          QString(),
                                          true);
         });
         body->addWidget(btn);
     }));
-    flow->addWidget(makeTile(QStringLiteral("Menu"), QStringLiteral("右键/按钮触发弹出"), [&](QVBoxLayout *body) {
-        auto *btn = new FluentButton(QStringLiteral("弹出 FluentMenu…"));
+    flow->addWidget(makeTile(QStringLiteral("Menu"), DEMO_TEXT("右键/按钮触发弹出", "Triggered from a button or right-click"), [&](QVBoxLayout *body) {
+        auto *btn = new FluentButton(DEMO_TEXT("弹出 FluentMenu…", "Show FluentMenu..."));
         QObject::connect(btn, &QPushButton::clicked, window, [window]() {
             auto *menu = new FluentMenu(window);
-            menu->addAction(QStringLiteral("操作 A"));
-            menu->addAction(QStringLiteral("操作 B"));
-            auto *sub = menu->addFluentMenu(QStringLiteral("更多"));
-            sub->addAction(QStringLiteral("子菜单项"));
+            menu->addAction(DEMO_TEXT("操作 A", "Action A"));
+            menu->addAction(DEMO_TEXT("操作 B", "Action B"));
+            auto *sub = menu->addFluentMenu(DEMO_TEXT("更多", "More"));
+            sub->addAction(DEMO_TEXT("子菜单项", "Submenu item"));
             menu->exec(QCursor::pos());
             menu->deleteLater();
         });
         body->addWidget(btn);
     }));
-    flow->addWidget(makeTile(QStringLiteral("Toast"), QStringLiteral("位置/动画在示例页更完整"), [&](QVBoxLayout *body) {
-        auto *btn = new FluentButton(QStringLiteral("发一条 Toast"));
+    flow->addWidget(makeTile(QStringLiteral("Toast"), DEMO_TEXT("位置/动画在示例页更完整", "Position and animation are demonstrated more fully on the dedicated page"), [&](QVBoxLayout *body) {
+        auto *btn = new FluentButton(DEMO_TEXT("发一条 Toast", "Send a Toast"));
         QObject::connect(btn, &QPushButton::clicked, window, [window]() {
             FluentToast::showToast(window,
                                   QStringLiteral("Toast"),
-                                  QStringLiteral("这是一条 Toast（点击可关闭）"),
+                                  DEMO_TEXT("这是一条 Toast（点击可关闭）", "This is a Toast notification (click to dismiss)"),
                                   FluentToast::Position::BottomRight,
                                   2400);
         });
         body->addWidget(btn);
     }));
     flow->addWidget(makeTile(QStringLiteral("Window Chrome"),
-                             QStringLiteral("这些控件更适合在“窗口/对话框”页集中演示"),
+                             DEMO_TEXT("这些控件更适合在“窗口/对话框”页集中演示", "These controls are demonstrated more appropriately on the Windows / Dialogs page"),
                              [&](QVBoxLayout *body) {
-                                 auto *lab = new FluentLabel(QStringLiteral(
+                                 auto *lab = new FluentLabel(DEMO_TEXT(
+                                     "-FluentMainWindow\n"
+                                     "-FluentMenuBar / FluentToolBar / FluentStatusBar\n"
+                                     "-FluentResizeHelper\n"
+                                     "-FluentStyle / FluentTheme",
                                      "-FluentMainWindow\n"
                                      "-FluentMenuBar / FluentToolBar / FluentStatusBar\n"
                                      "-FluentResizeHelper\n"
@@ -570,7 +578,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
                                  lab->setWordWrap(true);
                                  body->addWidget(lab);
                              }));
-    addJumpCard(QStringLiteral("窗口/对话框页：Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast"), 8);
+    addJumpCard(DEMO_TEXT("窗口/对话框页：Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast", "Windows / Dialogs page: Dialog / MessageBox / Menu / MenuBar / ToolBar / StatusBar / Toast"), 8);
 
     return overviewArea;
 }

@@ -1,7 +1,9 @@
 ﻿#include <QApplication>
+#include <QCoreApplication>
 
 #include "Fluent/FluentTheme.h"
 
+#include "DemoHelpers.h"
 #include "DemoWindow.h"
 
 int main(int argc, char *argv[])
@@ -11,6 +13,9 @@ int main(int argc, char *argv[])
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
     QApplication app(argc, argv);
+    QCoreApplication::setOrganizationName(QStringLiteral("QtFluent"));
+    QCoreApplication::setApplicationName(QStringLiteral("QtFluentDemo"));
+    Demo::initializeLanguage();
 
     Demo::DemoWindow w;
     w.resize(1260, 780);

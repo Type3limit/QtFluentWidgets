@@ -9,11 +9,164 @@
 #include "Fluent/FluentTheme.h"
 #include "Fluent/FluentWidget.h"
 
+#include <QApplication>
+#include <QHash>
+#include <QLocale>
+#include <QSettings>
+#include <QTranslator>
 #include <QVBoxLayout>
 
 namespace Demo {
 
 using namespace Fluent;
+
+namespace {
+
+QString utf8Text(const char *text)
+{
+    return QString::fromUtf8(text);
+}
+
+class DemoLibraryTranslator final : public QTranslator
+{
+public:
+    QString translate(const char *context,
+                      const char *sourceText,
+                      const char *disambiguation,
+                      int n) const override
+    {
+        Q_UNUSED(context)
+        Q_UNUSED(disambiguation)
+        Q_UNUSED(n)
+
+        if (!sourceText) {
+            return QString();
+        }
+
+        static const QHash<QString, QString> translations = {
+            { utf8Text(u8"\u6708"), QStringLiteral("Month") },
+            { utf8Text(u8"\u65e5"), QStringLiteral("Day") },
+            { utf8Text(u8"\u5e74"), QStringLiteral("Year") },
+            { utf8Text(u8"\u4eca\u5929"), QStringLiteral("Today") },
+            { utf8Text(u8"\u65f6"), QStringLiteral("Hour") },
+            { utf8Text(u8"\u5206"), QStringLiteral("Minute") },
+            { utf8Text(u8"\u4e0a\u5348"), QStringLiteral("AM") },
+            { utf8Text(u8"\u4e0b\u5348"), QStringLiteral("PM") },
+            { utf8Text(u8"\u89d2\u5ea6\uff1a"), QStringLiteral("Angle:") },
+            { utf8Text(u8"\u9009\u62e9\u989c\u8272"), QStringLiteral("Select color") },
+            { utf8Text(u8"\u7eaf\u8272"), QStringLiteral("Solid") },
+            { utf8Text(u8"\u7ebf\u6027\u6e10\u53d8"), QStringLiteral("Linear gradient") },
+            { utf8Text(u8"\u5f84\u5411\u6e10\u53d8"), QStringLiteral("Radial gradient") },
+            { utf8Text(u8"\u91cd\u7f6e"), QStringLiteral("Reset") },
+            { utf8Text(u8"\u5355\u51fb\u6e10\u53d8\u6761\u6dfb\u52a0\u8272\u6807\uff0c\u53f3\u952e\u5220\u9664"), QStringLiteral("Click the gradient bar to add a stop, right-click to remove it") },
+            { utf8Text(u8"\u9884\u7f6e\u989c\u8272"), QStringLiteral("Presets") },
+            { utf8Text(u8"\u6700\u8fd1\u4f7f\u7528"), QStringLiteral("Recent") },
+            { utf8Text(u8"\u53d6\u6d88"), QStringLiteral("Cancel") },
+            { utf8Text(u8"\u786e\u5b9a"), QStringLiteral("OK") },
+            { utf8Text(u8"\u4ece\u5c4f\u5e55\u53d6\u8272"), QStringLiteral("Pick from screen") },
+            { utf8Text(u8"\u5220\u9664\u8272\u6807"), QStringLiteral("Delete stop") },
+            { utf8Text(u8"\u62d6\u62fd\u65cb\u8f6c\u8c03\u6574\u89d2\u5ea6"), QStringLiteral("Drag to adjust angle") },
+        };
+
+        return translations.value(QString::fromUtf8(sourceText));
+    }
+};
+
+DemoLibraryTranslator s_demoLibraryTranslator;
+DemoLanguage s_currentLanguage = DemoLanguage::Chinese;
+bool s_languageInitialized = false;
+
+QLocale localeForLanguage(DemoLanguage language)
+{
+    if (language == DemoLanguage::English) {
+        return QLocale(QLocale::English, QLocale::UnitedStates);
+    }
+    return QLocale(QLocale::Chinese, QLocale::China);
+}
+
+QString languageKey(DemoLanguage language)
+{
+    return language == DemoLanguage::English ? QStringLiteral("en") : QStringLiteral("zh");
+}
+
+DemoLanguage languageFromKey(const QString &key)
+{
+    return key.compare(QStringLiteral("en"), Qt::CaseInsensitive) == 0
+               ? DemoLanguage::English
+               : DemoLanguage::Chinese;
+}
+
+QSettings languageSettings()
+{
+    return QSettings();
+}
+
+DemoLanguage preferredLanguage()
+{
+    QSettings settings = languageSettings();
+    const QString stored = settings.value(QStringLiteral("ui/language")).toString().trimmed();
+    if (stored.isEmpty()) {
+        return systemLanguage();
+    }
+    return languageFromKey(stored);
+}
+
+void syncLanguage(DemoLanguage language)
+{
+    s_currentLanguage = language;
+    QLocale::setDefault(localeForLanguage(language));
+
+    auto *app = qobject_cast<QApplication *>(QCoreApplication::instance());
+    if (!app) {
+        return;
+    }
+
+    app->removeTranslator(&s_demoLibraryTranslator);
+    if (language == DemoLanguage::English) {
+        app->installTranslator(&s_demoLibraryTranslator);
+    }
+}
+
+} // namespace
+
+DemoLanguage systemLanguage()
+{
+    return QLocale::system().language() == QLocale::Chinese
+               ? DemoLanguage::Chinese
+               : DemoLanguage::English;
+}
+
+void initializeLanguage()
+{
+    if (s_languageInitialized) {
+        return;
+    }
+
+    syncLanguage(preferredLanguage());
+    s_languageInitialized = true;
+}
+
+DemoLanguage currentLanguage()
+{
+    return s_currentLanguage;
+}
+
+bool setLanguage(DemoLanguage language)
+{
+    const bool changed = !s_languageInitialized || s_currentLanguage != language;
+
+    QSettings settings = languageSettings();
+    settings.setValue(QStringLiteral("ui/language"), languageKey(language));
+
+    syncLanguage(language);
+    s_languageInitialized = true;
+    return changed;
+}
+
+QString text(const QString &zh, const QString &en)
+{
+    return s_currentLanguage == DemoLanguage::English ? en : zh;
+}
 
 Section makeSection(const QString &title, const QString &subtitle)
 {

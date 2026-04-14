@@ -1,5 +1,6 @@
 ﻿#include "DemoCodeEditorPanel.h"
 
+#include "../DemoHelpers.h"
 #include "../DemoCodeEditorSettings.h"
 
 #include "Fluent/FluentButton.h"
@@ -44,13 +45,13 @@ DemoCodeEditorPanel::DemoCodeEditorPanel(QWidget *parent, bool showTitle)
     }
 
     m_pathEdit = new FluentLineEdit();
-    m_pathEdit->setPlaceholderText(QStringLiteral("clang-format 路径（留空=自动检测）"));
+    m_pathEdit->setPlaceholderText(DEMO_TEXT("clang-format 路径（留空=自动检测）", "clang-format path (leave empty to auto-detect)"));
     m_pathEdit->setText(DemoCodeEditorSettings::instance().clangFormatPathText());
 
-    auto *browse = new FluentButton(QStringLiteral("浏览…"));
+    auto *browse = new FluentButton(DEMO_TEXT("浏览…", "Browse..."));
     browse->setFixedHeight(28);
 
-    auto *autoBtn = new FluentButton(QStringLiteral("自动"));
+    auto *autoBtn = new FluentButton(DEMO_TEXT("自动", "Auto"));
     autoBtn->setFixedHeight(28);
 
     auto *pathRow = new QWidget();
@@ -69,14 +70,14 @@ DemoCodeEditorPanel::DemoCodeEditorPanel(QWidget *parent, bool showTitle)
     m_statusLabel->setStyleSheet("font-size: 12px; opacity: 0.85;");
     layout->addWidget(m_statusLabel);
 
-    m_lineNumbers = new FluentCheckBox(QStringLiteral("行号"));
+    m_lineNumbers = new FluentCheckBox(DEMO_TEXT("行号", "Line numbers"));
     m_lineNumbers->setChecked(DemoCodeEditorSettings::instance().lineNumbersEnabled());
 
-    m_autoFormat = new FluentCheckBox(QStringLiteral("自动格式化"));
+    m_autoFormat = new FluentCheckBox(DEMO_TEXT("自动格式化", "Auto format"));
     m_autoFormat->setChecked(DemoCodeEditorSettings::instance().autoFormatEnabled());
 
-    m_autoFormatOnEnterOrFocusOut = new FluentCheckBox(QStringLiteral("仅失焦/回车后触发"));
-    m_autoFormatOnEnterOrFocusOut->setToolTip(QStringLiteral("开启后：不会在连续输入过程中触发自动格式化，仅在回车换行或失焦时触发。"));
+    m_autoFormatOnEnterOrFocusOut = new FluentCheckBox(DEMO_TEXT("仅失焦/回车后触发", "Only on focus-out / Enter"));
+    m_autoFormatOnEnterOrFocusOut->setToolTip(DEMO_TEXT("开启后：不会在连续输入过程中触发自动格式化，仅在回车换行或失焦时触发。", "When enabled, auto-formatting will not run during continuous typing. It only runs after pressing Enter or when focus leaves the editor."));
     m_autoFormatOnEnterOrFocusOut->setChecked(
         DemoCodeEditorSettings::instance().autoFormatTriggerPolicy() == FluentCodeEditor::AutoFormatTriggerPolicy::OnEnterOrFocusOut);
 
@@ -84,16 +85,16 @@ DemoCodeEditorPanel::DemoCodeEditorPanel(QWidget *parent, bool showTitle)
     m_debounce->setRange(0, 5000);
     m_debounce->setValue(DemoCodeEditorSettings::instance().autoFormatDebounceMs());
     m_debounce->setSuffix(QStringLiteral(" ms"));
-    m_debounce->setToolTip(QStringLiteral("自动格式化节流时间"));
+    m_debounce->setToolTip(DEMO_TEXT("自动格式化节流时间", "Auto-format debounce delay"));
 
-    m_missingHint = new FluentCheckBox(QStringLiteral("缺失提示"));
+    m_missingHint = new FluentCheckBox(DEMO_TEXT("缺失提示", "Missing-tool hint"));
     m_missingHint->setChecked(DemoCodeEditorSettings::instance().clangFormatMissingHintEnabled());
 
     m_fontSize = new FluentSpinBox();
     m_fontSize->setRange(8, 22);
     m_fontSize->setValue(DemoCodeEditorSettings::instance().fontPointSize());
     m_fontSize->setSuffix(QStringLiteral(" pt"));
-    m_fontSize->setToolTip(QStringLiteral("代码字体大小"));
+    m_fontSize->setToolTip(DEMO_TEXT("代码字体大小", "Code font size"));
 
     layout->addWidget(row(m_lineNumbers, m_fontSize));
     layout->addWidget(row(m_autoFormat, m_debounce));
@@ -132,7 +133,7 @@ DemoCodeEditorPanel::DemoCodeEditorPanel(QWidget *parent, bool showTitle)
 
     QObject::connect(browse, &QPushButton::clicked, this, [this]() {
         const QString filter = QStringLiteral("clang-format (clang-format*);;Executables (*.exe);;All Files (*.*)");
-        const QString file = QFileDialog::getOpenFileName(this, QStringLiteral("选择 clang-format"), QString(), filter);
+        const QString file = QFileDialog::getOpenFileName(this, DEMO_TEXT("选择 clang-format", "Select clang-format"), QString(), filter);
         if (!file.isEmpty()) {
             m_pathEdit->setText(file);
             DemoCodeEditorSettings::instance().setClangFormatPathText(file);
@@ -179,9 +180,9 @@ void DemoCodeEditorPanel::refreshStatus()
 {
     const QString resolved = DemoCodeEditorSettings::instance().resolvedClangFormatPath();
     if (resolved.isEmpty()) {
-        m_statusLabel->setText(QStringLiteral("clang-format：未找到（将使用基础格式化）"));
+        m_statusLabel->setText(DEMO_TEXT("clang-format：未找到（将使用基础格式化）", "clang-format: not found (falling back to basic formatting)"));
     } else {
-        m_statusLabel->setText(QStringLiteral("clang-format：%1").arg(resolved));
+        m_statusLabel->setText(DEMO_TEXT("clang-format：%1", "clang-format: %1").arg(resolved));
     }
 }
 

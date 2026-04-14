@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../DemoHelpers.h"
+
 #include <QPointer>
 #include <QWidget>
 
@@ -17,6 +19,7 @@ public:
 
 signals:
     void toastPositionChanged(Fluent::FluentToast::Position position);
+    void languageChanged(DemoLanguage language);
 
 private:
     QPointer<QWidget> m_hostWindow;

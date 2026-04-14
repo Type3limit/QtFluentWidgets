@@ -19,7 +19,7 @@ namespace {
 
 QLocale defaultPickerLocale()
 {
-    return QLocale(QLocale::Chinese, QLocale::China);
+    return QLocale();
 }
 
 QVector<FluentDatePicker::DatePart> orderedDateParts(FluentDatePicker::DateParts parts)
@@ -59,9 +59,9 @@ FluentDatePicker::FluentDatePicker(QWidget *parent)
     , m_monthFormat(QStringLiteral("MMMM"))
     , m_dayFormat(QStringLiteral("d"))
     , m_yearFormat(QStringLiteral("yyyy"))
-    , m_monthPlaceholderText(QStringLiteral("月"))
-    , m_dayPlaceholderText(QStringLiteral("日"))
-    , m_yearPlaceholderText(QStringLiteral("年"))
+    , m_monthPlaceholderText(tr("月"))
+    , m_dayPlaceholderText(tr("日"))
+    , m_yearPlaceholderText(tr("年"))
 {
     setAttribute(Qt::WA_Hover, true);
     setMouseTracking(true);

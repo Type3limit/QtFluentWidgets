@@ -125,7 +125,7 @@ add_library(QtFluentWidgets
 target_include_directories(QtFluentWidgets PUBLIC include)
 target_link_libraries(QtFluentWidgets PUBLIC ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Svg)
 
-add_executable(QtFluentDemo
+add_executable(QtFluentDemo WIN32
     demo/main.cpp
     demo/DemoWindow.h
     demo/DemoWindow.cpp

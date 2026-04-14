@@ -20,7 +20,7 @@ namespace {
 
 QLocale defaultCalendarLocale()
 {
-    return QLocale(QLocale::Chinese, QLocale::China);
+    return QLocale();
 }
 
 } // namespace
@@ -28,7 +28,7 @@ QLocale defaultCalendarLocale()
 
 FluentCalendarPicker::FluentCalendarPicker(QWidget *parent)
     : QDateEdit(parent)
-    , m_todayText(QStringLiteral("今天"))
+    , m_todayText(tr("今天"))
 {
     setCalendarPopup(false);
     setButtonSymbols(QAbstractSpinBox::NoButtons);

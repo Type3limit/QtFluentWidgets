@@ -184,7 +184,7 @@ FluentColorDialog::FluentColorDialog(const QColor &initial, QWidget *parent)
     modeCombo->addItem(tr(u8"线性渐变"), static_cast<int>(ColorPickerMode::LinearGradient));
     modeCombo->addItem(tr(u8"径向渐变"), static_cast<int>(ColorPickerMode::RadialGradient));
     modeCombo->setCurrentIndex(0);
-    modeCombo->setFixedWidth(100);
+    modeCombo->setFixedWidth(148);
     modeCombo->setVisible(m_gradientEnabled);
     m_modeCombo = modeCombo;
 
@@ -272,8 +272,8 @@ FluentColorDialog::FluentColorDialog(const QColor &initial, QWidget *parent)
 
     // ── Combined info row: [■ preview] [# hex edit] [Reset] ─────────────
     // Merges the old separate "preview" row and "hex" row into one compact line.
-    auto *resetBtn = new FluentButton(QStringLiteral("重置"), content);
-    resetBtn->setFixedWidth(54);
+    auto *resetBtn = new FluentButton(tr(u8"重置"), content);
+    resetBtn->setFixedWidth(72);
     {
         auto *row = new QHBoxLayout();
         row->setContentsMargins(0, 0, 0, 0);
@@ -370,8 +370,8 @@ FluentColorDialog::FluentColorDialog(const QColor &initial, QWidget *parent)
     if (recent.isEmpty())
         recent = { ThemeManager::instance().colors().accent, ThemeManager::instance().colors().surface };
 
-    makeSwatchSection(QStringLiteral("预置颜色"), presetColorPalette());
-    makeSwatchSection(QStringLiteral("最近使用"), recent);
+    makeSwatchSection(tr(u8"预置颜色"), presetColorPalette());
+    makeSwatchSection(tr(u8"最近使用"), recent);
 
     // ── Bottom divider + OK/Cancel ─────────────────────────────────────────
     auto *bottomDiv = new QWidget(this);

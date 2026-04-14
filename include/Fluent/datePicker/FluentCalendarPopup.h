@@ -164,7 +164,7 @@ private:
 	HitPart m_pressPart  = HitPart::None;
 	int     m_hoverIndex = -1;
 	int     m_pressIndex = -1;
-	QString m_todayText = QStringLiteral("今天");
+	QString m_todayText;
 };
 
 } // namespace Fluent

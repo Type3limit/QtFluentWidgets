@@ -20,6 +20,7 @@
 #include <QComboBox>
 #include <QCursor>
 #include <QHBoxLayout>
+#include <QPointer>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -63,8 +64,59 @@ namespace Demo {
 
 using namespace Fluent;
 
-DemoWindow::DemoWindow(QWidget *parent)
+DemoWindow::DemoWindow(QWidget *parent,
+                       const QString &selectedNavigationKey,
+                       FluentToast::Position toastPosition)
     : FluentMainWindow(parent)
+    , m_toastPosition(toastPosition)
+    , m_selectedNavigationKey(selectedNavigationKey)
+{
+    buildUi();
+}
+
+void DemoWindow::clearUi()
+{
+    QPointer<QWidget> oldRoot = m_rootWidget;
+    QPointer<QWidget> oldLeftWidget = m_titleBarLeftOwnedWidget;
+    QPointer<QWidget> oldRightWidget = m_titleBarRightOwnedWidget;
+    QPointer<FluentMenuBar> oldMenuBar = m_ownedMenuBar;
+
+    if (m_titleBarLeftOwnedWidget && fluentTitleBarLeftWidget() == m_titleBarLeftOwnedWidget) {
+        setFluentTitleBarLeftWidget(nullptr);
+    }
+    if (m_titleBarRightOwnedWidget && fluentTitleBarRightWidget() == m_titleBarRightOwnedWidget) {
+        setFluentTitleBarRightWidget(nullptr);
+    }
+
+    m_titleBarLeftOwnedWidget = nullptr;
+    m_titleBarRightOwnedWidget = nullptr;
+
+    if (oldMenuBar) {
+        oldMenuBar->hide();
+        oldMenuBar->setParent(nullptr);
+        setFluentMenuBar(nullptr);
+        oldMenuBar->deleteLater();
+    }
+    m_ownedMenuBar = nullptr;
+
+    if (oldRoot) {
+        oldRoot->hide();
+        setCentralWidget(nullptr);
+        oldRoot->deleteLater();
+    }
+    m_rootWidget = nullptr;
+
+    if (oldLeftWidget) {
+        oldLeftWidget->hide();
+        oldLeftWidget->deleteLater();
+    }
+    if (oldRightWidget) {
+        oldRightWidget->hide();
+        oldRightWidget->deleteLater();
+    }
+}
+
+void DemoWindow::buildUi()
 {
     auto &window = *this;
 
@@ -72,13 +124,14 @@ DemoWindow::DemoWindow(QWidget *parent)
 
     // Menu / Toolbar / StatusBar: demonstrate window-level Fluent components.
     auto *menuBar = new FluentMenuBar();
-    auto *fileMenu = menuBar->addFluentMenu(QStringLiteral("文件"));
-    QAction *exitAction = fileMenu->addAction(QStringLiteral("退出"));
+    m_ownedMenuBar = menuBar;
+    auto *fileMenu = menuBar->addFluentMenu(DEMO_TEXT("文件", "File"));
+    QAction *exitAction = fileMenu->addAction(DEMO_TEXT("退出", "Exit"));
     QObject::connect(exitAction, &QAction::triggered, this, &QWidget::close);
 
-    auto *viewMenu = menuBar->addFluentMenu(QStringLiteral("视图"));
-    QAction *lightAction = viewMenu->addAction(QStringLiteral("浅色"));
-    QAction *darkAction = viewMenu->addAction(QStringLiteral("深色"));
+    auto *viewMenu = menuBar->addFluentMenu(DEMO_TEXT("视图", "View"));
+    QAction *lightAction = viewMenu->addAction(DEMO_TEXT("浅色", "Light"));
+    QAction *darkAction = viewMenu->addAction(DEMO_TEXT("深色", "Dark"));
     auto *themeGroup = new QActionGroup(viewMenu);
     themeGroup->setExclusive(true);
     themeGroup->addAction(lightAction);
@@ -98,46 +151,61 @@ DemoWindow::DemoWindow(QWidget *parent)
 
     window.setFluentMenuBar(menuBar);
 
-    auto *demoMenu = menuBar->addFluentMenu(QStringLiteral("演示"));
-    QAction *msgInfo = demoMenu->addAction(QStringLiteral("消息框"));
-    QAction *dlgAction = demoMenu->addAction(QStringLiteral("对话框"));
-    QAction *toastAction = demoMenu->addAction(QStringLiteral("Toast 通知"));
+    auto *demoMenu = menuBar->addFluentMenu(DEMO_TEXT("演示", "Demo"));
+    QAction *msgInfo = demoMenu->addAction(DEMO_TEXT("消息框", "Message box"));
+    QAction *dlgAction = demoMenu->addAction(DEMO_TEXT("对话框", "Dialog"));
+    QAction *toastAction = demoMenu->addAction(DEMO_TEXT("Toast 通知", "Toast notification"));
 
     // TitleBar custom slots demo
     {
         auto *search = new FluentLineEdit();
-        search->setPlaceholderText(QStringLiteral("搜索…"));
+        m_titleBarLeftOwnedWidget = search;
+        search->setPlaceholderText(DEMO_TEXT("搜索…", "Search..."));
         search->setFixedWidth(160);
         window.setFluentTitleBarLeftWidget(search);
 
         auto *toastControls = new QWidget();
+        m_titleBarRightOwnedWidget = toastControls;
         auto *tl = new QHBoxLayout(toastControls);
         tl->setContentsMargins(0, 0, 0, 0);
         tl->setSpacing(8);
 
-        auto *toastHint = new FluentLabel(QStringLiteral("Toast："));
+        auto *languageHint = new FluentLabel(DEMO_TEXT("语言：", "Language:"));
+        languageHint->setStyleSheet("font-size: 12px; opacity: 0.85;");
+        languageHint->setToolTip(DEMO_TEXT("切换 demo 显示语言", "Switch the demo display language"));
+
+        auto *languageCombo = new FluentComboBox();
+        languageCombo->setFixedHeight(28);
+        languageCombo->setFixedWidth(148);
+        languageCombo->setToolTip(DEMO_TEXT("选择显示语言", "Choose the display language"));
+        languageCombo->addItem(DEMO_TEXT("简体中文", "Chinese (Simplified)"), static_cast<int>(DemoLanguage::Chinese));
+        languageCombo->addItem(QStringLiteral("English"), static_cast<int>(DemoLanguage::English));
+        languageCombo->setCurrentIndex(currentLanguage() == DemoLanguage::English ? 1 : 0);
+
+        auto *toastHint = new FluentLabel(DEMO_TEXT("Toast：", "Toast:"));
         toastHint->setStyleSheet("font-size: 12px; opacity: 0.85;");
-        toastHint->setToolTip(QStringLiteral("快速测试 Toast：选择弹出位置，然后发送。"));
+        toastHint->setToolTip(DEMO_TEXT("快速测试 Toast：选择弹出位置，然后发送。", "Quick Toast test: choose a position and send."));
 
         auto *toastPosCombo = new FluentComboBox();
         toastPosCombo->setFixedHeight(28);
         toastPosCombo->setFixedWidth(120);
-        toastPosCombo->setToolTip(QStringLiteral("选择 Toast 弹出位置"));
-        toastPosCombo->addItem(QStringLiteral("左上"), static_cast<int>(FluentToast::Position::TopLeft));
-        toastPosCombo->addItem(QStringLiteral("顶中"), static_cast<int>(FluentToast::Position::TopCenter));
-        toastPosCombo->addItem(QStringLiteral("右上"), static_cast<int>(FluentToast::Position::TopRight));
-        toastPosCombo->addItem(QStringLiteral("左下"), static_cast<int>(FluentToast::Position::BottomLeft));
-        toastPosCombo->addItem(QStringLiteral("底中"), static_cast<int>(FluentToast::Position::BottomCenter));
-        toastPosCombo->addItem(QStringLiteral("右下"), static_cast<int>(FluentToast::Position::BottomRight));
-        toastPosCombo->setCurrentIndex(5);
+        toastPosCombo->setToolTip(DEMO_TEXT("选择 Toast 弹出位置", "Choose the Toast position"));
+        toastPosCombo->addItem(DEMO_TEXT("左上", "Top left"), static_cast<int>(FluentToast::Position::TopLeft));
+        toastPosCombo->addItem(DEMO_TEXT("顶中", "Top center"), static_cast<int>(FluentToast::Position::TopCenter));
+        toastPosCombo->addItem(DEMO_TEXT("右上", "Top right"), static_cast<int>(FluentToast::Position::TopRight));
+        toastPosCombo->addItem(DEMO_TEXT("左下", "Bottom left"), static_cast<int>(FluentToast::Position::BottomLeft));
+        toastPosCombo->addItem(DEMO_TEXT("底中", "Bottom center"), static_cast<int>(FluentToast::Position::BottomCenter));
+        toastPosCombo->addItem(DEMO_TEXT("右下", "Bottom right"), static_cast<int>(FluentToast::Position::BottomRight));
 
-        auto *toastOne = new FluentButton(QStringLiteral("发一条"));
-        auto *toastAll = new FluentButton(QStringLiteral("全位置"));
+        auto *toastOne = new FluentButton(DEMO_TEXT("发一条", "Send one"));
+        auto *toastAll = new FluentButton(DEMO_TEXT("全位置", "All positions"));
         toastOne->setFixedSize(72, 28);
         toastAll->setFixedSize(72, 28);
-        toastOne->setToolTip(QStringLiteral("按当前选择的位置发送一条 Toast"));
-        toastAll->setToolTip(QStringLiteral("在所有位置依次弹出 Toast（用于对比布局）"));
+        toastOne->setToolTip(DEMO_TEXT("按当前选择的位置发送一条 Toast", "Send one Toast at the selected position"));
+        toastAll->setToolTip(DEMO_TEXT("在所有位置依次弹出 Toast（用于对比布局）", "Show Toasts in every position for layout comparison"));
 
+        tl->addWidget(languageHint);
+        tl->addWidget(languageCombo);
         tl->addWidget(toastHint);
         tl->addWidget(toastPosCombo);
         tl->addWidget(toastOne);
@@ -145,25 +213,44 @@ DemoWindow::DemoWindow(QWidget *parent)
 
         window.setFluentTitleBarRightWidget(toastControls);
 
+        const auto toastIndexFromPosition = [](FluentToast::Position position) {
+            switch (position) {
+            case FluentToast::Position::TopLeft:
+                return 0;
+            case FluentToast::Position::TopCenter:
+                return 1;
+            case FluentToast::Position::TopRight:
+                return 2;
+            case FluentToast::Position::BottomLeft:
+                return 3;
+            case FluentToast::Position::BottomCenter:
+                return 4;
+            case FluentToast::Position::BottomRight:
+                return 5;
+            }
+            return 5;
+        };
+
+        toastPosCombo->setCurrentIndex(toastIndexFromPosition(m_toastPosition));
+
         auto posName = [](FluentToast::Position p) {
             switch (p) {
             case FluentToast::Position::TopLeft:
-                return QStringLiteral("左上");
+                return DEMO_TEXT("左上", "Top left");
             case FluentToast::Position::TopCenter:
-                return QStringLiteral("顶部居中");
+                return DEMO_TEXT("顶部居中", "Top center");
             case FluentToast::Position::TopRight:
-                return QStringLiteral("右上");
+                return DEMO_TEXT("右上", "Top right");
             case FluentToast::Position::BottomLeft:
-                return QStringLiteral("左下");
+                return DEMO_TEXT("左下", "Bottom left");
             case FluentToast::Position::BottomCenter:
-                return QStringLiteral("底部居中");
+                return DEMO_TEXT("底部居中", "Bottom center");
             case FluentToast::Position::BottomRight:
-                return QStringLiteral("右下");
+                return DEMO_TEXT("右下", "Bottom right");
             }
-            return QStringLiteral("右下");
+            return DEMO_TEXT("右下", "Bottom right");
         };
 
-        m_toastPosition = FluentToast::Position::BottomRight;
         QObject::connect(toastPosCombo,
                          QOverload<int>::of(&QComboBox::currentIndexChanged),
                          this,
@@ -171,10 +258,17 @@ DemoWindow::DemoWindow(QWidget *parent)
                              m_toastPosition = static_cast<FluentToast::Position>(toastPosCombo->currentData().toInt());
                          });
 
+        QObject::connect(languageCombo,
+                         QOverload<int>::of(&QComboBox::currentIndexChanged),
+                         this,
+                         [this, languageCombo](int) {
+                             switchLanguage(static_cast<DemoLanguage>(languageCombo->currentData().toInt()));
+                         });
+
         auto showToast = [this, posName]() {
             FluentToast::showToast(this,
                                   QStringLiteral("Toast"),
-                                  QStringLiteral("当前弹出位置：%1（点击可关闭）").arg(posName(m_toastPosition)),
+                                  DEMO_TEXT("当前弹出位置：%1（点击可关闭）", "Current position: %1 (click to dismiss)").arg(posName(m_toastPosition)),
                                   m_toastPosition,
                                   2600);
         };
@@ -197,7 +291,7 @@ DemoWindow::DemoWindow(QWidget *parent)
                 QTimer::singleShot(i * 120, this, [this, p, posName]() {
                     FluentToast::showToast(this,
                                           QStringLiteral("Toast"),
-                                          QStringLiteral("位置：%1（点击可关闭）").arg(posName(p)),
+                                          DEMO_TEXT("位置：%1（点击可关闭）", "Position: %1 (click to dismiss)").arg(posName(p)),
                                           p,
                                           2400);
                 });
@@ -206,6 +300,7 @@ DemoWindow::DemoWindow(QWidget *parent)
     }
 
     auto *root = new FluentWidget();
+    m_rootWidget = root;
     root->setBackgroundRole(FluentWidget::BackgroundRole::WindowBackground);
     window.setCentralWidget(root);
 
@@ -238,25 +333,25 @@ DemoWindow::DemoWindow(QWidget *parent)
     {
         NI overview;
         overview.key  = QStringLiteral("overview");
-        overview.text = QStringLiteral("总览");
+        overview.text = DEMO_TEXT("总览", "Overview");
         applyGlyph(overview, 0xE80F);
         mainItems.push_back(overview);
 
         // "基本输入" category with sub-items
         NI basicInput;
         basicInput.key  = QStringLiteral("basic_input");
-        basicInput.text = QStringLiteral("基本输入");
+        basicInput.text = DEMO_TEXT("基本输入", "Basic Input");
         applyGlyph(basicInput, 0xE961);
         {
             NI inputs;
             inputs.key  = QStringLiteral("inputs");
-            inputs.text = QStringLiteral("输入");
+            inputs.text = DEMO_TEXT("输入", "Inputs");
             applyGlyph(inputs, 0xEF60);
             basicInput.children.push_back(inputs);
 
             NI buttons;
             buttons.key  = QStringLiteral("buttons");
-            buttons.text = QStringLiteral("按钮/开关");
+            buttons.text = DEMO_TEXT("按钮/开关", "Buttons / Toggles");
             applyGlyph(buttons, 0xF19F);
             basicInput.children.push_back(buttons);
         }
@@ -265,31 +360,31 @@ DemoWindow::DemoWindow(QWidget *parent)
         // "选择器" category
         NI pickers;
         pickers.key  = QStringLiteral("pickers");
-        pickers.text = QStringLiteral("选择器");
+        pickers.text = DEMO_TEXT("选择器", "Pickers");
         applyGlyph(pickers, 0xE787);
         mainItems.push_back(pickers);
 
         NI angles;
         angles.key  = QStringLiteral("angles");
-        angles.text = QStringLiteral("角度控件");
+        angles.text = DEMO_TEXT("角度控件", "Angle Controls");
         applyGlyph(angles, 0xF0B4);
         mainItems.push_back(angles);
 
         NI dataViews;
         dataViews.key  = QStringLiteral("dataviews");
-        dataViews.text = QStringLiteral("数据视图");
+        dataViews.text = DEMO_TEXT("数据视图", "Data Views");
         applyGlyph(dataViews, 0xEA37);
         mainItems.push_back(dataViews);
 
         NI containers;
         containers.key  = QStringLiteral("containers");
-        containers.text = QStringLiteral("容器/布局");
+        containers.text = DEMO_TEXT("容器/布局", "Containers / Layout");
         applyGlyph(containers, 0xF168);
         mainItems.push_back(containers);
 
         NI windows;
         windows.key  = QStringLiteral("windows");
-        windows.text = QStringLiteral("窗口/对话框");
+        windows.text = DEMO_TEXT("窗口/对话框", "Windows / Dialogs");
         applyGlyph(windows, 0xE73F);
         mainItems.push_back(windows);
     }
@@ -299,13 +394,10 @@ DemoWindow::DemoWindow(QWidget *parent)
     {
         NI settings;
         settings.key  = QStringLiteral("settings");
-        settings.text = QStringLiteral("设置");
+        settings.text = DEMO_TEXT("设置", "Settings");
         applyGlyph(settings, 0xE713);
         nav->addFooterItem(settings);
     }
-
-    // Default selection
-    nav->setSelectedKey(QStringLiteral("overview"));
 
     // ---- Content area (stacked pages) ----
     auto *stack = new QStackedWidget(contentHost);
@@ -342,7 +434,8 @@ DemoWindow::DemoWindow(QWidget *parent)
     stack->addWidget(settingsPage);                                       // 9
 
     // Map navigation keys to stack indices
-    QObject::connect(nav, &FluentNavigationView::selectedKeyChanged, this, [stack](const QString &key) {
+    QObject::connect(nav, &FluentNavigationView::selectedKeyChanged, this, [this, stack](const QString &key) {
+        m_selectedNavigationKey = key;
         static const QHash<QString, int> keyMap = {
             { QStringLiteral("overview"),   0 },
             { QStringLiteral("basic_input"), 1 },
@@ -364,6 +457,9 @@ DemoWindow::DemoWindow(QWidget *parent)
     QObject::connect(settingsPage, &DemoSidebar::toastPositionChanged, this, [this](FluentToast::Position pos) {
         m_toastPosition = pos;
     });
+    QObject::connect(settingsPage, &DemoSidebar::languageChanged, this, &DemoWindow::switchLanguage);
+
+    nav->setSelectedKey(m_selectedNavigationKey.isEmpty() ? QStringLiteral("overview") : m_selectedNavigationKey);
 
     rootLayout->addWidget(nav);
     rootLayout->addSpacing(8);
@@ -372,14 +468,46 @@ DemoWindow::DemoWindow(QWidget *parent)
 
     QObject::connect(msgInfo, &QAction::triggered, this, [this]() {
         FluentMessageBox::information(this,
-                                     QStringLiteral("消息框"),
-                                     QStringLiteral("这是从菜单触发的消息框示例。"),
-                                     QStringLiteral("用于展示 MessageBox 与 Theme/Accent 联动。"));
+                                     DEMO_TEXT("消息框", "Message box"),
+                                     DEMO_TEXT("这是从菜单触发的消息框示例。", "This message box was triggered from the menu."),
+                                     DEMO_TEXT("用于展示 MessageBox 与 Theme/Accent 联动。", "It demonstrates MessageBox linkage with Theme and Accent."));
     });
 
     QObject::connect(dlgAction, &QAction::triggered, this, [nav]() {
         nav->setSelectedKey(QStringLiteral("windows"));
     });
+}
+
+void DemoWindow::switchLanguage(DemoLanguage language)
+{
+    if (m_languageSwitchPending || language == currentLanguage()) {
+        return;
+    }
+
+    m_languageSwitchPending = true;
+
+    QTimer::singleShot(0,
+                       this,
+                       [this, language]() { performQueuedLanguageSwitch(language); });
+}
+
+void DemoWindow::performQueuedLanguageSwitch(DemoLanguage language)
+{
+    if (QWidget *popup = QApplication::activePopupWidget()) {
+        popup->close();
+        QTimer::singleShot(0,
+                           this,
+                           [this, language]() { performQueuedLanguageSwitch(language); });
+        return;
+    }
+
+    setLanguage(language);
+    setUpdatesEnabled(false);
+    clearUi();
+    buildUi();
+    setUpdatesEnabled(true);
+    update();
+    m_languageSwitchPending = false;
 }
 
 } // namespace Demo

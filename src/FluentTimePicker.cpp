@@ -22,7 +22,7 @@ namespace {
 
 QLocale defaultPickerLocale()
 {
-    return QLocale(QLocale::Chinese, QLocale::China);
+    return QLocale();
 }
 
 int nearestMinuteValue(int minute, int increment)
@@ -63,10 +63,10 @@ FluentTimePicker::FluentTimePicker(QWidget *parent)
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     setLocale(defaultPickerLocale());
 
-    m_hourPlaceholderText = QStringLiteral("时");
-    m_minutePlaceholderText = QStringLiteral("分");
-    m_anteMeridiemText = QStringLiteral("上午");
-    m_postMeridiemText = QStringLiteral("下午");
+    m_hourPlaceholderText = tr("时");
+    m_minutePlaceholderText = tr("分");
+    m_anteMeridiemText = tr("上午");
+    m_postMeridiemText = tr("下午");
 
     m_hoverAnim = new QVariantAnimation(this);
     m_hoverAnim->setDuration(150);
