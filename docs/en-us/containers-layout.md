@@ -7,6 +7,7 @@
 - `FluentTabWidget` (include: `Fluent/FluentTabWidget.h`)
 - `FluentScrollArea` (include: `Fluent/FluentScrollArea.h`)
 - `FluentScrollBar` (include: `Fluent/FluentScrollBar.h`)
+- `FluentAnnotatedScrollBar` (include: `Fluent/FluentAnnotatedScrollBar.h`)
 - `FluentFlowLayout` (include: `Fluent/FluentFlowLayout.h`)
 - `FluentSplitter` (include: `Fluent/FluentSplitter.h`)
 - `FluentWidget` (include: `Fluent/FluentWidget.h`)
@@ -210,6 +211,71 @@ FluentScrollBar: painting & interaction (implementation semantics)
 	- `revealLevel` fades in/out; below a small threshold it simply doesn't paint.
 	- Reveal is driven by viewport interactions (Enter/MouseMove/Wheel) and the same ~700ms hide timer.
 - Non-overlay mode: if used as the real scrollbar of a `QAbstractScrollArea`, it fills the reserved track area to match the themed viewport background (avoids a mismatched strip).
+
+---
+
+## FluentAnnotatedScrollBar
+
+Purpose: a segmented companion scrollbar for long vertical content, with quick-jump labels and a right-side tooltip that reports the current section while scrolling.
+
+Key APIs:
+
+- `setScrollArea(QAbstractScrollArea*)`: bind directly to a scroll area and track its vertical scrollbar.
+- `setScrollBar(QScrollBar*)`: bind to a scrollbar directly when no scroll area wrapper is involved.
+- `setSources(const QVector<FluentAnnotatedScrollBarSource>&)`: the recommended high-level API. Each source carries `group`, `text`, `start`, and `end`, and the control aggregates them into visible group labels automatically.
+- `addSource(...)` / `addSources(...)`: append sources incrementally. If a matching group already exists, the new source is inserted after that group's block; otherwise a new group is created.
+- `sources()` / `clearSources()`
+- `groups()`
+- `setCurrentGroup(const QString&)` / `setCurrentRangeIndex(int)` / `setCurrentSourceIndex(int)`: external control of the current group, visible segment, or concrete source.
+- `currentGroup()` / `currentRangeText()` / `currentSource()`
+- `setAnnotatedRanges(const QVector<FluentAnnotatedScrollBarRange>&)`: low-level fallback when ranges are already grouped outside the widget.
+- `clearAnnotatedRanges()`
+- `setShowToolTipOnScroll(bool)`
+- `setToolTipDuration(int)`
+
+Implementation notes:
+
+- The widget does not own or lay out the scrollable content. It only observes the linked scrollbar's `value` / `range` changes and paints labels for the configured ranges.
+- In sources mode, visible labels are grouped by `group`, while the tooltip and `currentSourceChanged(...)` prefer the current source's `text`.
+- The active range is resolved by checking which configured range overlaps the current visible interval `[value, value + pageStep)` the most, so the last section can still become active near the bottom of long pages.
+- Clicking a label jumps to the corresponding section. Clicking the rail jumps to the matching scroll position, and the thumb also supports direct dragging.
+- While scrolling, it uses `FluentToolTip::showText(...)` to display the current range on the right side.
+- Typical setup: hide the internal vertical scrollbar of `FluentScrollArea` and keep `FluentAnnotatedScrollBar` as the external navigation rail.
+
+Signals:
+
+- `currentRangeChanged(int, const QString&)`
+- `currentGroupChanged(int, const QString&)`
+- `currentSourceChanged(int, const QString&, const QString&)`
+- `annotatedRangesChanged()` / `sourcesChanged()`
+
+```cpp
+#include "Fluent/FluentAnnotatedScrollBar.h"
+#include "Fluent/FluentScrollArea.h"
+
+auto *area = new Fluent::FluentScrollArea();
+area->setWidgetResizable(true);
+area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+auto *annotated = new Fluent::FluentAnnotatedScrollBar();
+annotated->setScrollArea(area);
+annotated->setSources({
+	{QStringLiteral("Overview"), QStringLiteral("Welcome"), 12, 119},
+	{QStringLiteral("Overview"), QStringLiteral("Quick Actions"), 130, 237},
+	{QStringLiteral("Projects"), QStringLiteral("Project List"), 248, 355},
+	{QStringLiteral("Sync"), QStringLiteral("Queue State"), 366, 473}
+});
+
+annotated->addSource({QStringLiteral("Sync"), QStringLiteral("Sync History"), 484, 591});
+annotated->setCurrentGroup(QStringLiteral("Projects"));
+
+QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChanged,
+					 annotated, [](int, const QString &group, const QString &text) {
+	qDebug() << group << text;
+});
+```
+
+Demo: Containers / Overview.
 
 ---
 

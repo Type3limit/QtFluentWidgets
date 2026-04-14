@@ -210,14 +210,21 @@ DemoWindow::DemoWindow(QWidget *parent)
     window.setCentralWidget(root);
 
     auto *rootLayout = new QHBoxLayout(root);
-    rootLayout->setContentsMargins(0, 8, 16, 16);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
+
+    auto *contentHost = new QWidget(root);
+    contentHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    auto *contentLayout = new QVBoxLayout(contentHost);
+    contentLayout->setContentsMargins(0, 8, 16, 16);
+    contentLayout->setSpacing(0);
 
     // ---- NavigationView (left pane) ----
     auto *nav = new FluentNavigationView(root);
     nav->setExpandedWidth(280);
     nav->setCompactWidth(48);
     nav->setAutoCollapseWidth(800);
+    nav->setPaneTitle(QStringLiteral("Qt Fluent"));
 
     auto applyGlyph = [](FluentNavigationItem &item, ushort codePoint) {
         item.iconGlyph = QString(QChar(codePoint));
@@ -289,21 +296,19 @@ DemoWindow::DemoWindow(QWidget *parent)
     nav->setItems(mainItems);
 
     // Footer items (e.g. Settings / Theme)
-    std::vector<NI> footerItems;
     {
         NI settings;
         settings.key  = QStringLiteral("settings");
         settings.text = QStringLiteral("设置");
         applyGlyph(settings, 0xE713);
-        footerItems.push_back(settings);
+        nav->addFooterItem(settings);
     }
-    nav->setFooterItems(footerItems);
 
     // Default selection
     nav->setSelectedKey(QStringLiteral("overview"));
 
     // ---- Content area (stacked pages) ----
-    auto *stack = new QStackedWidget(root);
+    auto *stack = new QStackedWidget(contentHost);
 
     const auto jumpTo = [nav](int pageIndex) {
         const QStringList keys = {
@@ -362,7 +367,8 @@ DemoWindow::DemoWindow(QWidget *parent)
 
     rootLayout->addWidget(nav);
     rootLayout->addSpacing(8);
-    rootLayout->addWidget(stack, 1);
+    contentLayout->addWidget(stack);
+    rootLayout->addWidget(contentHost, 1);
 
     QObject::connect(msgInfo, &QAction::triggered, this, [this]() {
         FluentMessageBox::information(this,

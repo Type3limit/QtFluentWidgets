@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDateEdit>
+#include <QString>
 #include "Fluent/FluentQtCompat.h"
 
 class QFocusEvent;
@@ -18,6 +19,7 @@ class FluentCalendarPicker final : public QDateEdit
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)
     Q_PROPERTY(qreal focusLevel READ focusLevel WRITE setFocusLevel)
+    Q_PROPERTY(QString todayText READ todayText WRITE setTodayText)
 public:
     explicit FluentCalendarPicker(QWidget *parent = nullptr);
 
@@ -26,6 +28,9 @@ public:
 
     qreal focusLevel() const;
     void setFocusLevel(qreal value);
+
+    void setTodayText(const QString &text);
+    QString todayText() const;
 
 protected:
     void changeEvent(QEvent *event) override;
@@ -52,6 +57,7 @@ private:
     QVariantAnimation *m_hoverAnim = nullptr;
     QVariantAnimation *m_focusAnim = nullptr;
     FluentCalendarPopup *m_popup = nullptr;
+    QString m_todayText;
 };
 
 } // namespace Fluent

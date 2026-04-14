@@ -3,6 +3,7 @@
 ## 控件清单
 
 - `FluentCalendarPicker`（include: `Fluent/FluentCalendarPicker.h`）
+- `FluentDatePicker`（include: `Fluent/FluentDatePicker.h`）
 - `FluentDateRangePicker`（include: `Fluent/FluentDateRangePicker.h`）
 - `FluentCalendarPopup`（include: `Fluent/datePicker/FluentCalendarPopup.h`）
 - `FluentTimePicker`（include: `Fluent/FluentTimePicker.h`）
@@ -17,6 +18,7 @@ Demo 页面：Pickers（`demo/pages/PagePickers.cpp`）与 Overview（`demo/page
 #include "Fluent/FluentCalendarPicker.h"
 
 auto *picker = new Fluent::FluentCalendarPicker();
+picker->setTodayText(QStringLiteral("回到今天"));
 picker->setDate(QDate::currentDate());
 ```
 
@@ -32,6 +34,8 @@ picker->setDate(QDate::currentDate());
 - 禁用 Qt 自带日历弹窗（`setCalendarPopup(false)`），并去掉原生 spinbox 按钮（`NoButtons`），改为自绘右侧下拉箭头区域。
 - 右侧箭头区域宽度来自 `Style::metrics().iconAreaWidth`，并绘制分隔线 + chevron。
 - 内部 `QLineEdit` 会设置右侧 text margin 以避开箭头区域（保证文字与光标不被遮挡）。
+- 弹层里的星期标题、月份名称和每周起始列会跟随控件自身 `locale()`；默认 locale 为中文（中国）。
+- Today 按钮文案可通过 `setTodayText()` 自定义，例如“回到今天”。
 
 键盘快捷键：
 
@@ -43,11 +47,62 @@ picker->setDate(QDate::currentDate());
 关键 API：
 
 - 继承自 `QDateEdit`，可直接使用 `setDate()` / `date()` / `setDisplayFormat()` 等 Qt API。
+- `setTodayText()` / `todayText()`：配置弹层头部 Today 按钮文本。
+- 继承自 `QWidget` 的 `setLocale()` / `locale()`：控制星期、月份名和一周起始日。
 - `hoverLevel` / `focusLevel`（Q_PROPERTY）：动效层。
 
 注意事项：
 
 - 点击输入框文本区域（落在内部 `QLineEdit` 上）也会打开弹窗；内部通过 eventFilter + `QTimer::singleShot(0, ...)` 延迟切换，避免 `Qt::Popup` 立即被 Qt 自己 dismiss。
+
+Demo：Pickers / Overview。
+
+---
+
+## FluentDatePicker
+
+```cpp
+#include "Fluent/FluentDatePicker.h"
+
+auto *picker = new Fluent::FluentDatePicker();
+picker->setDate(QDate::currentDate());
+picker->setMonthPlaceholderText(QStringLiteral("月份"));
+picker->setDayPlaceholderText(QStringLiteral("日期"));
+picker->setYearPlaceholderText(QStringLiteral("年份"));
+picker->setVisibleParts(Fluent::FluentDatePicker::MonthPart
+						| Fluent::FluentDatePicker::DayPart
+						| Fluent::FluentDatePicker::YearPart);
+```
+
+用途：滚轮式日期选择器。点击后弹出列式选择面板，月 / 日 / 年会吸附到中间高亮位，并在底部通过确认 / 取消完成提交。
+
+继承与构造：
+
+- `class FluentDatePicker : public QWidget`
+- 构造：`FluentDatePicker(QWidget*)`
+
+外观 / 交互要点：
+
+- 关闭状态下使用分段字段展示 `month / day / year`，空状态保留占位文案。
+- 弹层使用 `Qt::Popup` + Fluent popup surface，风格与组合框 / 菜单弹层一致。
+- 每一列都支持鼠标滚轮、拖动滚动和键盘上下键；滚轮切换带缓动动画，结束后会自动吸附到中心选中位。
+- 底部操作栏分为确认 / 取消两个区域，行为更接近 WinUI Gallery 的 DatePicker。
+- 默认 locale 为中文（中国），月份/日期/年份格式化文本走控件自身 `locale()`。
+
+关键 API：
+
+- `setDate()` / `date()` / `clearDate()` / `hasDate()`
+- `setDateRange()` / `setMinimumDate()` / `setMaximumDate()`
+- `setVisibleParts()`：控制是否显示月份 / 日期 / 年份列
+- `setMonthDisplayFormat()` / `setDayDisplayFormat()` / `setYearDisplayFormat()`：分别配置三列的显示文本
+- `setMonthPlaceholderText()` / `setDayPlaceholderText()` / `setYearPlaceholderText()`：分别配置空状态下三列占位文案，默认是“月 / 日 / 年”。
+- `setLocale()` / `locale()`：控制 `MMMM`、`ddd` 等日期格式对应的本地化文本。
+
+典型用法：
+
+- 普通表单日期录入
+- 仅显示“月 + 日”的生日 / 提醒场景
+- 需要和 TimePicker 一起使用的轻量级时间计划录入
 
 Demo：Pickers / Overview。
 
@@ -136,6 +191,8 @@ Demo：Pickers。
 
 - `setAnchor(QWidget*)`：设置锚点控件（用于定位）。
 - `setDate(const QDate&)` / `date()`：当前选择日期。
+- `setTodayText()` / `todayText()`：配置头部 Today 按钮文案。
+- `setLocale()` / `locale()`：控制星期标题、月份名和一周起始日。
 - `setSelectionMode(SelectionMode::Single / Range)`：切换单日 / 范围模式。
 - `setDateRange(const QDate&, const QDate&)` / `rangeStart()` / `rangeEnd()`：范围模式下的起止日期。
 - `popup()` / `dismiss()`：显示/关闭。
@@ -148,6 +205,7 @@ Demo：Pickers。
 
 auto *popup = new Fluent::FluentCalendarPopup(someButton);
 popup->setAnchor(someButton);
+popup->setTodayText(QStringLiteral("回到今天"));
 popup->setDate(QDate::currentDate());
 connect(popup, &Fluent::FluentCalendarPopup::datePicked, this, [](const QDate &d) {
 	qDebug() << "picked" << d;
@@ -163,10 +221,14 @@ Demo：由 `FluentCalendarPicker` 间接展示（Pickers / Overview）。
 #include "Fluent/FluentTimePicker.h"
 
 auto *tp = new Fluent::FluentTimePicker();
+tp->setHourPlaceholderText(QStringLiteral("小时"));
+tp->setMinutePlaceholderText(QStringLiteral("分钟"));
+tp->setAnteMeridiemText(QStringLiteral("上午"));
+tp->setPostMeridiemText(QStringLiteral("下午"));
 tp->setTime(QTime::currentTime());
 ```
 
-用途：时间选择输入框（自绘 stepper + hover/focus 动效）。
+用途：滚轮式时间选择输入框。点击后会弹出小时 / 分钟 / AM-PM（或 24 小时制）列式选择面板，并在确认后提交结果。
 
 继承与构造：
 
@@ -175,14 +237,20 @@ tp->setTime(QTime::currentTime());
 
 外观/交互要点：
 
-- 禁用原生按钮（`NoButtons`），自绘右侧 stepper（上/下）区域；宽度来自 `Style::metrics().iconAreaWidth`。
-- stepper 区域 hover/press 会有更明显的 accent tint（提升小点击目标可见性）。
-- 内部 `QLineEdit` 通过 eventFilter 转发鼠标事件，确保 stepper 区域可点击且光标形态正确。
-- 选区背景/caret/placeholder 处理与 `FluentLineEdit` 一致（accent selection + caret accent）。
+- 关闭状态下展示占位文案；默认是中文的“时 / 分 / 上午”，如果已有值则显示当前时间。
+- 弹层使用与 `FluentDatePicker` 相同的 wheel picker popup，所有列支持滚动吸附。
+- 滚轮切换带缓动动画，快速切换时仍会稳定吸附到中心选中位。
+- 保留右侧 chevron 区域，外观上仍然是表单输入控件，而不是单独的按钮。
+- 支持空状态、`minuteIncrement` 和 24 小时制切换。
 
 关键 API：
 
 - 继承自 `QTimeEdit`：`setTime()` / `time()` / `setDisplayFormat()`。
+- `clearTime()` / `hasTime()`：控制空状态。
+- `setUse24HourClock(bool)`：切换 12 / 24 小时制。
+- `setMinuteIncrement(int)`：配置分钟列步进值，例如 5 分钟一档。
+- `setHourPlaceholderText()` / `setMinutePlaceholderText()`：配置空状态下小时 / 分钟占位文案。
+- `setAnteMeridiemText()` / `setPostMeridiemText()`：配置 12 小时制下的上午 / 下午文案。
 - `hoverLevel` / `focusLevel`（Q_PROPERTY）：动效层。
 
 Demo：Pickers / Overview。

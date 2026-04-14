@@ -1,60 +1,72 @@
 #include "Fluent/FluentTimePicker.h"
+
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
+#include "datePicker/FluentWheelPickerSupport.h"
 
-#include <QCoreApplication>
 #include <QEvent>
+#include <QFocusEvent>
+#include <QKeyEvent>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMouseEvent>
 #include <QPainter>
-#include <QPainterPath>
-#include <QVariantAnimation>
 #include <QTimer>
+#include <QVariantAnimation>
+
+#include <climits>
 
 namespace Fluent {
 
 namespace {
-static QPainterPath rightCornerPath(const QRectF &r, qreal radius, bool roundTopRight, bool roundBottomRight)
+
+QLocale defaultPickerLocale()
 {
-    const qreal rr = qMax<qreal>(0.0, qMin(radius, qMin(r.width(), r.height()) / 2.0));
-
-    const qreal l = r.left();
-    const qreal t = r.top();
-    const qreal rt = r.right();
-    const qreal b = r.bottom();
-
-    QPainterPath p;
-    p.moveTo(l, t);
-
-    if (roundTopRight && rr > 0.0) {
-        p.lineTo(rt - rr, t);
-        p.quadTo(rt, t, rt, t + rr);
-    } else {
-        p.lineTo(rt, t);
-    }
-
-    if (roundBottomRight && rr > 0.0) {
-        p.lineTo(rt, b - rr);
-        p.quadTo(rt, b, rt - rr, b);
-    } else {
-        p.lineTo(rt, b);
-    }
-
-    p.lineTo(l, b);
-    p.closeSubpath();
-    return p;
+    return QLocale(QLocale::Chinese, QLocale::China);
 }
+
+int nearestMinuteValue(int minute, int increment)
+{
+    const int clampedIncrement = qBound(1, increment, 59);
+    int nearest = 0;
+    int nearestDistance = INT_MAX;
+    for (int value = 0; value < 60; value += clampedIncrement) {
+        const int distance = qAbs(value - minute);
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearest = value;
+        }
+    }
+    return nearest;
+}
+
+qreal timeFieldWeight(bool use24HourClock, int index)
+{
+    if (use24HourClock) {
+        return index == 0 ? 1.0 : 1.0;
+    }
+    return index == 2 ? 0.9 : 1.0;
+}
+
 } // namespace
 
 FluentTimePicker::FluentTimePicker(QWidget *parent)
     : QTimeEdit(parent)
 {
-    setDisplayFormat("HH:mm");
+    QTimeEdit::setDisplayFormat(QStringLiteral("h:mm AP"));
     setButtonSymbols(QAbstractSpinBox::NoButtons);
     setFrame(false);
     setMouseTracking(true);
     setAttribute(Qt::WA_Hover, true);
     setMinimumHeight(Style::metrics().height);
+    setFocusPolicy(Qt::StrongFocus);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    setLocale(defaultPickerLocale());
+
+    m_hourPlaceholderText = QStringLiteral("时");
+    m_minutePlaceholderText = QStringLiteral("分");
+    m_anteMeridiemText = QStringLiteral("上午");
+    m_postMeridiemText = QStringLiteral("下午");
 
     m_hoverAnim = new QVariantAnimation(this);
     m_hoverAnim->setDuration(150);
@@ -72,28 +84,23 @@ FluentTimePicker::FluentTimePicker(QWidget *parent)
         update();
     });
 
-    m_stepperAnim = new QVariantAnimation(this);
-    m_stepperAnim->setDuration(110);
-    m_stepperAnim->setEasingCurve(QEasingCurve::OutQuad);
-    connect(m_stepperAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-        m_stepperLevel = value.toReal();
+    connect(this, &QTimeEdit::timeChanged, this, [this](const QTime &) {
+        if (m_blockTimeChangedMarker) {
+            return;
+        }
+        m_hasTime = true;
         update();
     });
 
-    ensureEditor();
-
-    // Ensure editor never overlaps our custom button area (cursor / hit-test correctness).
     QTimer::singleShot(0, this, [this]() {
-        ensureEditor();
-        if (m_editor) {
-            const auto m = Style::metrics();
-            m_editor->setGeometry(0, 0, qMax(0, width() - m.iconAreaWidth), height());
-        }
+        ensureEditorHidden();
     });
 
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentTimePicker::applyTheme);
 }
+
+FluentTimePicker::~FluentTimePicker() = default;
 
 qreal FluentTimePicker::hoverLevel() const
 {
@@ -117,143 +124,202 @@ void FluentTimePicker::setFocusLevel(qreal value)
     update();
 }
 
+void FluentTimePicker::setTime(const QTime &time)
+{
+    if (!time.isValid()) {
+        clearTime();
+        return;
+    }
+
+    const bool hadTime = m_hasTime;
+    const QTime previous = QTimeEdit::time();
+
+    m_blockTimeChangedMarker = true;
+    QTimeEdit::setTime(time);
+    m_blockTimeChangedMarker = false;
+
+    m_hasTime = true;
+    update();
+
+    if ((!hadTime || previous == time) && previous == time) {
+        emit timeChanged(time);
+    }
+}
+
+QTime FluentTimePicker::time() const
+{
+    return m_hasTime ? QTimeEdit::time() : QTime();
+}
+
+void FluentTimePicker::clearTime()
+{
+    if (!m_hasTime) {
+        return;
+    }
+
+    m_hasTime = false;
+    update();
+}
+
+bool FluentTimePicker::hasTime() const
+{
+    return m_hasTime;
+}
+
+void FluentTimePicker::setUse24HourClock(bool enabled)
+{
+    if (m_use24HourClock == enabled) {
+        return;
+    }
+
+    m_use24HourClock = enabled;
+    QTimeEdit::setDisplayFormat(m_use24HourClock ? QStringLiteral("HH:mm") : QStringLiteral("h:mm AP"));
+    if (isPopupVisible()) {
+        rebuildPopupColumns(popupTimeFromColumns());
+    }
+    updateGeometry();
+    update();
+}
+
+bool FluentTimePicker::use24HourClock() const
+{
+    return m_use24HourClock;
+}
+
+void FluentTimePicker::setMinuteIncrement(int minutes)
+{
+    const int clamped = qBound(1, minutes, 59);
+    if (m_minuteIncrement == clamped) {
+        return;
+    }
+
+    m_minuteIncrement = clamped;
+    if (isPopupVisible()) {
+        rebuildPopupColumns(popupTimeFromColumns());
+    }
+    update();
+}
+
+int FluentTimePicker::minuteIncrement() const
+{
+    return m_minuteIncrement;
+}
+
+void FluentTimePicker::setHourPlaceholderText(const QString &text)
+{
+    if (m_hourPlaceholderText == text) {
+        return;
+    }
+
+    m_hourPlaceholderText = text;
+    update();
+}
+
+QString FluentTimePicker::hourPlaceholderText() const
+{
+    return m_hourPlaceholderText;
+}
+
+void FluentTimePicker::setMinutePlaceholderText(const QString &text)
+{
+    if (m_minutePlaceholderText == text) {
+        return;
+    }
+
+    m_minutePlaceholderText = text;
+    update();
+}
+
+QString FluentTimePicker::minutePlaceholderText() const
+{
+    return m_minutePlaceholderText;
+}
+
+void FluentTimePicker::setAnteMeridiemText(const QString &text)
+{
+    if (m_anteMeridiemText == text) {
+        return;
+    }
+
+    m_anteMeridiemText = text;
+    if (isPopupVisible()) {
+        rebuildPopupColumns(popupTimeFromColumns());
+    }
+    update();
+}
+
+QString FluentTimePicker::anteMeridiemText() const
+{
+    return m_anteMeridiemText;
+}
+
+void FluentTimePicker::setPostMeridiemText(const QString &text)
+{
+    if (m_postMeridiemText == text) {
+        return;
+    }
+
+    m_postMeridiemText = text;
+    if (isPopupVisible()) {
+        rebuildPopupColumns(popupTimeFromColumns());
+    }
+    update();
+}
+
+QString FluentTimePicker::postMeridiemText() const
+{
+    return m_postMeridiemText;
+}
+
 void FluentTimePicker::changeEvent(QEvent *event)
 {
     QTimeEdit::changeEvent(event);
 
-    if (event->type() == QEvent::EnabledChange) {
+    if (!event) {
+        return;
+    }
+
+    if (event->type() == QEvent::EnabledChange || event->type() == QEvent::LocaleChange) {
         applyTheme();
     }
 }
 
 void FluentTimePicker::applyTheme()
 {
-    const auto &colors = ThemeManager::instance().colors();
-    {
-        const QString next = QString("QTimeEdit { background: transparent; color: %1; }")
-                                 .arg(colors.text.name());
-        if (styleSheet() != next) {
-            setStyleSheet(next);
-        }
+    const QString next = QStringLiteral("QTimeEdit { background: transparent; color: transparent; border: none; }"
+                                        "QTimeEdit::up-button, QTimeEdit::down-button { width: 0px; border: none; }"
+                                        "QTimeEdit::up-arrow, QTimeEdit::down-arrow { width: 0px; height: 0px; }");
+    if (styleSheet() != next) {
+        setStyleSheet(next);
     }
 
-    ensureEditor();
-    if (m_editor) {
-        const auto m = Style::metrics();
-        m_editor->setTextMargins(m.paddingX, 0, m.iconAreaWidth + 4, 0);
-        const QColor textColor = isEnabled() ? colors.text : colors.disabledText;
-
-        const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
-        QColor selectionBg = colors.accent;
-        selectionBg.setAlphaF(dark ? 0.35 : 0.22);
-        const QString selectionBgStr = QStringLiteral("rgba(%1,%2,%3,%4)")
-                                           .arg(selectionBg.red())
-                                           .arg(selectionBg.green())
-                                           .arg(selectionBg.blue())
-                                           .arg(QString::number(selectionBg.alphaF(), 'f', 3));
-
-        const QString next = QString(
-            "QLineEdit { background: transparent; color: %1; border: none; selection-background-color: %2; selection-color: %3; }")
-                                 .arg(textColor.name())
-                                 .arg(selectionBgStr)
-                                 .arg(colors.text.name());
-        if (m_editor->styleSheet() != next) {
-            m_editor->setStyleSheet(next);
-        }
-
-        // Try to make caret follow accent while keeping text color from stylesheet.
-        QPalette pal = m_editor->palette();
-        pal.setColor(QPalette::Text, colors.accent);
-        pal.setColor(QPalette::Highlight, selectionBg);
-        pal.setColor(QPalette::HighlightedText, colors.text);
-    #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
-        QColor placeholder = colors.subText;
-        placeholder.setAlphaF(dark ? 0.55 : 0.60);
-        pal.setColor(QPalette::PlaceholderText, placeholder);
-    #endif
-        m_editor->setPalette(pal);
+    ensureEditorHidden();
+    if (m_popup) {
+        m_popup->update();
     }
     update();
 }
 
-void FluentTimePicker::ensureEditor()
+void FluentTimePicker::ensureEditorHidden()
 {
     QLineEdit *le = findChild<QLineEdit *>();
-    if (!le || le == m_editor) {
+    if (!le) {
         return;
     }
 
-    m_editor = le;
-    m_editor->setFrame(false);
-    m_editor->installEventFilter(this);
-    m_editor->setMouseTracking(true);
-}
-
-bool FluentTimePicker::eventFilter(QObject *watched, QEvent *event)
-{
-    if (watched == m_editor && (event->type() == QEvent::MouseMove ||
-                               event->type() == QEvent::MouseButtonPress ||
-                               event->type() == QEvent::MouseButtonRelease ||
-                               event->type() == QEvent::MouseButtonDblClick)) {
-        auto *me = static_cast<QMouseEvent *>(event);
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        const QPoint parentPos = m_editor->mapToParent(me->position().toPoint());
-        const QPointF parentPosF(parentPos);
-        const ButtonPart part = hitTestButton(parentPos);
-        if (part == ButtonPart::None) {
-            if (m_hoverButton != ButtonPart::None) {
-                m_hoverButton = ButtonPart::None;
-                setCursor(Qt::IBeamCursor);
-                m_editor->setCursor(Qt::IBeamCursor);
-                startStepperAnimation(0.0);
-                update();
-            }
-            return QTimeEdit::eventFilter(watched, event);
-        }
-
-        if (part != ButtonPart::None) {
-            startStepperAnimation(1.0);
-            QMouseEvent mapped(me->type(), parentPosF, me->globalPosition(), me->button(), me->buttons(), me->modifiers());
-            QCoreApplication::sendEvent(this, &mapped);
-            return true;
-        }
-#else
-        const QPoint parentPos = m_editor->mapToParent(me->pos());
-        const ButtonPart part = hitTestButton(parentPos);
-        if (part == ButtonPart::None) {
-            if (m_hoverButton != ButtonPart::None) {
-                m_hoverButton = ButtonPart::None;
-                setCursor(Qt::IBeamCursor);
-                m_editor->setCursor(Qt::IBeamCursor);
-                startStepperAnimation(0.0);
-                update();
-            }
-            return QTimeEdit::eventFilter(watched, event);
-        }
-
-        if (part != ButtonPart::None) {
-            startStepperAnimation(1.0);
-            QMouseEvent mapped(me->type(), parentPos, me->globalPos(), me->button(), me->buttons(), me->modifiers());
-            QCoreApplication::sendEvent(this, &mapped);
-            return true;
-        }
-#endif
+    if (m_editor != le) {
+        m_editor = le;
     }
-
-    return QTimeEdit::eventFilter(watched, event);
+    m_editor->setFrame(false);
+    m_editor->setReadOnly(true);
+    m_editor->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_editor->hide();
 }
 
 void FluentTimePicker::resizeEvent(QResizeEvent *event)
 {
     QTimeEdit::resizeEvent(event);
-
-    // Keep the editor from painting/handling events over our custom button area.
-    ensureEditor();
-    if (m_editor) {
-        const auto m = Style::metrics();
-        m_editor->setGeometry(0, 0, qMax(0, width() - m.iconAreaWidth), height());
-    }
+    ensureEditorHidden();
 }
 
 void FluentTimePicker::paintEvent(QPaintEvent *event)
@@ -262,7 +328,6 @@ void FluentTimePicker::paintEvent(QPaintEvent *event)
     const auto &colors = ThemeManager::instance().colors();
 
     const bool enabled = isEnabled();
-    const bool pressed = (m_pressedButton != ButtonPart::None);
 
     QPainter painter(this);
     if (!painter.isActive()) {
@@ -270,60 +335,53 @@ void FluentTimePicker::paintEvent(QPaintEvent *event)
     }
     painter.setRenderHint(QPainter::Antialiasing, true);
 
-    const QRectF rect = QRectF(this->rect());
-    Style::paintControlSurface(painter, rect, colors, m_hoverLevel, m_focusLevel, enabled, pressed);
+    const QRectF surfaceRect = QRectF(this->rect());
+    Style::paintControlSurface(painter, surfaceRect, colors, m_hoverLevel, m_focusLevel, enabled, isPopupVisible());
 
     const auto m = Style::metrics();
     const QRect buttonRect(width() - m.iconAreaWidth, 0, m.iconAreaWidth, height());
+    const int fieldCount = m_use24HourClock ? 2 : 3;
+    const QRect contentRect = surfaceRect.toRect().adjusted(8, 4, -m.iconAreaWidth - 6, -4);
 
     QColor divider = colors.border;
     divider.setAlpha(80);
     painter.setPen(QPen(divider, 1));
     painter.drawLine(QPointF(buttonRect.left() + 0.5, buttonRect.top() + 8), QPointF(buttonRect.left() + 0.5, buttonRect.bottom() - 8));
 
-    const int gap = 2;
-    const int halfH = (buttonRect.height() - gap) / 2;
-    const QRect upRect(buttonRect.left() + 1, buttonRect.top() + 1, buttonRect.width() - 2, halfH - 1);
-    const QRect downRect(buttonRect.left() + 1, buttonRect.top() + halfH + gap, buttonRect.width() - 2, halfH - 1);
+    qreal totalWeight = 0.0;
+    for (int i = 0; i < fieldCount; ++i) {
+        totalWeight += timeFieldWeight(m_use24HourClock, i);
+    }
+    totalWeight = qMax<qreal>(1.0, totalWeight);
 
-    auto paintButtonBg = [&](const QRect &r, ButtonPart part) {
-        if (!enabled) return;
-        const bool isPressed = (m_pressedButton == part);
-        const bool isHovered = (m_hoverButton == part);
-        if (!isPressed && !isHovered) return;
+    int x = contentRect.left();
+    for (int i = 0; i < fieldCount; ++i) {
+        const int remainingWidth = contentRect.right() - x + 1;
+        const int fieldWidth = (i + 1 == fieldCount)
+                                   ? remainingWidth
+                                   : qMax(38, int(contentRect.width() * (timeFieldWeight(m_use24HourClock, i) / totalWeight)));
+        const QRect fieldRect(x, contentRect.top(), qMin(fieldWidth, remainingWidth), contentRect.height());
 
-        const qreal t = isPressed ? 1.0 : (isHovered ? qBound<qreal>(0.0, m_stepperLevel, 1.0) : 0.0);
-        // Stepper backgrounds should be more visible than generic hover/pressed.
-        const QColor base = Style::mix(colors.surface, colors.accent, 0.12);
-        const QColor hover = Style::mix(colors.surface, colors.accent, 0.18);
-        const QColor pressedFill = Style::mix(colors.surface, colors.accent, 0.26);
-        const QColor fill = isPressed ? pressedFill : Style::mix(base, hover, t);
-        painter.save();
-        painter.setRenderHint(QPainter::Antialiasing, true);
+        QColor textColor = enabled ? (m_hasTime ? colors.text : colors.subText) : colors.disabledText;
+        if (!m_hasTime) {
+            textColor.setAlpha(210);
+        }
 
-        // Keep background strictly inside border/focus ring.
-        const auto m = Style::metrics();
-        const qreal inset = (hasFocus() && enabled) ? 2.0 : 1.0;
-        const QRectF clipRect = QRectF(this->rect()).adjusted(inset, inset, -inset, -inset);
-        painter.setClipPath(Style::roundedRectPath(clipRect, qMax<qreal>(0.0, m.radius - inset)));
+        painter.setPen(textColor);
+        const QString text = displayTextForIndex(i);
+        painter.drawText(fieldRect.adjusted(10, 0, -10, 0),
+                         (i == 2 && !m_use24HourClock ? Qt::AlignCenter : Qt::AlignLeft) | Qt::AlignVCenter,
+                         painter.fontMetrics().elidedText(text, Qt::ElideRight, qMax(0, fieldRect.width() - 20)));
 
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(fill);
-
-        // Up: only top-right rounded. Down: only bottom-right rounded.
-        const QRectF rf(r);
-        const qreal corner = qMax<qreal>(0.0, m.radius - inset);
-        const bool isUp = (part == ButtonPart::Up);
-        painter.drawPath(rightCornerPath(rf, corner, isUp, !isUp));
-        painter.restore();
-    };
-
-    paintButtonBg(upRect, ButtonPart::Up);
-    paintButtonBg(downRect, ButtonPart::Down);
+        x += fieldRect.width();
+        if (i + 1 < fieldCount) {
+            painter.setPen(QPen(divider, 1));
+            painter.drawLine(QPointF(x + 0.5, contentRect.top() + 4), QPointF(x + 0.5, contentRect.bottom() - 4));
+        }
+    }
 
     const QColor iconColor = enabled ? colors.subText : colors.disabledText;
-    Style::drawChevronUp(painter, upRect.center(), iconColor, 7.0, 1.6);
-    Style::drawChevronDown(painter, downRect.center(), iconColor, 7.0, 1.6);
+    Style::drawChevronDown(painter, buttonRect.center(), iconColor, 8.0, 1.6);
 }
 
 void FluentTimePicker::enterEvent(FluentEnterEvent *event)
@@ -335,8 +393,6 @@ void FluentTimePicker::enterEvent(FluentEnterEvent *event)
 void FluentTimePicker::leaveEvent(QEvent *event)
 {
     QTimeEdit::leaveEvent(event);
-    m_hoverButton = ButtonPart::None;
-    startStepperAnimation(0.0);
     startHoverAnimation(0.0);
 }
 
@@ -349,7 +405,9 @@ void FluentTimePicker::focusInEvent(QFocusEvent *event)
 void FluentTimePicker::focusOutEvent(QFocusEvent *event)
 {
     QTimeEdit::focusOutEvent(event);
-    startFocusAnimation(0.0);
+    if (!isPopupVisible()) {
+        startFocusAnimation(0.0);
+    }
 }
 
 void FluentTimePicker::startHoverAnimation(qreal endValue)
@@ -368,81 +426,210 @@ void FluentTimePicker::startFocusAnimation(qreal endValue)
     m_focusAnim->start();
 }
 
-void FluentTimePicker::startStepperAnimation(qreal endValue)
-{
-    if (!m_stepperAnim) {
-        m_stepperLevel = endValue;
-        update();
-        return;
-    }
-
-    m_stepperAnim->stop();
-    m_stepperAnim->setStartValue(m_stepperLevel);
-    m_stepperAnim->setEndValue(qBound<qreal>(0.0, endValue, 1.0));
-    m_stepperAnim->start();
-}
-
 void FluentTimePicker::mousePressEvent(QMouseEvent *event)
 {
-    const ButtonPart part = hitTestButton(event->pos());
-    if (event->button() == Qt::LeftButton && part != ButtonPart::None && isEnabled()) {
-        m_pressedButton = part;
-        startStepperAnimation(1.0);
-        update();
-        if (part == ButtonPart::Up) {
-            stepUp();
-        } else {
-            stepDown();
-        }
-        event->accept();
-        return;
-    }
-
     QTimeEdit::mousePressEvent(event);
+    if (!event || event->button() != Qt::LeftButton) {
+        return;
+    }
+
+    QTimer::singleShot(0, this, [this]() {
+        togglePopup();
+    });
+    event->accept();
 }
 
-void FluentTimePicker::mouseMoveEvent(QMouseEvent *event)
+void FluentTimePicker::keyPressEvent(QKeyEvent *event)
 {
-    const ButtonPart part = hitTestButton(event->pos());
-    if (part != m_hoverButton) {
-        m_hoverButton = part;
-        const Qt::CursorShape shape = (part == ButtonPart::None) ? Qt::IBeamCursor : Qt::PointingHandCursor;
-        setCursor(shape);
-        if (m_editor) {
-            m_editor->setCursor(shape);
-        }
-        startStepperAnimation(part == ButtonPart::None ? 0.0 : 1.0);
-        update();
+    if (!event) {
+        QTimeEdit::keyPressEvent(event);
+        return;
     }
-    if (part != ButtonPart::None) {
+
+    const bool altDown = (event->key() == Qt::Key_Down && (event->modifiers() & Qt::AltModifier));
+    if (event->key() == Qt::Key_F4 || altDown || event->key() == Qt::Key_Space || event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        togglePopup();
         event->accept();
         return;
     }
 
-    QTimeEdit::mouseMoveEvent(event);
+    if (isPopupVisible() && event->key() == Qt::Key_Escape) {
+        hidePopup();
+        event->accept();
+        return;
+    }
+
+    QTimeEdit::keyPressEvent(event);
 }
 
-void FluentTimePicker::mouseReleaseEvent(QMouseEvent *event)
+QSize FluentTimePicker::sizeHint() const
 {
-    if (m_pressedButton != ButtonPart::None) {
-        m_pressedButton = ButtonPart::None;
-        startStepperAnimation(m_hoverButton == ButtonPart::None ? 0.0 : 1.0);
-        update();
-    }
-    QTimeEdit::mouseReleaseEvent(event);
+    return QSize(m_use24HourClock ? 180 : 220, Style::metrics().height);
 }
 
-FluentTimePicker::ButtonPart FluentTimePicker::hitTestButton(const QPoint &pos) const
+void FluentTimePicker::togglePopup()
 {
-    const auto m = Style::metrics();
-    const QRect buttonRect(width() - m.iconAreaWidth, 0, m.iconAreaWidth, height());
-    if (!buttonRect.contains(pos)) {
-        return ButtonPart::None;
+    if (isPopupVisible()) {
+        hidePopup();
+    } else {
+        showPopup();
     }
-    const int gap = 2;
-    const int halfH = (buttonRect.height() - gap) / 2;
-    const int splitY = buttonRect.top() + halfH + gap / 2;
-    return (pos.y() < splitY) ? ButtonPart::Up : ButtonPart::Down;
+}
+
+void FluentTimePicker::showPopup()
+{
+    if (!m_popup) {
+        m_popup = new Detail::FluentWheelPickerPopup(this);
+        m_popup->setAnchor(this);
+        m_popup->onAccepted = [this]() {
+            setTime(popupTimeFromColumns());
+            setFocus();
+        };
+        m_popup->onDismissed = [this](bool) {
+            update();
+            if (!hasFocus()) {
+                startFocusAnimation(0.0);
+            }
+        };
+    }
+
+    rebuildPopupColumns(popupSeedTime());
+    m_popup->popup();
+    update();
+}
+
+void FluentTimePicker::hidePopup()
+{
+    if (m_popup) {
+        m_popup->dismiss(false, true);
+    }
+}
+
+bool FluentTimePicker::isPopupVisible() const
+{
+    return m_popup && m_popup->isVisible();
+}
+
+void FluentTimePicker::rebuildPopupColumns(const QTime &selectedTime)
+{
+    if (!m_popup) {
+        return;
+    }
+
+    const QTime seed = selectedTime.isValid() ? selectedTime : popupSeedTime();
+    QVector<Detail::PickerColumnConfig> configs;
+
+    Detail::PickerColumnConfig hourConfig;
+    hourConfig.alignment = Qt::AlignCenter;
+    hourConfig.width = 86;
+    if (m_use24HourClock) {
+        for (int hour = 0; hour < 24; ++hour) {
+            hourConfig.options.push_back({ QStringLiteral("%1").arg(hour, 2, 10, QChar('0')), hour });
+        }
+        hourConfig.currentValue = seed.hour();
+    } else {
+        for (int hour = 1; hour <= 12; ++hour) {
+            hourConfig.options.push_back({ QString::number(hour), hour });
+        }
+        int hour12 = seed.hour() % 12;
+        if (hour12 == 0) {
+            hour12 = 12;
+        }
+        hourConfig.currentValue = hour12;
+    }
+    configs.push_back(hourConfig);
+
+    Detail::PickerColumnConfig minuteConfig;
+    minuteConfig.alignment = Qt::AlignCenter;
+    minuteConfig.width = 86;
+    for (int minute = 0; minute < 60; minute += qBound(1, m_minuteIncrement, 59)) {
+        minuteConfig.options.push_back({ QStringLiteral("%1").arg(minute, 2, 10, QChar('0')), minute });
+    }
+    minuteConfig.currentValue = nearestMinuteValue(seed.minute(), m_minuteIncrement);
+    configs.push_back(minuteConfig);
+
+    if (!m_use24HourClock) {
+        Detail::PickerColumnConfig periodConfig;
+        periodConfig.alignment = Qt::AlignCenter;
+        periodConfig.width = 82;
+        periodConfig.options.push_back({ periodText(false), 0 });
+        periodConfig.options.push_back({ periodText(true), 1 });
+        periodConfig.currentValue = seed.hour() >= 12 ? 1 : 0;
+        configs.push_back(periodConfig);
+    }
+
+    m_popup->setColumnConfigs(configs);
+}
+
+QTime FluentTimePicker::popupSeedTime() const
+{
+    if (m_hasTime) {
+        return QTimeEdit::time();
+    }
+
+    const QTime now = QTime::currentTime();
+    return QTime(now.hour(), nearestMinuteValue(now.minute(), m_minuteIncrement));
+}
+
+QTime FluentTimePicker::popupTimeFromColumns() const
+{
+    if (!m_popup) {
+        return popupSeedTime();
+    }
+
+    const int hourValue = m_popup->columnValue(0).toInt();
+    const int minuteValue = m_popup->columnValue(1).toInt();
+
+    if (m_use24HourClock) {
+        return QTime(hourValue, minuteValue);
+    }
+
+    const bool postMeridiem = m_popup->columnValue(2).toInt() != 0;
+    int hour24 = hourValue % 12;
+    if (postMeridiem) {
+        hour24 += 12;
+    }
+    return QTime(hour24, minuteValue);
+}
+
+QString FluentTimePicker::periodText(bool postMeridiem) const
+{
+    return postMeridiem ? m_postMeridiemText : m_anteMeridiemText;
+}
+
+QString FluentTimePicker::displayTextForIndex(int fieldIndex) const
+{
+    if (!m_hasTime) {
+        if (m_use24HourClock) {
+            return fieldIndex == 0 ? m_hourPlaceholderText : m_minutePlaceholderText;
+        }
+        if (fieldIndex == 0) {
+            return m_hourPlaceholderText;
+        }
+        if (fieldIndex == 1) {
+            return m_minutePlaceholderText;
+        }
+        return periodText(false);
+    }
+
+    const QTime value = QTimeEdit::time();
+    if (m_use24HourClock) {
+        return fieldIndex == 0
+                   ? QStringLiteral("%1").arg(value.hour(), 2, 10, QChar('0'))
+                   : QStringLiteral("%1").arg(value.minute(), 2, 10, QChar('0'));
+    }
+
+    if (fieldIndex == 0) {
+        int hour = value.hour() % 12;
+        if (hour == 0) {
+            hour = 12;
+        }
+        return QString::number(hour);
+    }
+    if (fieldIndex == 1) {
+        return QStringLiteral("%1").arg(value.minute(), 2, 10, QChar('0'));
+    }
+    return periodText(value.hour() >= 12);
 }
 
 } // namespace Fluent

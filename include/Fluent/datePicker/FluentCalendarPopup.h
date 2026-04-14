@@ -3,6 +3,7 @@
 #include "Fluent/FluentBorderEffect.h"
 
 #include <QDate>
+#include <QString>
 #include <QWidget>
 
 class QPainter;
@@ -26,6 +27,9 @@ public:
 
 	void setAnchor(QWidget *anchor);
 	QWidget *anchor() const;
+
+	void setTodayText(const QString &text);
+	QString todayText() const;
 
 	// Single mode
 	void setDate(const QDate &date);
@@ -160,6 +164,7 @@ private:
 	HitPart m_pressPart  = HitPart::None;
 	int     m_hoverIndex = -1;
 	int     m_pressIndex = -1;
+	QString m_todayText = QStringLiteral("今天");
 };
 
 } // namespace Fluent

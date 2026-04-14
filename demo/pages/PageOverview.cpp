@@ -10,17 +10,20 @@
 #include <QHeaderView>
 #include <QStandardItem>
 #include <QStandardItemModel>
+#include <QStringList>
 #include <QStringListModel>
 #include <QTime>
 #include <QVBoxLayout>
 
 #include "Fluent/FluentButton.h"
+#include "Fluent/FluentAnnotatedScrollBar.h"
 #include "Fluent/FluentCalendarPicker.h"
 #include "Fluent/FluentCard.h"
 #include "Fluent/FluentCheckBox.h"
 #include "Fluent/FluentColorDialog.h"
 #include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentComboBox.h"
+#include "Fluent/FluentDatePicker.h"
 #include "Fluent/FluentDialog.h"
 #include "Fluent/FluentFlowLayout.h"
 #include "Fluent/FluentGroupBox.h"
@@ -273,12 +276,17 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
     addJumpCard(QStringLiteral("输入页：LineEdit / TextEdit / Slider / SpinBox / ComboBox"), 2);
 
     addGroupTitle(QStringLiteral("选择器"));
+    flow->addWidget(makeTile(QStringLiteral("DatePicker"), QStringLiteral("滚轮式月 / 日 / 年选择"), [&](QVBoxLayout *body) {
+        auto *p = new FluentDatePicker();
+        p->setDate(QDate::currentDate());
+        body->addWidget(p);
+    }));
     flow->addWidget(makeTile(QStringLiteral("CalendarPicker"), QString(), [&](QVBoxLayout *body) {
         auto *p = new FluentCalendarPicker();
         p->setDate(QDate::currentDate());
         body->addWidget(p);
     }));
-    flow->addWidget(makeTile(QStringLiteral("TimePicker"), QString(), [&](QVBoxLayout *body) {
+    flow->addWidget(makeTile(QStringLiteral("TimePicker"), QStringLiteral("滚轮式时间选择"), [&](QVBoxLayout *body) {
         auto *p = new FluentTimePicker();
         p->setTime(QTime::currentTime());
         body->addWidget(p);
@@ -433,6 +441,64 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(sb);
     }));
 
+    flow->addWidget(makeTile(QStringLiteral("AnnotatedScrollBar"), QStringLiteral("滚动时右侧显示当前分段"), [&](QVBoxLayout *body) {
+        auto *shell = new FluentWidget();
+        shell->setBackgroundRole(FluentWidget::BackgroundRole::Transparent);
+
+        auto *row = new QHBoxLayout(shell);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(8);
+
+        auto *area = new FluentScrollArea();
+        area->setWidgetResizable(true);
+        area->setOverlayScrollBarsEnabled(false);
+        area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        area->setFrameShape(QFrame::NoFrame);
+        area->setFixedHeight(152);
+
+        auto *content = new FluentWidget();
+        content->setBackgroundRole(FluentWidget::BackgroundRole::Transparent);
+        area->setWidget(content);
+
+        auto *contentLayout = new QVBoxLayout(content);
+        contentLayout->setContentsMargins(8, 8, 8, 8);
+        contentLayout->setSpacing(8);
+
+        const QVector<FluentAnnotatedScrollBarSource> sources = {
+            {QStringLiteral("首页"), QStringLiteral("欢迎概览"), 8, 83},
+            {QStringLiteral("首页"), QStringLiteral("快捷入口"), 92, 167},
+            {QStringLiteral("库存"), QStringLiteral("仓储列表"), 176, 251},
+            {QStringLiteral("设置"), QStringLiteral("参数设置"), 260, 335}
+        };
+
+        for (const FluentAnnotatedScrollBarSource &source : sources) {
+            auto *card = new FluentCard();
+            card->setFixedHeight(76);
+            auto *cardLayout = new QVBoxLayout(card);
+            cardLayout->setContentsMargins(12, 10, 12, 10);
+            cardLayout->setSpacing(4);
+            auto *title = new FluentLabel(source.text);
+            title->setStyleSheet("font-size: 12px; font-weight: 650;");
+            auto *summary = new FluentLabel(QStringLiteral("所属分组：%1").arg(source.group));
+            summary->setStyleSheet("font-size: 11px; opacity: 0.84;");
+            summary->setWordWrap(true);
+            cardLayout->addWidget(title);
+            cardLayout->addWidget(summary);
+            contentLayout->addWidget(card);
+        }
+
+        auto *annotated = new FluentAnnotatedScrollBar();
+        annotated->setFixedWidth(94);
+        annotated->setToolTipDuration(1000);
+        annotated->setScrollArea(area);
+        annotated->setSources(sources);
+
+        row->addWidget(area, 1);
+        row->addWidget(annotated);
+        body->addWidget(shell);
+    }));
+
     flow->addWidget(makeTile(QStringLiteral("FlowLayout"), QStringLiteral("总览页/侧栏卡片均使用 FlowLayout"), [&](QVBoxLayout *body) {
         auto *lab = new FluentLabel(QStringLiteral(
             "-FluentFlowLayout：自适应换行\n"
@@ -442,7 +508,7 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
         body->addWidget(lab);
     }));
 
-    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / Splitter / FlowLayout"), 7);
+    addJumpCard(QStringLiteral("容器/布局页：Card / GroupBox / TabWidget / ScrollArea / ScrollBar / AnnotatedScrollBar / Splitter / FlowLayout"), 7);
 
     addGroupTitle(QStringLiteral("窗口 / 对话框"));
     flow->addWidget(makeTile(QStringLiteral("Dialog"), QStringLiteral("支持可选蒙版 overlay"), [&](QVBoxLayout *body) {

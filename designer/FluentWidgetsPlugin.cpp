@@ -11,6 +11,7 @@
 #include "Fluent/FluentLineEdit.h"
 #include "Fluent/FluentTextEdit.h"
 #include "Fluent/FluentCalendarPicker.h"
+#include "Fluent/FluentDatePicker.h"
 #include "Fluent/FluentTimePicker.h"
 #include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentColorDialog.h"
@@ -35,6 +36,7 @@
 #include "Fluent/FluentStatusBar.h"
 #include "Fluent/FluentDialog.h"
 #include "Fluent/FluentMessageBox.h"
+#include "Fluent/FluentAnnotatedScrollBar.h"
 
 namespace {
 
@@ -78,6 +80,7 @@ public:
         if (m_className == "FluentLineEdit") return new Fluent::FluentLineEdit(parent);
         if (m_className == "FluentTextEdit") return new Fluent::FluentTextEdit(parent);
         if (m_className == "FluentCalendarPicker") return new Fluent::FluentCalendarPicker(parent);
+        if (m_className == "FluentDatePicker") return new Fluent::FluentDatePicker(parent);
         if (m_className == "FluentTimePicker") return new Fluent::FluentTimePicker(parent);
         if (m_className == "FluentColorPicker") return new Fluent::FluentColorPicker(parent);
         if (m_className == "FluentColorDialog") return new Fluent::FluentColorDialog(QColor("#0067C0"), parent);
@@ -103,6 +106,7 @@ public:
         if (m_className == "FluentStatusBar") return new Fluent::FluentStatusBar(parent);
         if (m_className == "FluentDialog") return new Fluent::FluentDialog(parent);
         if (m_className == "FluentMessageBox") return new Fluent::FluentMessageBox(QStringLiteral("FluentMessageBox"), QStringLiteral("Message"), Fluent::FluentMessageBox::Info, parent);
+        if (m_className == "FluentAnnotatedScrollBar") return new Fluent::FluentAnnotatedScrollBar(parent);
         return nullptr;
     }
 
@@ -139,6 +143,7 @@ public:
         m_plugins.append(new FluentWidgetPlugin("FluentLineEdit", "Fluent/FluentLineEdit.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTextEdit", "Fluent/FluentTextEdit.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCalendarPicker", "Fluent/FluentCalendarPicker.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentDatePicker", "Fluent/FluentDatePicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTimePicker", "Fluent/FluentTimePicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentColorPicker", "Fluent/FluentColorPicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentColorDialog", "Fluent/FluentColorDialog.h", group, true, this));
@@ -164,6 +169,7 @@ public:
         m_plugins.append(new FluentWidgetPlugin("FluentStatusBar", "Fluent/FluentStatusBar.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentDialog", "Fluent/FluentDialog.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentMessageBox", "Fluent/FluentMessageBox.h", group, true, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentAnnotatedScrollBar", "Fluent/FluentAnnotatedScrollBar.h", group, false, this));
     }
 
     QList<QDesignerCustomWidgetInterface *> customWidgets() const override

@@ -8,6 +8,7 @@
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QTimer>
@@ -15,9 +16,19 @@
 
 namespace Fluent {
 
+namespace {
+
+QLocale defaultCalendarLocale()
+{
+    return QLocale(QLocale::Chinese, QLocale::China);
+}
+
+} // namespace
+
 
 FluentCalendarPicker::FluentCalendarPicker(QWidget *parent)
     : QDateEdit(parent)
+    , m_todayText(QStringLiteral("今天"))
 {
     setCalendarPopup(false);
     setButtonSymbols(QAbstractSpinBox::NoButtons);
@@ -26,6 +37,7 @@ FluentCalendarPicker::FluentCalendarPicker(QWidget *parent)
     setMouseTracking(true);
     setAttribute(Qt::WA_Hover, true);
     setMinimumHeight(Style::metrics().height);
+    setLocale(defaultCalendarLocale());
 
     m_hoverAnim = new QVariantAnimation(this);
     m_hoverAnim->setDuration(150);
@@ -82,11 +94,38 @@ void FluentCalendarPicker::setFocusLevel(qreal value)
     update();
 }
 
+void FluentCalendarPicker::setTodayText(const QString &text)
+{
+    if (m_todayText == text) {
+        return;
+    }
+
+    m_todayText = text;
+    if (m_popup) {
+        m_popup->setTodayText(m_todayText);
+    }
+    update();
+}
+
+QString FluentCalendarPicker::todayText() const
+{
+    return m_todayText;
+}
+
 void FluentCalendarPicker::changeEvent(QEvent *event)
 {
     QDateEdit::changeEvent(event);
 
-    if (event->type() == QEvent::EnabledChange) {
+    if (!event) {
+        return;
+    }
+
+    if (event->type() == QEvent::LocaleChange && m_popup) {
+        m_popup->setLocale(locale());
+        m_popup->update();
+    }
+
+    if (event->type() == QEvent::EnabledChange || event->type() == QEvent::LocaleChange) {
         applyTheme();
     }
 }
@@ -312,6 +351,8 @@ void FluentCalendarPicker::showPopup()
 {
     if (!m_popup) {
         m_popup = new FluentCalendarPopup(this);
+        m_popup->setLocale(locale());
+        m_popup->setTodayText(m_todayText);
         m_popup->setDate(date());
         connect(m_popup, &FluentCalendarPopup::datePicked, this, [this](const QDate &d) {
             setDate(d);
@@ -323,6 +364,8 @@ void FluentCalendarPicker::showPopup()
     }
 
     m_popup->setAnchor(this);
+    m_popup->setLocale(locale());
+    m_popup->setTodayText(m_todayText);
     m_popup->setDate(date());
     m_popup->popup();
 }

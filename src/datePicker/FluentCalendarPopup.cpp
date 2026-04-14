@@ -43,6 +43,35 @@ static QRect pillRect(const QRect &header, int x, int w)
     const int y = header.y() + (header.height() - 30) / 2;
     return QRect(x, y, w, 30);
 }
+
+static QString headerYearText(const QLocale &calendarLocale, int year)
+{
+    if (calendarLocale.language() == QLocale::Chinese) {
+        return QStringLiteral("%1年").arg(year);
+    }
+    return QString::number(year);
+}
+
+static QString headerMonthText(const QLocale &calendarLocale, int month)
+{
+    if (calendarLocale.language() == QLocale::Chinese) {
+        return QStringLiteral("%1月").arg(month);
+    }
+
+    const QString name = calendarLocale.standaloneMonthName(month, QLocale::LongFormat);
+    return name.isEmpty() ? QString::number(month) : name;
+}
+
+static int displayedDayOfWeek(int column, Qt::DayOfWeek firstDayOfWeek)
+{
+    return ((int(firstDayOfWeek) - 1 + column) % 7) + 1;
+}
+
+static bool isWeekendColumn(int column, Qt::DayOfWeek firstDayOfWeek)
+{
+    const int dayOfWeek = displayedDayOfWeek(column, firstDayOfWeek);
+    return dayOfWeek == int(Qt::Saturday) || dayOfWeek == int(Qt::Sunday);
+}
 } // namespace
 // ── Constructor ──────────────────────────────────────────────────────────
 FluentCalendarPopup::FluentCalendarPopup(QWidget *anchor)
@@ -95,6 +124,13 @@ FluentCalendarPopup::FluentCalendarPopup(QWidget *anchor)
 // ── Public API ───────────────────────────────────────────────────────────
 void FluentCalendarPopup::setAnchor(QWidget *anchor) { m_anchor = anchor; }
 QWidget *FluentCalendarPopup::anchor() const          { return m_anchor; }
+void FluentCalendarPopup::setTodayText(const QString &text)
+{
+    if (m_todayText == text) return;
+    m_todayText = text;
+    update();
+}
+QString FluentCalendarPopup::todayText() const { return m_todayText; }
 void FluentCalendarPopup::setDate(const QDate &date)
 {
     if (date.isValid()) {
@@ -203,15 +239,17 @@ QRect FluentCalendarPopup::monthPillRect() const
 {
     const QRect h = headerRect();
     const QRect y = yearPillRect();
+    const QLocale calendarLocale = locale();
     QFont f = font(); f.setPointSizeF(f.pointSizeF() + 0.5); QFontMetrics fm(f);
-    const int w = qBound(68, fm.horizontalAdvance(QString::number(m_pageMonth) + QStringLiteral("月")) + 22, 120);
+    const int w = qBound(68, fm.horizontalAdvance(headerMonthText(calendarLocale, m_pageMonth)) + 22, 160);
     return pillRect(h, y.right() + 20, w);
 }
 QRect FluentCalendarPopup::yearPillRect() const
 {
     const QRect h = headerRect();
+    const QLocale calendarLocale = locale();
     QFont f = font(); f.setPointSizeF(f.pointSizeF() + 0.5); QFontMetrics fm(f);
-    const int w = qBound(74, fm.horizontalAdvance(QString::number(m_pageYear) + QStringLiteral("年")) + 22, 130);
+    const int w = qBound(74, fm.horizontalAdvance(headerYearText(calendarLocale, m_pageYear)) + 22, 130);
     return pillRect(h, h.x(), w);
 }
 QRect FluentCalendarPopup::navPrevRect() const
@@ -231,7 +269,7 @@ QRect FluentCalendarPopup::todayButtonRect() const
     const QRect h = headerRect();
     const QRect prev = navPrevRect();
     QFont f = font(); f.setPointSizeF(f.pointSizeF() - 0.2); QFontMetrics fm(f);
-    const QString text = QStringLiteral("今天");
+    const QString text = m_todayText;
     int w = qBound(44, fm.horizontalAdvance(text) + 20, 80);
     const int maxRight = prev.left() - 8;
     QRect r = pillRect(h, maxRight - w + 1, w);
@@ -293,7 +331,7 @@ void FluentCalendarPopup::stepYearPage(int deltaPages)
 // ── Range helpers ────────────────────────────────────────────────────────
 QDate FluentCalendarPopup::dateFromCellIndex(int idx, int pageYear, int pageMonth) const
 {
-    const QDate s = gridStartForMonth(pageYear, pageMonth, Qt::Monday);
+    const QDate s = gridStartForMonth(pageYear, pageMonth, locale().firstDayOfWeek());
     return s.isValid() ? s.addDays(idx) : QDate();
 }
 QDate FluentCalendarPopup::effectiveRangeStart() const
@@ -438,11 +476,14 @@ void FluentCalendarPopup::paintRangePanelHeader(QPainter &p, int panelX,
     int pageYear, int pageMonth, bool isRight)
 {
     const auto &c = ThemeManager::instance().colors();
+    const QLocale calendarLocale = locale();
     const QRect content(panelX + kPadding, kPadding, kRangePanelW - 2*kPadding, height() - 2*kPadding);
     const QRect h(content.x(), content.y(), content.width(), kHeaderH);
     QFont f = font(); f.setPointSizeF(f.pointSizeF() + 0.5); QFontMetrics fm(f);
-    const int yearW  = qBound(74,  fm.horizontalAdvance(QString::number(pageYear)  + QStringLiteral("年")) + 22, 130);
-    const int monthW = qBound(68,  fm.horizontalAdvance(QString::number(pageMonth) + QStringLiteral("月")) + 22, 120);
+    const QString yearText = headerYearText(calendarLocale, pageYear);
+    const QString monthText = headerMonthText(calendarLocale, pageMonth);
+    const int yearW  = qBound(74,  fm.horizontalAdvance(yearText) + 22, 130);
+    const int monthW = qBound(68,  fm.horizontalAdvance(monthText) + 22, 160);
     const QRect yearPill  = pillRect(h, h.x(), yearW);
     const QRect monthPill = pillRect(h, yearPill.right() + 20, monthW);
     const int navY = h.y() + (h.height() - kNavBtn) / 2;
@@ -460,8 +501,8 @@ void FluentCalendarPopup::paintRangePanelHeader(QPainter &p, int panelX,
     // Year / month labels
     p.setFont(f);
     p.setPen(c.text);
-    p.drawText(yearPill.adjusted(8,0,-8,0),  Qt::AlignVCenter|Qt::AlignLeft, QString::number(pageYear)  + QStringLiteral("年"));
-    p.drawText(monthPill.adjusted(8,0,-8,0), Qt::AlignVCenter|Qt::AlignLeft, QString::number(pageMonth) + QStringLiteral("月"));
+    p.drawText(yearPill.adjusted(8,0,-8,0),  Qt::AlignVCenter|Qt::AlignLeft, yearText);
+    p.drawText(monthPill.adjusted(8,0,-8,0), Qt::AlignVCenter|Qt::AlignLeft, monthText);
     p.setFont(font());
     const HitPart prevPart = isRight ? HitPart::RNavPrev : HitPart::NavPrev;
     const HitPart nextPart = isRight ? HitPart::RNavNext : HitPart::NavNext;
@@ -482,6 +523,8 @@ void FluentCalendarPopup::paintRangePanelDays(QPainter &p, int panelX,
     int pageYear, int pageMonth, bool isRight)
 {
     const auto &c = ThemeManager::instance().colors();
+    const QLocale calendarLocale = locale();
+    const Qt::DayOfWeek firstDayOfWeek = calendarLocale.firstDayOfWeek();
     const QRect content(panelX + kPadding, kPadding, kRangePanelW - 2*kPadding, height() - 2*kPadding);
     const QRect g(content.x(), content.y()+kHeaderH, content.width(), content.height()-kHeaderH);
     const QRect dayNames(g.x(), g.y(), g.width(), kDayNamesH);
@@ -493,20 +536,23 @@ void FluentCalendarPopup::paintRangePanelDays(QPainter &p, int panelX,
         QColor wkBg = c.pressed; wkBg.setAlpha(45);
         p.setPen(Qt::NoPen); p.setBrush(wkBg);
         const int totalH = dayNames.height() + cells.height();
-        for (int col : {5, 6})
-            p.drawRect(QRectF(g.x()+col*cw, dayNames.y(), cw, totalH).adjusted(0,1.0,-0.5,-1.0));
+        for (int col = 0; col < 7; ++col) {
+            if (isWeekendColumn(col, firstDayOfWeek)) {
+                p.drawRect(QRectF(g.x()+col*cw, dayNames.y(), cw, totalH).adjusted(0,1.0,-0.5,-1.0));
+            }
+        }
     }
     // Day name row
     QFont sf = font(); sf.setPointSizeF(sf.pointSizeF() - 0.5); p.setFont(sf);
     for (int i = 0; i < 7; ++i) {
         const QRect r(dayNames.x()+i*cw, dayNames.y(), cw, dayNames.height());
-        const int dow = int(Qt::Monday) + i;
-        const QString name = QLocale().standaloneDayName(((dow-1)%7)+1, QLocale::ShortFormat);
-        p.setPen(i >= 5 ? c.text : c.subText);
+        const int dayOfWeek = displayedDayOfWeek(i, firstDayOfWeek);
+        const QString name = calendarLocale.standaloneDayName(dayOfWeek, QLocale::ShortFormat);
+        p.setPen(isWeekendColumn(i, firstDayOfWeek) ? c.text : c.subText);
         p.drawText(r, Qt::AlignCenter, name);
     }
     p.setFont(font());
-    const QDate gridStart = gridStartForMonth(pageYear, pageMonth, Qt::Monday);
+    const QDate gridStart = gridStartForMonth(pageYear, pageMonth, firstDayOfWeek);
     if (!gridStart.isValid()) return;
     const QDate today = QDate::currentDate();
     const QDate effS  = effectiveRangeStart();
@@ -561,7 +607,7 @@ void FluentCalendarPopup::paintRangePanelDays(QPainter &p, int panelX,
             QColor textColor;
             if (!inMonth)         textColor = c.disabledText;
             else if (isStart || isEnd) textColor = QColor(Qt::white);
-            else if (col >= 5)    textColor = c.subText;
+            else if (isWeekendColumn(col, firstDayOfWeek)) textColor = c.subText;
             else                  textColor = c.text;
             p.setPen(textColor);
             p.drawText(rc, Qt::AlignCenter, QString::number(d.day()));
@@ -572,6 +618,7 @@ void FluentCalendarPopup::paintRangePanelDays(QPainter &p, int panelX,
 void FluentCalendarPopup::paintHeader(QPainter &p)
 {
     const auto &c = ThemeManager::instance().colors();
+    const QLocale calendarLocale = locale();
     const QRect h = headerRect(), y = yearPillRect(), m = monthPillRect(), t = todayButtonRect();
     QColor hl = c.border; hl.setAlpha(80);
     p.setPen(QPen(hl, 1.0));
@@ -595,8 +642,8 @@ void FluentCalendarPopup::paintHeader(QPainter &p)
         p.setPen(tc);
         p.drawText(r.adjusted(12,0,-12,0), Qt::AlignVCenter|Qt::AlignLeft, text);
     };
-    paintPill(y, HitPart::HeaderYear,  QString::number(m_pageYear)  + QStringLiteral("年"), false);
-    paintPill(m, HitPart::HeaderMonth, QString::number(m_pageMonth) + QStringLiteral("月"), false);
+    paintPill(y, HitPart::HeaderYear,  headerYearText(calendarLocale, m_pageYear), false);
+    paintPill(m, HitPart::HeaderMonth, headerMonthText(calendarLocale, m_pageMonth), false);
     if (t.isValid()) {
         const bool hov=(m_hoverPart==HitPart::HeaderToday), prs=(m_pressPart==HitPart::HeaderToday);
         QColor bg=Qt::transparent;
@@ -605,7 +652,7 @@ void FluentCalendarPopup::paintHeader(QPainter &p)
         p.setPen(Qt::NoPen); p.setBrush(bg);
         p.drawRoundedRect(QRectF(t).adjusted(0.5,0.5,-0.5,-0.5), 8.0, 8.0);
         p.setPen(c.accent);
-        p.drawText(t, Qt::AlignCenter, QStringLiteral("今天"));
+        p.drawText(t, Qt::AlignCenter, m_todayText);
     }
     auto paintNav = [&](const QRect &r, HitPart part, bool right) {
         const bool hov=(m_hoverPart==part), prs=(m_pressPart==part);
@@ -624,6 +671,8 @@ void FluentCalendarPopup::paintHeader(QPainter &p)
 void FluentCalendarPopup::paintDays(QPainter &p)
 {
     const auto &c = ThemeManager::instance().colors();
+    const QLocale calendarLocale = locale();
+    const Qt::DayOfWeek firstDayOfWeek = calendarLocale.firstDayOfWeek();
     const QRect g = gridRect();
     const QRect dayNames(g.x(), g.y(), g.width(), kDayNamesH);
     const QRect cells(g.x(), g.y()+kDayNamesH, g.width(), g.height()-kDayNamesH);
@@ -633,18 +682,21 @@ void FluentCalendarPopup::paintDays(QPainter &p)
         QColor wkBg=c.pressed; wkBg.setAlpha(55);
         p.setPen(Qt::NoPen); p.setBrush(wkBg);
         const int totalH=dayNames.height()+cells.height();
-        for (int col:{5,6})
-            p.drawRect(QRectF(g.x()+col*cw, dayNames.y(), cw, totalH).adjusted(0,1.0,-0.5,-1.0));
+        for (int col = 0; col < 7; ++col) {
+            if (isWeekendColumn(col, firstDayOfWeek)) {
+                p.drawRect(QRectF(g.x()+col*cw, dayNames.y(), cw, totalH).adjusted(0,1.0,-0.5,-1.0));
+            }
+        }
     }
     QFont sf=font(); sf.setPointSizeF(sf.pointSizeF()-0.5); p.setFont(sf);
     for (int i=0;i<7;++i) {
         const QRect r(dayNames.x()+i*cw, dayNames.y(), cw, dayNames.height());
-        const int dow=int(Qt::Monday)+i;
-        const QString name=QLocale().standaloneDayName(((dow-1)%7)+1, QLocale::ShortFormat);
-        p.setPen(i>=5?c.text:c.subText); p.drawText(r, Qt::AlignCenter, name);
+        const int dayOfWeek = displayedDayOfWeek(i, firstDayOfWeek);
+        const QString name = calendarLocale.standaloneDayName(dayOfWeek, QLocale::ShortFormat);
+        p.setPen(isWeekendColumn(i, firstDayOfWeek) ? c.text : c.subText); p.drawText(r, Qt::AlignCenter, name);
     }
     p.setFont(font());
-    const QDate start = gridStartForMonth(m_pageYear, m_pageMonth, Qt::Monday);
+    const QDate start = gridStartForMonth(m_pageYear, m_pageMonth, firstDayOfWeek);
     if (!start.isValid()) return;
     const QDate today = QDate::currentDate();
     for (int row=0;row<6;++row) for (int col=0;col<7;++col) {
@@ -660,7 +712,7 @@ void FluentCalendarPopup::paintDays(QPainter &p)
         QColor tc;
         if (!inMonth) tc=c.disabledText;
         else if (selected) tc=QColor(Qt::white);
-        else if (col>=5) tc=c.subText;
+        else if (isWeekendColumn(col, firstDayOfWeek)) tc=c.subText;
         else tc=c.text;
         p.setPen(tc); p.drawText(rc, Qt::AlignCenter, QString::number(d.day()));
     }
@@ -668,6 +720,7 @@ void FluentCalendarPopup::paintDays(QPainter &p)
 void FluentCalendarPopup::paintMonths(QPainter &p)
 {
     const auto &c=ThemeManager::instance().colors();
+    const QLocale calendarLocale = locale();
     const QRect g=gridRect(); const int cw=g.width()/3, ch=g.height()/4;
     const QDate today=QDate::currentDate();
     QFont f=font(); f.setPointSizeF(f.pointSizeF()+0.2); p.setFont(f);
@@ -681,7 +734,7 @@ void FluentCalendarPopup::paintMonths(QPainter &p)
         else if (hov) { QColor fill=c.hover; fill.setAlpha(120); p.setPen(Qt::NoPen); p.setBrush(fill); p.drawRoundedRect(rr,10.0,10.0); }
         if (cur&&!sel) { QColor ring=c.accent; ring.setAlpha(170); p.setPen(QPen(ring,1.5)); p.setBrush(Qt::NoBrush); p.drawRoundedRect(rr,10.0,10.0); }
         p.setPen(sel?QColor(Qt::white):c.text);
-        p.drawText(rc, Qt::AlignCenter, QLocale().standaloneMonthName(i+1, QLocale::ShortFormat));
+        p.drawText(rc, Qt::AlignCenter, calendarLocale.standaloneMonthName(i+1, QLocale::ShortFormat));
     }
     p.setFont(font());
 }
@@ -754,7 +807,7 @@ void FluentCalendarPopup::mousePressEvent(QMouseEvent *event)
     }
     if (part==HitPart::Cell && idx>=0) {
         if (m_mode==ViewMode::Days) {
-            const QDate s=gridStartForMonth(m_pageYear, m_pageMonth, Qt::Monday);
+            const QDate s=gridStartForMonth(m_pageYear, m_pageMonth, locale().firstDayOfWeek());
             if (s.isValid()) setSelectedDate(s.addDays(idx), true);
         } else if (m_mode==ViewMode::Months) {
             m_pageMonth=qBound(1,idx+1,12); m_selected=clampDayToMonth(m_selected,m_pageYear,m_pageMonth); setMode(ViewMode::Days); update();

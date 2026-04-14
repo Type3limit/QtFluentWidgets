@@ -7,6 +7,7 @@
 - `FluentTabWidget`（include: `Fluent/FluentTabWidget.h`）
 - `FluentScrollArea`（include: `Fluent/FluentScrollArea.h`）
 - `FluentScrollBar`（include: `Fluent/FluentScrollBar.h`）
+- `FluentAnnotatedScrollBar`（include: `Fluent/FluentAnnotatedScrollBar.h`）
 - `FluentFlowLayout`（include: `Fluent/FluentFlowLayout.h`）
 - `FluentSplitter`（include: `Fluent/FluentSplitter.h`）
 - `FluentWidget`（include: `Fluent/FluentWidget.h`）
@@ -243,6 +244,73 @@ area->setContentLayout(layout);
 - 非 overlay 模式：如果它是 `QAbstractScrollArea` 的“真实滚动条”，会把自己占用的保留区域填充成 viewport 背景色，避免出现一条不跟随主题的底色。
 
 Demo：Inputs（展示滚动条）/ Overview（也用于多个页面的滚动容器）。
+
+---
+
+## FluentAnnotatedScrollBar
+
+用途：为长内容页提供“分段标注 + 快速跳转 + 当前范围提示”的辅助滚动条，交互形态接近 WinUI 的 AnnotatedScrollBar。
+
+关键 API：
+
+- `setScrollArea(QAbstractScrollArea*)`：直接绑定一个滚动区域，内部会跟踪其竖向滚动条。
+- `setScrollBar(QScrollBar*)`：如果你不是用 `QAbstractScrollArea`，也可以直接绑定滚动条。
+- `setSources(const QVector<FluentAnnotatedScrollBarSource>&)`：推荐的数据入口。每项包含 `group`、`text`、`start`、`end`，控件会自动按 group 聚合成可视分组。
+- `addSource(...)` / `addSources(...)`：增量添加 source；如果 group 已存在，会自动插入到该组块末尾，否则会新建一个组。
+- `sources()` / `clearSources()`：读取或清空 source 数据。
+- `groups()`：返回当前可视分组列表。
+- `setCurrentGroup(const QString&)` / `setCurrentRangeIndex(int)` / `setCurrentSourceIndex(int)`：从外部定位当前组、当前段或当前 source。
+- `currentGroup()` / `currentRangeText()` / `currentSource()`：读取当前高亮状态。
+- `setAnnotatedRanges(const QVector<FluentAnnotatedScrollBarRange>&)`：低层兜底接口。适合你已经自己整理好分组区间时直接传入。
+- `clearAnnotatedRanges()`：清空所有区间。
+- `setShowToolTipOnScroll(bool)`：控制滚动时是否显示右侧 tooltip。
+- `setToolTipDuration(int)`：控制 tooltip 持续时间（毫秒）。
+
+实现语义：
+
+- 该控件本身不驱动内容布局，只监听已绑定滚动条的 `value` / `range` 变化并自绘右侧标签。
+- 在 sources 模式下，可视标签按 group 聚合；tooltip 和 `currentSourceChanged(...)` 则优先反映当前 source 的 `text`。
+- 当前区间按“当前可视区域 `[value, value + pageStep)` 与哪个区间重叠最多”来判断，因此页尾区间也能稳定激活，不会因为 viewport 较高而丢失最后一段。
+- 点击标签会跳到对应分段；点击轨道会按位置跳转到相应滚动值；thumb 也支持直接拖拽。
+- 默认会在滚动时通过 `FluentToolTip::showText(...)` 在控件右侧显示当前区间文字。
+- 典型搭配方式：把 `FluentScrollArea` 的竖向滚动条隐藏，只保留 `FluentAnnotatedScrollBar` 作为外部导航条。
+
+信号：
+
+- `currentRangeChanged(int, const QString&)`：当前可视分组变化。
+- `currentGroupChanged(int, const QString&)`：`currentRangeChanged(...)` 的 group 语义别名。
+- `currentSourceChanged(int, const QString&, const QString&)`：当前 source 变化，适合外部联动状态栏或详情标题。
+- `annotatedRangesChanged()` / `sourcesChanged()`：数据源刷新。
+
+示例：
+
+```cpp
+#include "Fluent/FluentAnnotatedScrollBar.h"
+#include "Fluent/FluentScrollArea.h"
+
+auto *area = new Fluent::FluentScrollArea();
+area->setWidgetResizable(true);
+area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+auto *annotated = new Fluent::FluentAnnotatedScrollBar();
+annotated->setScrollArea(area);
+annotated->setSources({
+	{QStringLiteral("概览"), QStringLiteral("欢迎页"), 12, 119},
+	{QStringLiteral("概览"), QStringLiteral("快速操作"), 130, 237},
+	{QStringLiteral("项目"), QStringLiteral("项目列表"), 248, 355},
+	{QStringLiteral("同步"), QStringLiteral("队列状态"), 366, 473}
+});
+
+annotated->addSource({QStringLiteral("同步"), QStringLiteral("同步历史"), 484, 591});
+annotated->setCurrentGroup(QStringLiteral("项目"));
+
+QObject::connect(annotated, &Fluent::FluentAnnotatedScrollBar::currentSourceChanged,
+					 annotated, [](int, const QString &group, const QString &text) {
+	qDebug() << group << text;
+});
+```
+
+Demo：Containers / Overview。
 
 ---
 

@@ -29,6 +29,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentLineEdit.h
     include/Fluent/FluentTextEdit.h
     include/Fluent/FluentCalendarPicker.h
+    include/Fluent/FluentDatePicker.h
     include/Fluent/datePicker/FluentCalendarPopup.h
     include/Fluent/FluentTimePicker.h
     include/Fluent/FluentColorPicker.h
@@ -61,6 +62,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentResizeHelper.h
     include/Fluent/FluentScrollBar.h
     include/Fluent/FluentScrollArea.h
+    include/Fluent/FluentAnnotatedScrollBar.h
     include/Fluent/FluentSplitter.h
     include/Fluent/FluentToast.h
     include/Fluent/FluentDateRangePicker.h
@@ -77,7 +79,9 @@ add_library(QtFluentWidgets
     src/FluentLineEdit.cpp
     src/FluentTextEdit.cpp
     src/FluentCalendarPicker.cpp
+    src/FluentDatePicker.cpp
     src/datePicker/FluentCalendarPopup.cpp
+    src/datePicker/FluentWheelPickerSupport.cpp
     src/FluentTimePicker.cpp
     src/FluentColorPicker.cpp
     src/FluentColorDialog.cpp
@@ -110,6 +114,7 @@ add_library(QtFluentWidgets
     src/FluentResizeHelper.cpp
     src/FluentScrollBar.cpp
     src/FluentScrollArea.cpp
+    src/FluentAnnotatedScrollBar.cpp
     src/FluentSplitter.cpp
     src/FluentToast.cpp
     src/FluentDateRangePicker.cpp

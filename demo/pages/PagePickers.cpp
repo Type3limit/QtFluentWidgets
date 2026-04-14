@@ -5,6 +5,7 @@
 #include <QDate>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTime>
 #include <QVBoxLayout>
 
 #include "Fluent/FluentButton.h"
@@ -13,6 +14,7 @@
 #include "Fluent/FluentColorDialog.h"
 #include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentComboBox.h"
+#include "Fluent/FluentDatePicker.h"
 #include "Fluent/FluentDateRangePicker.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentMainWindow.h"
@@ -28,45 +30,152 @@ QWidget *createPickersPage(FluentMainWindow *window)
 {
     return Demo::makePage([&](QVBoxLayout *page) {
         auto s = Demo::makeSection(QStringLiteral("选择器"),
-                                   QStringLiteral("Calendar / Time / ComboBox（联动 Accent）"));
+                                   QStringLiteral("DatePicker / Calendar / Time / ComboBox（联动 Accent）"));
 
         page->addWidget(s.card);
 
-        // Calendar + Time
+        // DatePicker
         {
-            QString code;
-#define PICKERS_CAL_TIME(X) \
-    X(auto *row = new QHBoxLayout(); ) \
-    X(row->setContentsMargins(0, 0, 0, 0); ) \
-    X(row->setSpacing(10); ) \
-    X(auto *cal = new FluentCalendarPicker(); ) \
-    X(cal->setFixedWidth(320); ) \
-    X(auto *time = new FluentTimePicker(); ) \
-    X(time->setFixedWidth(160); ) \
-    X(row->addWidget(cal); ) \
-    X(row->addWidget(time); ) \
-    X(row->addStretch(1); ) \
-    X(body->addLayout(row); )
-
-#define X(line) code += QStringLiteral(#line "\n");
-            PICKERS_CAL_TIME(X)
-#undef X
-
             page->addWidget(Demo::makeCollapsedExample(
-                QStringLiteral("CalendarPicker / TimePicker"),
-                QStringLiteral("日期与时间选择器"),
+                QStringLiteral("FluentDatePicker"),
+                QStringLiteral("滚轮式日期选择器"),
                 QStringLiteral("要点：\n"
-                               "-弹出面板、hover/选中高亮\n"
-                               "-跟随主题与 Accent 联动"),
-                code,
+                               "-月 / 日 / 年列可滚动并吸附到中心选择位\n"
+                               "-底部提供确认 / 取消操作，交互更接近 WinUI Gallery\n"
+                               "-默认中文占位，可分别自定义月 / 日 / 年文案"),
+                QStringLiteral(
+                    "auto *simpleDate = new FluentDatePicker();\n"
+                    "simpleDate->setFixedWidth(320);\n"
+                    "\n"
+                    "auto *customTextDate = new FluentDatePicker();\n"
+                    "customTextDate->setFixedWidth(240);\n"
+                    "customTextDate->setVisibleParts(FluentDatePicker::MonthPart | FluentDatePicker::DayPart);\n"
+                    "customTextDate->setMonthPlaceholderText(QStringLiteral(\"月份\"));\n"
+                    "customTextDate->setDayPlaceholderText(QStringLiteral(\"日期\"));\n"
+                    "customTextDate->setDayDisplayFormat(QStringLiteral(\"d (ddd)\"));\n"),
                 [=](QVBoxLayout *body) {
-#define X(line) line
-                    PICKERS_CAL_TIME(X)
-#undef X
-                },
-                false));
+                    auto addLabeledRow = [body](const QString &labelText, QWidget *control) {
+                        auto *label = new FluentLabel(labelText);
+                        label->setStyleSheet("font-size: 12px; font-weight: 600;");
+                        body->addWidget(label);
 
-#undef PICKERS_CAL_TIME
+                        auto *row = new QHBoxLayout();
+                        row->setContentsMargins(0, 0, 0, 0);
+                        row->setSpacing(12);
+                        row->addWidget(control);
+                        row->addStretch(1);
+                        body->addLayout(row);
+                    };
+
+                    auto *simpleDate = new FluentDatePicker();
+                    simpleDate->setFixedWidth(320);
+
+                    auto *customTextDate = new FluentDatePicker();
+                    customTextDate->setFixedWidth(240);
+                    customTextDate->setVisibleParts(FluentDatePicker::MonthPart | FluentDatePicker::DayPart);
+                    customTextDate->setMonthPlaceholderText(QStringLiteral("月份"));
+                    customTextDate->setDayPlaceholderText(QStringLiteral("日期"));
+                    customTextDate->setDayDisplayFormat(QStringLiteral("d (ddd)"));
+
+                    addLabeledRow(QStringLiteral("默认中文"), simpleDate);
+                    addLabeledRow(QStringLiteral("自定义占位文案"), customTextDate);
+                },
+                false,
+                220));
+        }
+
+        // CalendarPicker
+        {
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentCalendarPicker"),
+                QStringLiteral("日历式日期选择器"),
+                QStringLiteral("要点：\n"
+                               "-保留月份网格弹出层，适合需要完整月历视图的场景\n"
+                               "-星期与月份默认中文显示，可通过 setLocale 切换\n"
+                               "-Today 按钮文案可自定义"),
+                QStringLiteral(
+                    "auto *calendar = new FluentCalendarPicker();\n"
+                    "calendar->setFixedWidth(320);\n"
+                    "calendar->setTodayText(QStringLiteral(\"回到今天\"));\n"
+                    "calendar->setDate(QDate::currentDate());\n"),
+                [=](QVBoxLayout *body) {
+                    auto *row = new QHBoxLayout();
+                    row->setContentsMargins(0, 0, 0, 0);
+                    row->setSpacing(12);
+
+                    auto *calendar = new FluentCalendarPicker();
+                    calendar->setFixedWidth(320);
+                    calendar->setTodayText(QStringLiteral("回到今天"));
+                    calendar->setDate(QDate::currentDate());
+
+                    row->addWidget(calendar);
+                    row->addStretch(1);
+                    body->addLayout(row);
+                },
+                true));
+        }
+
+        // TimePicker
+        {
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("FluentTimePicker"),
+                QStringLiteral("滚轮式时间选择器"),
+                QStringLiteral("要点：\n"
+                               "-小时 / 分钟 / 上午下午 列可滚动选择\n"
+                               "-支持 minuteIncrement 与 24 小时制\n"
+                               "-默认中文占位，可自定义小时 / 分钟 / 上午下午文案"),
+                QStringLiteral(
+                    "auto *simpleTime = new FluentTimePicker();\n"
+                    "simpleTime->setFixedWidth(200);\n"
+                    "\n"
+                    "auto *customTextTime = new FluentTimePicker();\n"
+                    "customTextTime->setFixedWidth(200);\n"
+                    "customTextTime->setHourPlaceholderText(QStringLiteral(\"小时\"));\n"
+                    "customTextTime->setMinutePlaceholderText(QStringLiteral(\"分钟\"));\n"
+                    "customTextTime->setAnteMeridiemText(QStringLiteral(\"上午\"));\n"
+                    "customTextTime->setPostMeridiemText(QStringLiteral(\"下午\"));\n"
+                    "\n"
+                    "auto *time24 = new FluentTimePicker();\n"
+                    "time24->setFixedWidth(180);\n"
+                    "time24->setUse24HourClock(true);\n"
+                    "time24->setMinuteIncrement(5);\n"
+                    "time24->setTime(QTime(16, 8));\n"),
+                [=](QVBoxLayout *body) {
+                    auto addLabeledRow = [body](const QString &labelText, QWidget *control) {
+                        auto *label = new FluentLabel(labelText);
+                        label->setStyleSheet("font-size: 12px; font-weight: 600;");
+                        body->addWidget(label);
+
+                        auto *row = new QHBoxLayout();
+                        row->setContentsMargins(0, 0, 0, 0);
+                        row->setSpacing(12);
+                        row->addWidget(control);
+                        row->addStretch(1);
+                        body->addLayout(row);
+                    };
+
+                    auto *simpleTime = new FluentTimePicker();
+                    simpleTime->setFixedWidth(200);
+
+                    auto *customTextTime = new FluentTimePicker();
+                    customTextTime->setFixedWidth(200);
+                    customTextTime->setHourPlaceholderText(QStringLiteral("小时"));
+                    customTextTime->setMinutePlaceholderText(QStringLiteral("分钟"));
+                    customTextTime->setAnteMeridiemText(QStringLiteral("上午"));
+                    customTextTime->setPostMeridiemText(QStringLiteral("下午"));
+
+                    auto *time24 = new FluentTimePicker();
+                    time24->setFixedWidth(180);
+                    time24->setUse24HourClock(true);
+                    time24->setMinuteIncrement(5);
+                    time24->setTime(QTime(16, 8));
+
+                    addLabeledRow(QStringLiteral("默认中文"), simpleTime);
+                    addLabeledRow(QStringLiteral("自定义占位文案"), customTextTime);
+                    addLabeledRow(QStringLiteral("24 小时制"), time24);
+                },
+                false,
+                260));
         }
 
         // ComboBox (Accent linkage)
