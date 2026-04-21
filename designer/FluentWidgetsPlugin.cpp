@@ -7,8 +7,10 @@
 #include <QWidget>
 
 #include "Fluent/FluentButton.h"
+#include "Fluent/FluentIconButton.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentLineEdit.h"
+#include "Fluent/FluentKeySequenceEdit.h"
 #include "Fluent/FluentTextEdit.h"
 #include "Fluent/FluentCalendarPicker.h"
 #include "Fluent/FluentDatePicker.h"
@@ -76,8 +78,10 @@ public:
     QWidget *createWidget(QWidget *parent) override
     {
         if (m_className == "FluentButton") return new Fluent::FluentButton(parent);
+        if (m_className == "FluentIconButton") return new Fluent::FluentIconButton(parent);
         if (m_className == "FluentLabel") return new Fluent::FluentLabel(parent);
         if (m_className == "FluentLineEdit") return new Fluent::FluentLineEdit(parent);
+        if (m_className == "FluentKeySequenceEdit") return new Fluent::FluentKeySequenceEdit(parent);
         if (m_className == "FluentTextEdit") return new Fluent::FluentTextEdit(parent);
         if (m_className == "FluentCalendarPicker") return new Fluent::FluentCalendarPicker(parent);
         if (m_className == "FluentDatePicker") return new Fluent::FluentDatePicker(parent);
@@ -139,8 +143,10 @@ public:
     {
         const QString group = "Fluent Widgets";
         m_plugins.append(new FluentWidgetPlugin("FluentButton", "Fluent/FluentButton.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentIconButton", "Fluent/FluentIconButton.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentLabel", "Fluent/FluentLabel.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentLineEdit", "Fluent/FluentLineEdit.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentKeySequenceEdit", "Fluent/FluentKeySequenceEdit.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTextEdit", "Fluent/FluentTextEdit.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCalendarPicker", "Fluent/FluentCalendarPicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentDatePicker", "Fluent/FluentDatePicker.h", group, false, this));

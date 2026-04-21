@@ -8,7 +8,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentButton final : public QPushButton
+class FluentButton : public QPushButton
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

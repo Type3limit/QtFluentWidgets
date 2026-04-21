@@ -10,6 +10,20 @@
 
 namespace Fluent {
 
+namespace {
+
+QSize logicalPixmapSize(const QPixmap &pixmap)
+{
+    if (pixmap.isNull()) {
+        return {};
+    }
+
+    const qreal dpr = pixmap.devicePixelRatio();
+    return QSize(qRound(pixmap.width() / dpr), qRound(pixmap.height() / dpr));
+}
+
+} // namespace
+
 FluentButton::FluentButton(QWidget *parent)
     : QPushButton(parent)
 {
@@ -203,20 +217,45 @@ void FluentButton::paintEvent(QPaintEvent *event)
     QRect contentRect = rect.toRect();
     
     if (!icon().isNull()) {
-        // Button has icon - draw icon on the left
-        QIcon::Mode mode = isEnabled() ? QIcon::Normal : QIcon::Disabled;
-        QPixmap pixmap = icon().pixmap(iconSize(), mode);
-        
+        const QIcon::Mode mode = isEnabled() ? QIcon::Normal : QIcon::Disabled;
+        const QIcon::State state = (isCheckable() && isChecked()) ? QIcon::On : QIcon::Off;
+        const QSize requestedSize = iconSize().isValid()
+                                        ? iconSize()
+                                        : QSize(m.height - 12, m.height - 12);
+        const QSize actualSize = icon().actualSize(requestedSize, mode, state);
+        const QPixmap pixmap = icon().pixmap(actualSize, mode, state);
+        const QSize drawSize = logicalPixmapSize(pixmap);
+
+        if (pixmap.isNull() || !drawSize.isValid()) {
+            painter.drawText(contentRect, Qt::AlignCenter | Qt::AlignVCenter | Qt::TextShowMnemonic, text());
+            return;
+        }
+
+        if (text().isEmpty()) {
+            const QRect iconRect(contentRect.center().x() - drawSize.width() / 2,
+                                 contentRect.center().y() - drawSize.height() / 2,
+                                 drawSize.width(),
+                                 drawSize.height());
+            painter.drawPixmap(iconRect, pixmap);
+            return;
+        }
+
         const int gap = 8;
-        int totalWidth = iconSize().width() + gap + fontMetrics().horizontalAdvance(text());
-        int startX = contentRect.center().x() - totalWidth / 2;
-        
-        QRect iconRect(startX, contentRect.center().y() - iconSize().height() / 2,
-                      iconSize().width(), iconSize().height());
+        const int textWidth = fontMetrics().horizontalAdvance(text());
+        const int totalWidth = drawSize.width() + gap + textWidth;
+        const int startX = contentRect.center().x() - totalWidth / 2;
+
+        const QRect iconRect(startX,
+                             contentRect.center().y() - drawSize.height() / 2,
+                             drawSize.width(),
+                             drawSize.height());
         painter.drawPixmap(iconRect, pixmap);
-        
-        QRect textRect(startX + iconSize().width() + gap, contentRect.top(),
-                  contentRect.width() - (startX + iconSize().width() + gap), contentRect.height());
+
+        const int textLeft = startX + drawSize.width() + gap;
+        const QRect textRect(textLeft,
+                             contentRect.top(),
+                             contentRect.right() - textLeft + 1,
+                             contentRect.height());
         painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, text());
     } else {
         // No icon - center text

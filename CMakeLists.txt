@@ -25,8 +25,10 @@ add_library(QtFluentWidgets
     include/Fluent/FluentFlowLayout.h
     include/Fluent/FluentMainWindow.h
     include/Fluent/FluentButton.h
+    include/Fluent/FluentIconButton.h
     include/Fluent/FluentLabel.h
     include/Fluent/FluentLineEdit.h
+    include/Fluent/FluentKeySequenceEdit.h
     include/Fluent/FluentTextEdit.h
     include/Fluent/FluentCalendarPicker.h
     include/Fluent/FluentDatePicker.h
@@ -75,8 +77,10 @@ add_library(QtFluentWidgets
     src/FluentFlowLayout.cpp
     src/FluentMainWindow.cpp
     src/FluentButton.cpp
+    src/FluentIconButton.cpp
     src/FluentLabel.cpp
     src/FluentLineEdit.cpp
+    src/FluentKeySequenceEdit.cpp
     src/FluentTextEdit.cpp
     src/FluentCalendarPicker.cpp
     src/FluentDatePicker.cpp
