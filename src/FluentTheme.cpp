@@ -86,13 +86,13 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  margin: 2px;"
              "}"
              "QAbstractScrollArea:hover QScrollBar::handle:vertical {"
-             "  background-color: %6;"
+             "  background-color: %3;"
              "}"
              "QScrollBar::handle:vertical:hover {"
-             "  background-color: %7;"
+             "  background-color: %4;"
              "}"
              "QScrollBar::handle:vertical:pressed {"
-             "  background-color: %8;"
+             "  background-color: %5;"
              "}"
              "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
              "  height: 0px;"
@@ -113,13 +113,13 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  margin: 2px;"
              "}"
              "QAbstractScrollArea:hover QScrollBar::handle:horizontal {"
-             "  background-color: %6;"
+             "  background-color: %3;"
              "}"
              "QScrollBar::handle:horizontal:hover {"
-             "  background-color: %7;"
+             "  background-color: %4;"
              "}"
              "QScrollBar::handle:horizontal:pressed {"
-             "  background-color: %8;"
+             "  background-color: %5;"
              "}"
              "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal "
              "{"
@@ -132,25 +132,26 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  background: none;"
              "}"
              "QToolTip {"
-             "  background: %9;"
-             "  color: %10;"
-             "  border: 1px solid %11;"
+                  "  background: %6;"
+                  "  color: %7;"
+                  "  border: 1px solid %8;"
              "  padding: 7px 10px;"
              "  border-radius: 8px;"
              "  font-size: 12px;"
              "  font-weight: 500;"
              "}"
              "QLabel#FluentLink {"
-             "  color: %5;"
+                  "  color: %9;"
              "}")
-      .arg(colors.text.name(), colors.background.name(), colors.border.name(),
-           colors.surface.name(), colors.accent.name())
+                .arg(colors.text.name())
+                .arg(colors.background.name())
       .arg(sbHandle.name(QColor::HexArgb))
       .arg(sbHandleHover.name(QColor::HexArgb))
       .arg(sbHandlePressed.name(QColor::HexArgb))
       .arg(toolTipBackground.name())
       .arg(toolTipText.name())
-      .arg(toolTipBorder.name());
+                .arg(toolTipBorder.name())
+                .arg(colors.accent.name());
 }
 
 QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {

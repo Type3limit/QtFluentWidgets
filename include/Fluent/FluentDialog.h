@@ -18,7 +18,7 @@ namespace Fluent {
 class FluentResizeHelper;
 class FluentToolButton;
 
-class FluentDialog final : public QDialog
+class FluentDialog : public QDialog
 {
     Q_OBJECT
 public:
