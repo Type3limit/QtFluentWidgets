@@ -54,10 +54,12 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
                 DEMO_TEXT("要点：\n"
                           "-setModel() 绑定 QStringListModel/QStandardItemModel\n"
                           "-selectionModel()->selectionChanged 监听选择变化\n"
+                          "-双击可编辑文本项\n"
                           "-适合轻量列表/侧栏",
                           "Highlights:\n"
                           "-Use setModel() with QStringListModel or QStandardItemModel\n"
                           "-Listen to selectionModel()->selectionChanged for updates\n"
+                          "-Double-click text items to edit them\n"
                           "-A good fit for lightweight lists and side panels"),
                 code,
                 [=](QVBoxLayout *body) {
@@ -98,11 +100,11 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
                 DEMO_TEXT("要点：\n"
                           "-horizontalHeader()->setStretchLastSection(true)\n"
                           "-setSelectionBehavior(SelectRows) 常用于表格\n"
-                          "-setEditTriggers(NoEditTriggers) 仅展示",
+                          "-双击单元格可编辑，文本编辑器使用 FluentLineEdit 风格",
                           "Highlights:\n"
                           "-Use horizontalHeader()->setStretchLastSection(true)\n"
                           "-setSelectionBehavior(SelectRows) is common for tables\n"
-                          "-Use setEditTriggers(NoEditTriggers) for display-only tables"),
+                          "-Double-click cells to edit them with a FluentLineEdit-style text editor"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -153,11 +155,13 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
                 DEMO_TEXT("要点：\n"
                           "-QStandardItemModel 构建树\n"
                           "-expandAll()/collapseAll()\n"
-                          "-selectionModel 监听当前项",
+                          "-selectionModel 监听当前项\n"
+                          "-双击文本项可编辑",
                           "Highlights:\n"
                           "-Build the tree with QStandardItemModel\n"
                           "-Use expandAll() and collapseAll()\n"
-                          "-Use selectionModel() to track the current item"),
+                          "-Use selectionModel() to track the current item\n"
+                          "-Double-click text items to edit them"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line

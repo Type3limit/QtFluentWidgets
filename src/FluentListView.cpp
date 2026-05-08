@@ -1,6 +1,7 @@
 #include "Fluent/FluentListView.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentTheme.h"
+#include "FluentItemEditorSupport.h"
 
 #include <QAbstractItemModel>
 #include <QEvent>
@@ -74,6 +75,36 @@ public:
         // Current design is "Subtle/Light" selection, so Text color remains standard.
 
         QStyledItemDelegate::paint(painter, opt, index);
+    }
+
+    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        return Detail::fluentizeTextEditor(QStyledItemDelegate::createEditor(parent, option, index), parent);
+    }
+
+    void setEditorData(QWidget *editor, const QModelIndex &index) const override
+    {
+        if (Detail::setFluentEditorData(editor, index)) {
+            return;
+        }
+        QStyledItemDelegate::setEditorData(editor, index);
+    }
+
+    void setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const override
+    {
+        if (Detail::setFluentModelData(editor, model, index)) {
+            return;
+        }
+        QStyledItemDelegate::setModelData(editor, model, index);
+    }
+
+    void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        if (Detail::isFluentTextEditor(editor)) {
+            editor->setGeometry(Detail::fluentEditorRect(option, 4, 2));
+            return;
+        }
+        QStyledItemDelegate::updateEditorGeometry(editor, option, index);
     }
 
 private:

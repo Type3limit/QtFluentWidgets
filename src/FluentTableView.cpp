@@ -1,6 +1,7 @@
 #include "Fluent/FluentTableView.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentTheme.h"
+#include "FluentItemEditorSupport.h"
 
 #include <QAbstractItemModel>
 #include <QEvent>
@@ -217,6 +218,36 @@ public:
         painter->restore();
 
         QStyledItemDelegate::paint(painter, opt, index);
+    }
+
+    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        return Detail::fluentizeTextEditor(QStyledItemDelegate::createEditor(parent, option, index), parent);
+    }
+
+    void setEditorData(QWidget *editor, const QModelIndex &index) const override
+    {
+        if (Detail::setFluentEditorData(editor, index)) {
+            return;
+        }
+        QStyledItemDelegate::setEditorData(editor, index);
+    }
+
+    void setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const override
+    {
+        if (Detail::setFluentModelData(editor, model, index)) {
+            return;
+        }
+        QStyledItemDelegate::setModelData(editor, model, index);
+    }
+
+    void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        if (Detail::isFluentTextEditor(editor)) {
+            editor->setGeometry(Detail::fluentEditorRect(option, 2, 1));
+            return;
+        }
+        QStyledItemDelegate::updateEditorGeometry(editor, option, index);
     }
 
 private:
