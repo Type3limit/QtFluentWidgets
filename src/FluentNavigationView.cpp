@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 namespace Fluent {
 
@@ -167,23 +168,22 @@ struct FluentNavigationView::Private
         rows.push_back(control);
 
         auto addItems = [&](const std::vector<FluentNavigationItem> &source, bool footer) {
-            for (int i = 0; i < static_cast<int>(source.size()); ++i) {
-                const auto &item = source[static_cast<size_t>(i)];
-
+            std::function<void(const FluentNavigationItem &, int, int)> addItem;
+            addItem = [&](const FluentNavigationItem &item, int indexInParent, int depth) {
                 if (item.separator) {
                     FlatRow sep;
                     sep.kind = FlatRow::Separator;
                     sep.isFooter = footer;
                     rows.push_back(sep);
-                    continue;
+                    return;
                 }
 
                 FlatRow row;
                 row.kind = FlatRow::Item;
-                row.groupIndex = i;
-                row.childIndex = -1;
+                row.groupIndex = depth == 0 ? indexInParent : -1;
+                row.childIndex = depth == 0 ? -1 : indexInParent;
                 row.isFooter = footer;
-                row.depth = 0;
+                row.depth = depth;
                 row.item = &item;
                 row.isExpander = !item.children.empty();
                 row.expanded = row.isExpander && isGroupExpanded(item.key);
@@ -191,16 +191,13 @@ struct FluentNavigationView::Private
 
                 if (isExpandedMode() && row.isExpander && row.expanded) {
                     for (int c = 0; c < static_cast<int>(item.children.size()); ++c) {
-                        FlatRow child;
-                        child.kind = FlatRow::Item;
-                        child.groupIndex = i;
-                        child.childIndex = c;
-                        child.isFooter = footer;
-                        child.depth = 1;
-                        child.item = &item.children[static_cast<size_t>(c)];
-                        rows.push_back(child);
+                        addItem(item.children[static_cast<size_t>(c)], c, depth + 1);
                     }
                 }
+            };
+
+            for (int i = 0; i < static_cast<int>(source.size()); ++i) {
+                addItem(source[static_cast<size_t>(i)], i, 0);
             }
         };
 
@@ -381,31 +378,36 @@ struct FluentNavigationView::Private
             return QString();
         }
 
-        auto topLevelKeyFor = [&key](const std::vector<FluentNavigationItem> &source) {
+        std::function<bool(const std::vector<FluentNavigationItem> &, const QString &, QString &)> findTop;
+        findTop = [&](const std::vector<FluentNavigationItem> &source, const QString &topKey, QString &out) -> bool {
             for (const auto &item : source) {
+                const QString rootForThis = topKey.isEmpty() ? item.key : topKey;
                 if (item.key == key) {
-                    return item.key;
+                    out = rootForThis;
+                    return true;
                 }
-                for (const auto &child : item.children) {
-                    if (child.key == key) {
-                        return item.key;
-                    }
+                if (findTop(item.children, rootForThis, out)) {
+                    return true;
                 }
             }
-            return QString();
+            return false;
         };
 
-        const QString mainKey = topLevelKeyFor(items);
-        if (!mainKey.isEmpty()) {
-            return mainKey;
+        QString result;
+        if (findTop(items, QString(), result)) {
+            return result;
         }
 
         if (!footerVisible) {
             return QString();
         }
 
-        return topLevelKeyFor(footerItems);
+        if (findTop(footerItems, QString(), result)) {
+            return result;
+        }
+        return QString();
     }
+
 
     int topItemWidth(const FluentNavigationItem &item, const QFontMetrics &fm) const
     {
@@ -595,24 +597,102 @@ struct FluentNavigationView::Private
             return false;
         }
 
-        auto ensureInItems = [this, &key](const std::vector<FluentNavigationItem> &source) {
+        std::function<bool(const std::vector<FluentNavigationItem> &, std::vector<QString> &)> findPath;
+        findPath = [&](const std::vector<FluentNavigationItem> &source, std::vector<QString> &ancestors) -> bool {
             for (const auto &item : source) {
                 if (item.key == key) {
                     return true;
                 }
-                for (const auto &child : item.children) {
-                    if (child.key == key) {
-                        if (displayMode != FluentNavigationView::Top && !item.key.isEmpty()) {
-                            setGroupExpanded(item.key, true, true);
-                        }
-                        return true;
-                    }
+                ancestors.push_back(item.key);
+                if (findPath(item.children, ancestors)) {
+                    return true;
                 }
+                ancestors.pop_back();
             }
             return false;
         };
 
-        return ensureInItems(items) || ensureInItems(footerItems);
+        auto tryExpand = [this](const std::vector<QString> &ancestors) {
+            if (displayMode == FluentNavigationView::Top) {
+                return;
+            }
+            for (const auto &k : ancestors) {
+                if (!k.isEmpty()) {
+                    setGroupExpanded(k, true, false);
+                }
+            }
+        };
+
+        std::vector<QString> ancestors;
+        if (findPath(items, ancestors)) {
+            tryExpand(ancestors);
+            return true;
+        }
+
+        ancestors.clear();
+        if (findPath(footerItems, ancestors)) {
+            tryExpand(ancestors);
+            return true;
+        }
+
+        return false;
+    }
+
+    void populateFlyoutChildren(FluentNavigationView *owner, FluentMenu *menu, const std::vector<FluentNavigationItem> &children)
+    {
+        QAction *activeAction = nullptr;
+        for (const auto &child : children) {
+            if (child.separator) {
+                menu->addSeparator();
+                continue;
+            }
+
+            if (!child.children.empty()) {
+                FluentMenu *sub = menu->addFluentMenu(child.text);
+                if (!child.icon.isNull()) {
+                    sub->menuAction()->setIcon(child.icon);
+                }
+
+                // Allow the parent itself to be invoked via its menuAction (clicking
+                // the title row of the submenu). This mirrors WinUI behaviour where a
+                // category header can both expand and be selectable.
+                if (child.selectsOnInvoked && !child.key.isEmpty()) {
+                    QObject::connect(sub->menuAction(), &QAction::triggered, owner,
+                        [owner, this, childKey = child.key]() {
+                            owner->setSelectedKey(childKey);
+                            emit owner->itemInvoked(childKey);
+                            closeItemFlyout();
+                        });
+                }
+
+                populateFlyoutChildren(owner, sub, child.children);
+                continue;
+            }
+
+            QAction *action = menu->addAction(child.text);
+            if (!child.icon.isNull()) {
+                action->setIcon(child.icon);
+            }
+
+            QObject::connect(action, &QAction::triggered, owner,
+                [owner, this, childKey = child.key, selectOnInvoke = child.selectsOnInvoked]() {
+                    if (selectOnInvoke && !childKey.isEmpty()) {
+                        owner->setSelectedKey(childKey);
+                    }
+                    if (!childKey.isEmpty()) {
+                        emit owner->itemInvoked(childKey);
+                    }
+                    closeItemFlyout();
+                });
+
+            if (child.key == selectedKey) {
+                activeAction = action;
+            }
+        }
+
+        if (activeAction) {
+            menu->setActiveAction(activeAction);
+        }
     }
 
     void showItemFlyout(FluentNavigationView *owner, const FluentNavigationItem *item, const QPoint &popupPos)
@@ -638,28 +718,9 @@ struct FluentNavigationView::Private
             itemFlyoutParentKey.clear();
         });
 
-        QAction *activeAction = nullptr;
-        for (const auto &child : item->children) {
-            QAction *action = menu->addAction(child.text);
-            if (!child.icon.isNull()) {
-                action->setIcon(child.icon);
-            }
+        populateFlyoutChildren(owner, menu, item->children);
 
-            QObject::connect(action, &QAction::triggered, owner, [owner, this, childKey = child.key, selectOnInvoke = child.selectsOnInvoked]() {
-                if (selectOnInvoke && !childKey.isEmpty()) {
-                    owner->setSelectedKey(childKey);
-                }
-                if (!childKey.isEmpty()) {
-                    emit owner->itemInvoked(childKey);
-                }
-                closeItemFlyout();
-            });
-
-            if (child.key == selectedKey) {
-                activeAction = action;
-            }
-        }
-
+        QAction *activeAction = menu->activeAction();
         menu->popup(popupPos, activeAction);
     }
 };
@@ -1453,7 +1514,7 @@ void FluentNavigationView::mousePressEvent(QMouseEvent *event)
         const QRectF rowRect = d->rowRect(hit, width(), height());
         if (expanderHitRect(rowRect).contains(event->pos())) {
             d->closeItemFlyout();
-            d->setGroupExpanded(row.item->key, !row.expanded, true);
+            d->setGroupExpanded(row.item->key, !row.expanded, false);
             refreshRows();
             return;
         }
@@ -1466,7 +1527,7 @@ void FluentNavigationView::mousePressEvent(QMouseEvent *event)
                 d->showItemFlyout(this, row.item, mapToGlobal(QPoint(width() + 8, qRound(rowRect.top()))));
             } else {
                 d->closeItemFlyout();
-                d->setGroupExpanded(row.item->key, !row.expanded, true);
+                d->setGroupExpanded(row.item->key, !row.expanded, false);
                 refreshRows();
             }
             return;

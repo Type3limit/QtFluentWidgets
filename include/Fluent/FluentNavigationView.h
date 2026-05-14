@@ -29,7 +29,7 @@ struct FluentNavigationItem
     bool    separator = false; // if true, rendered as a horizontal line (text/icon ignored)
     bool    selectsOnInvoked = true; // if false, clicking invokes without changing selectedKey
 
-    std::vector<FluentNavigationItem> children; // sub-items (one level only)
+    std::vector<FluentNavigationItem> children; // sub-items (arbitrary nesting supported)
 };
 
 // ---------------------------------------------------------------------------

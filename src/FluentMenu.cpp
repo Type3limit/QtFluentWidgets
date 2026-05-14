@@ -1,10 +1,12 @@
 #include "Fluent/FluentMenu.h"
 #include "Fluent/FluentPopupSurface.h"
+#include "Fluent/FluentQtCompat.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
 #include <QApplication>
 #include <QAction>
+#include <QCursor>
 #include <QEventLoop>
 #include <QFontMetrics>
 #include <QHideEvent>
@@ -18,6 +20,7 @@
 #include <QScreen>
 #include <QShowEvent>
 #include <QStyle>
+#include <QTimer>
 #include <QVariantAnimation>
 
 #ifdef Q_OS_WIN
@@ -190,6 +193,19 @@ public:
 
     std::function<void()> onClosed;
     std::function<void(QAction *)> onActionTriggered;
+    std::function<void()> onEntered;
+
+    // Called by an ancestor popup that is in the process of tearing the
+    // whole chain down. We remember the fact so that hideEvent doesn't
+    // bubble back up and ask our parent to close again (which would either
+    // recurse infinitely through onClosed or do nothing extra).
+    void closeFromParent()
+    {
+        m_closingFromParent = true;
+        close();
+    }
+
+    bool isClosingFromParent() const { return m_closingFromParent; }
 
     void popupAt(const QPoint &pos, QAction *atAction = nullptr)
     {
@@ -293,21 +309,83 @@ protected:
 
     void mouseMoveEvent(QMouseEvent *event) override
     {
-        const QAction *action = actionAt(event ? event->pos() : QPoint());
-        if (action != m_hoverAction) {
-            m_hoverAction = const_cast<QAction *>(action);
-            startHoverAnimation(m_hoverAction ? 1.0 : 0.0);
-            syncChildPopup();
-            update();
+        const QPoint localPos = event ? event->pos() : QPoint();
+        const QPoint globalPos = mapToGlobal(localPos);
+
+        if (rect().contains(localPos)) {
+            updateHoverFromLocalPos(localPos);
+        } else if (m_parentHost) {
+            // Cursor is outside our own rect. Because Qt::Popup gives us a
+            // mouse grab, the parent popups no longer receive their own
+            // mouseMoveEvents — even though the cursor may be over one of
+            // them. Forward the move along the parent chain so the right
+            // ancestor can update its hover/swap its submenu.
+            m_parentHost->handleForeignMouseMove(globalPos);
         }
+
         QWidget::mouseMoveEvent(event);
+    }
+
+    void handleForeignMouseMove(const QPoint &globalPos)
+    {
+        const QPoint localPos = mapFromGlobal(globalPos);
+        if (rect().contains(localPos)) {
+            updateHoverFromLocalPos(localPos);
+        } else if (m_parentHost) {
+            m_parentHost->handleForeignMouseMove(globalPos);
+        }
+        // If neither we nor any ancestor contains the cursor, the chain
+        // will be torn down by either leaveEvent on the child or an
+        // outside-click; nothing to do here.
+    }
+
+    void updateHoverFromLocalPos(const QPoint &localPos)
+    {
+        const QAction *action = actionAt(localPos);
+        if (action == m_hoverAction) {
+            return;
+        }
+
+        m_hoverAction = const_cast<QAction *>(action);
+        startHoverAnimation(m_hoverAction ? 1.0 : 0.0);
+        if (m_hoverAction && m_hoverAction->menu() && m_hoverAction->isEnabled()) {
+            // Hovering an action that has its own submenu: swap to it.
+            cancelPendingChildClose();
+            syncChildPopup();
+        } else if (m_childPopup) {
+            // Hovering a non-submenu action while a child popup is open:
+            // schedule a delayed close so the user can still glide
+            // diagonally toward the open submenu.
+            scheduleCloseChildPopup();
+        }
+        update();
+    }
+
+    void enterEvent(FluentEnterEvent *event) override
+    {
+        // Cursor returned to this popup — keep our own child popup open and
+        // tell our parent popup (if any) that it should keep us open too.
+        cancelPendingChildClose();
+        if (onEntered) {
+            onEntered();
+        }
+        QWidget::enterEvent(event);
     }
 
     void leaveEvent(QEvent *event) override
     {
         m_hoverAction = nullptr;
         startHoverAnimation(0.0);
-        closeChildPopup();
+        // Don't immediately schedule a child-popup close if the cursor is
+        // still geometrically inside us — Qt sends a synthetic leaveEvent
+        // whenever a brand-new child popup takes the mouse grab, even when
+        // the user hasn't actually moved off our rect. In that case the
+        // child popup will be the one driving updates via mouseMoveEvent
+        // forwarding (see handleForeignMouseMove above).
+        const QPoint cursorLocal = mapFromGlobal(QCursor::pos());
+        if (!rect().contains(cursorLocal)) {
+            scheduleCloseChildPopup();
+        }
         QWidget::leaveEvent(event);
     }
 
@@ -536,14 +614,31 @@ private:
 
         QMenu *submenuMenu = action->menu();
         if (m_childPopup && m_childPopup->menu() == submenuMenu) {
+            cancelPendingChildClose();
             return;
         }
 
         closeChildPopup();
 
         auto *popup = new FluentMenuPopupHost(submenuMenu);
-        popup->onClosed = [this]() {
+        popup->m_parentHost = this;
+        QPointer<FluentMenuPopupHost> popupRef = popup;
+        popup->onClosed = [this, popupRef]() {
+            // The child went away. Two cases:
+            //   1) We initiated the close (closeChildPopup / timer / our own
+            //      hideEvent cascading down) → popupRef->isClosingFromParent()
+            //      is true. m_childPopup was already cleared by us; nothing
+            //      more to do.
+            //   2) The child closed on its own (user clicked outside the
+            //      chain, pressed Escape, etc.) → bubble UP by closing
+            //      ourselves with a plain close(). Our own hideEvent will
+            //      then trigger OUR onClosed and continue the bubble until
+            //      the entire chain has collapsed in a single user action.
+            const bool fromParent = popupRef && popupRef->isClosingFromParent();
             m_childPopup = nullptr;
+            if (!fromParent) {
+                close();
+            }
         };
         popup->onActionTriggered = [this](QAction *triggeredAction) {
             close();
@@ -551,15 +646,51 @@ private:
                 onActionTriggered(triggeredAction);
             }
         };
+        // When the cursor enters the submenu, cancel any pending close on
+        // this (parent) popup. This is what lets the user slide the mouse
+        // diagonally from a parent action into its submenu without losing it.
+        popup->onEntered = [this]() {
+            cancelPendingChildClose();
+        };
         m_childPopup = popup;
         popup->popupAt(submenuPopupPosition(action, popup->sizeHint()));
     }
 
     void closeChildPopup()
     {
+        cancelPendingChildClose();
         if (m_childPopup) {
-            m_childPopup->close();
+            FluentMenuPopupHost *child = m_childPopup.data();
             m_childPopup = nullptr;
+            // closeFromParent marks the close as "initiated from above" so
+            // the child's onClosed callback won't bubble back up here.
+            child->closeFromParent();
+        }
+    }
+
+    void scheduleCloseChildPopup(int delayMs = 320)
+    {
+        if (!m_childPopup) {
+            return;
+        }
+        if (!m_pendingCloseTimer) {
+            m_pendingCloseTimer = new QTimer(this);
+            m_pendingCloseTimer->setSingleShot(true);
+            connect(m_pendingCloseTimer, &QTimer::timeout, this, [this]() {
+                if (m_childPopup) {
+                    FluentMenuPopupHost *child = m_childPopup.data();
+                    m_childPopup = nullptr;
+                    child->closeFromParent();
+                }
+            });
+        }
+        m_pendingCloseTimer->start(delayMs);
+    }
+
+    void cancelPendingChildClose()
+    {
+        if (m_pendingCloseTimer && m_pendingCloseTimer->isActive()) {
+            m_pendingCloseTimer->stop();
         }
     }
 
@@ -576,6 +707,9 @@ private:
 
     QPointer<QMenu> m_menu;
     QPointer<FluentMenuPopupHost> m_childPopup;
+    QPointer<FluentMenuPopupHost> m_parentHost;
+    QTimer *m_pendingCloseTimer = nullptr;
+    bool m_closingFromParent = false;
     FluentBorderEffect m_border;
     QAction *m_hoverAction = nullptr;
     qreal m_hoverLevel = 0.0;

@@ -9,6 +9,7 @@
 #include "Fluent/FluentSplitter.h"
 
 #include <QHBoxLayout>
+#include <QMap>
 #include <QPair>
 #include <QStringList>
 #include <QVBoxLayout>
@@ -286,6 +287,10 @@ QWidget *createContainersPage(FluentMainWindow *window)
         {
             const QString code = QStringLiteral(R"CPP(#include "Fluent/FluentNavigationView.h"
 
+#include <QMap>
+#include <functional>
+#include <memory>
+
 using NI = Fluent::FluentNavigationItem;
 
 auto *nav = new Fluent::FluentNavigationView();
@@ -300,33 +305,99 @@ auto applyGlyph = [](NI &item, ushort codePoint) {
     item.iconFontFamily = QStringLiteral("Segoe Fluent Icons");
 };
 
+// ---------------------------------------------------------------------------
+// 1) Base tree (static items). children 现在支持任意深度嵌套。
+// ---------------------------------------------------------------------------
 NI home;
 home.key = QStringLiteral("home");
 home.text = QStringLiteral("Home");
 applyGlyph(home, 0xE80F);
-nav->addItem(home);
 
 NI documents;
 documents.key = QStringLiteral("documents");
 documents.text = QStringLiteral("Document options");
 documents.selectsOnInvoked = false;
 applyGlyph(documents, 0xE8A5);
-
-NI recent;
-recent.key = QStringLiteral("recent_files");
-recent.text = QStringLiteral("最近文件");
-applyGlyph(recent, 0xE823);
-documents.children.push_back(recent);
-
-nav->addItem(documents);
+{
+    NI recent;
+    recent.key = QStringLiteral("recent_files");
+    recent.text = QStringLiteral("Recent Files");
+    applyGlyph(recent, 0xE823);
+    documents.children.push_back(recent);
+}
 
 NI help;
 help.key = QStringLiteral("help_center");
-help.text = QStringLiteral("帮助中心");
+help.text = QStringLiteral("Help Center");
 applyGlyph(help, 0xE897);
-nav->addFooterItem(help);
 
+// ---------------------------------------------------------------------------
+// 2) Dynamic-extras layer: per-parent extra children appended at runtime.
+//    Keying by parent.key lets us merge anywhere in the tree, at any depth.
+// ---------------------------------------------------------------------------
+auto dynamicExtras = std::make_shared<QMap<QString, std::vector<NI>>>();
+auto dynamicCounter = std::make_shared<int>(0);
+
+auto rebuildNavigation = [=]() {
+    std::vector<NI> items{ home, documents };
+
+    // Recursively merge runtime additions into the tree.
+    std::function<void(std::vector<NI> &)> mergeDynamic;
+    mergeDynamic = [&](std::vector<NI> &nodes) {
+        for (auto &node : nodes) {
+            const auto it = dynamicExtras->constFind(node.key);
+            if (it != dynamicExtras->constEnd()) {
+                for (const auto &extra : it.value()) {
+                    node.children.push_back(extra);
+                }
+            }
+            if (!node.children.empty()) {
+                mergeDynamic(node.children);
+            }
+        }
+    };
+    mergeDynamic(items);
+
+    nav->setItems(items);
+    nav->clearFooterItems();
+    nav->addFooterItem(help);
+};
+
+rebuildNavigation();
 nav->setSelectedKey(QStringLiteral("home"));
+
+// ---------------------------------------------------------------------------
+// 3) UI button: append a new child under whichever item is selected. Works
+//    at any depth because rebuildNavigation() walks the tree recursively.
+//    After insertion, setSelectedKey() auto-expands every ancestor so the
+//    new node is immediately visible.
+// ---------------------------------------------------------------------------
+auto *addChildButton = new Fluent::FluentButton(QStringLiteral("Add child to selected"));
+QObject::connect(addChildButton, &QAbstractButton::clicked, nav, [=]() {
+    QString parentKey = nav->selectedKey();
+    if (parentKey.isEmpty()) {
+        parentKey = QStringLiteral("home");
+    }
+
+    const int n = ++(*dynamicCounter);
+    NI child;
+    child.key = QStringLiteral("dyn_%1").arg(n);
+    child.text = QStringLiteral("Dynamic child %1").arg(n);
+    applyGlyph(child, 0xE710); // plus glyph
+
+    (*dynamicExtras)[parentKey].push_back(child);
+    rebuildNavigation();
+    nav->setSelectedKey(child.key);
+});
+
+// Optional: reset all runtime additions back to the static tree.
+auto *resetButton = new Fluent::FluentButton(QStringLiteral("Reset dynamic children"));
+QObject::connect(resetButton, &QAbstractButton::clicked, nav, [=]() {
+    dynamicExtras->clear();
+    *dynamicCounter = 0;
+    rebuildNavigation();
+    nav->setSelectedKey(QStringLiteral("home"));
+});
 
 QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                  nav, [](const QString &key) {
@@ -341,12 +412,14 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                           "-setPaneDisplayMode() 在 Left / LeftCompact / Top 三种布局间切换\n"
                           "-父项可通过 selectsOnInvoked 控制“点击即选中”还是“只打开子菜单”\n"
                           "-backRequested / itemInvoked / selectedKeyChanged 可分别接回退、点击与选中逻辑\n"
-                          "-Footer 通过 addFooterItem() 显式添加，不再暗示内置设置页",
+                          "-Footer 通过 addFooterItem() 显式添加，不再暗示内置设置页\n"
+                          "-children 支持任意深度嵌套，setSelectedKey() 会自动展开所有祖先；点击右侧“追加子项到选中项”可动态构建多层结构",
                           "Highlights:\n"
                           "-Use setPaneDisplayMode() to switch between Left, LeftCompact, and Top layouts\n"
                           "-Parent items can use selectsOnInvoked to choose between select-on-click and submenu-only behavior\n"
                           "-backRequested, itemInvoked, and selectedKeyChanged separate back, invoke, and selection logic\n"
-                          "-Footer entries are added explicitly through addFooterItem() instead of implying a built-in settings page"),
+                          "-Footer entries are added explicitly through addFooterItem() instead of implying a built-in settings page\n"
+                          "-children now supports arbitrarily deep nesting; setSelectedKey() auto-expands every ancestor. Use the 'Add child to selected' button on the right to build multi-level structures at runtime"),
                 code,
                 [=](QVBoxLayout *body) {
                     auto *shell = new QWidget();
@@ -376,6 +449,12 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     };
 
                     using NI = FluentNavigationItem;
+
+                    // Dynamic-children state: any extras pushed in here are merged on
+                    // top of the static tree every time rebuildNavigation() runs, so
+                    // the user can keep stacking nested levels at runtime.
+                    auto dynamicExtras = std::make_shared<QMap<QString, std::vector<NI>>>();
+                    auto dynamicCounter = std::make_shared<int>(0);
 
                     auto *detailCard = new FluentCard();
                     detailCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
@@ -455,6 +534,13 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     paneTitleEdit->setText(QStringLiteral("Pane Title"));
                     paneTitleEdit->setPlaceholderText(QStringLiteral("Pane Title"));
 
+                    auto *dynamicLabel = new FluentLabel(DEMO_TEXT("多级嵌套（点击向当前选中项追加子项）",
+                                                                    "Multi-level nesting (append a child to the current selection)"));
+                    dynamicLabel->setWordWrap(true);
+                    dynamicLabel->setStyleSheet("font-size: 12px; opacity: 0.8;");
+                    auto *addChildButton = new FluentButton(DEMO_TEXT("追加子项到选中项", "Add child to selected"));
+                    auto *resetDynamicButton = new FluentButton(DEMO_TEXT("清除追加的子项", "Reset dynamic children"));
+
                     optionsLayout->addWidget(optionsTitle);
                     optionsLayout->addWidget(paneModeLabel);
                     optionsLayout->addWidget(leftRadio);
@@ -468,6 +554,10 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     optionsLayout->addSpacing(6);
                     optionsLayout->addWidget(paneTitleLabel);
                     optionsLayout->addWidget(paneTitleEdit);
+                    optionsLayout->addSpacing(6);
+                    optionsLayout->addWidget(dynamicLabel);
+                    optionsLayout->addWidget(addChildButton);
+                    optionsLayout->addWidget(resetDynamicButton);
                     optionsLayout->addStretch(1);
 
                     const auto modeName = [](FluentNavigationView::PaneDisplayMode mode) {
@@ -529,6 +619,24 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                             documents.children.push_back(templates);
                         }
                         items.push_back(documents);
+
+                        // Merge runtime-added children into the tree recursively so
+                        // dynamic levels survive every rebuild.
+                        std::function<void(std::vector<NI> &)> mergeDynamic;
+                        mergeDynamic = [&](std::vector<NI> &nodes) {
+                            for (auto &node : nodes) {
+                                const auto it = dynamicExtras->constFind(node.key);
+                                if (it != dynamicExtras->constEnd()) {
+                                    for (const auto &extra : it.value()) {
+                                        node.children.push_back(extra);
+                                    }
+                                }
+                                if (!node.children.empty()) {
+                                    mergeDynamic(node.children);
+                                }
+                            }
+                        };
+                        mergeDynamic(items);
 
                         nav->setItems(items);
                         nav->clearFooterItems();
@@ -602,6 +710,13 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                         } else if (key == QStringLiteral("feedback")) {
                             detailTitle->setText(DEMO_TEXT("反馈", "Feedback"));
                             detailBody->setText(DEMO_TEXT("Footer 在 Left / LeftCompact 模式下会固定到底部，在 Top 模式下会挪到右侧；也可以通过 setFooterVisible(false) 整体隐藏。", "The footer stays pinned to the bottom in Left and LeftCompact modes, and moves to the right side in Top mode. You can also hide it entirely with setFooterVisible(false)."));
+                        } else if (key.startsWith(QStringLiteral("dyn_"))) {
+                            detailTitle->setText(DEMO_TEXT("动态子项 %1", "Dynamic child %1").arg(key.mid(4)));
+                            detailBody->setText(DEMO_TEXT(
+                                "这是运行时通过 “追加子项到选中项” 按钮新增的节点。可以在任意层级继续追加，FluentNavigationView 现在支持任意深度的嵌套，"
+                                "并会在 setSelectedKey() 时自动展开所有祖先。",
+                                "This node was appended at runtime through the 'Add child to selected' button. You can keep appending at any depth — "
+                                "FluentNavigationView now supports arbitrarily nested children and automatically expands all ancestors when setSelectedKey() is called."));
                         } else {
                             detailTitle->setText(QStringLiteral("NavigationView"));
                             detailBody->setText(DEMO_TEXT("使用 addItem / addFooterItem 追加导航项，使用 paneDisplayMode / backRequested / itemInvoked 组织不同布局和交互。", "Use addItem() and addFooterItem() to append navigation entries, then use paneDisplayMode, backRequested, and itemInvoked to organize layout and interaction."));
@@ -665,6 +780,38 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     });
                     QObject::connect(paneTitleEdit, &QLineEdit::textChanged, nav, [=](const QString &text) {
                         nav->setPaneTitle(text);
+                    });
+
+                    QObject::connect(addChildButton, &QAbstractButton::clicked, nav, [=]() {
+                        QString parentKey = nav->selectedKey();
+                        if (parentKey.isEmpty()) {
+                            parentKey = QStringLiteral("home");
+                        }
+
+                        const int n = ++(*dynamicCounter);
+                        NI child;
+                        child.key = QStringLiteral("dyn_%1").arg(n);
+                        child.text = DEMO_TEXT("动态子项 %1", "Dynamic child %1").arg(n);
+                        applyGlyph(child, 0xE710); // plus glyph
+
+                        (*dynamicExtras)[parentKey].push_back(child);
+                        rebuildNavigation();
+                        // Select the new node so all ancestors get auto-expanded.
+                        nav->setSelectedKey(child.key);
+                        detailEvent->setText(DEMO_TEXT("最近事件：在 %1 下追加 %2",
+                                                       "Latest event: appended %2 under %1")
+                                                 .arg(parentKey, child.key));
+                        updateDetail();
+                    });
+
+                    QObject::connect(resetDynamicButton, &QAbstractButton::clicked, nav, [=]() {
+                        dynamicExtras->clear();
+                        *dynamicCounter = 0;
+                        rebuildNavigation();
+                        nav->setSelectedKey(QStringLiteral("home"));
+                        detailEvent->setText(DEMO_TEXT("最近事件：已清除动态追加的子项",
+                                                       "Latest event: dynamic children cleared"));
+                        updateDetail();
                     });
 
                     updateDetail();
