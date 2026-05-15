@@ -12,6 +12,7 @@
 #include <QPointer>
 #include <QResizeEvent>
 #include <QVariantAnimation>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cmath>
@@ -115,6 +116,13 @@ struct FluentNavigationView::Private
     bool backButtonEnabled = true;
     bool footerVisible = true;
     QString paneTitle;
+
+    // --- Vertical scrolling (Left / LeftCompact modes) -------------------
+    int scrollOffset = 0;        // pixels scrolled from top of scrollable area
+    bool scrollHover = false;    // cursor over the scrollbar track/thumb
+    bool scrollDragging = false; // currently dragging the thumb
+    int scrollDragStartOffset = 0;
+    int scrollDragStartY = 0;
 
     bool isExpandedMode() const
     {
@@ -330,9 +338,131 @@ struct FluentNavigationView::Private
     {
         const int startRow = footerStartRow();
         const int footerHeight = footerHeightFromRow(startRow);
-        const int pinnedY = widgetHeight - footerHeight;
-        const int stackedY = mainHeightUntilRow(startRow);
-        return qMax(pinnedY, stackedY);
+        // Footer is always pinned at the widget bottom. When content is short
+        // it sits visually flush with the bottom edge; when content overflows
+        // the footer stays pinned and the rows above it scroll, which keeps
+        // the scrollable viewport bounded and lets a scrollbar appear.
+        return qMax(0, widgetHeight - footerHeight);
+    }
+
+    // -- Scrolling helpers ------------------------------------------------
+    // Returns the index of the first scrollable row (i.e. the row after any
+    // pinned Control rows at the top). Control rows stay fixed; everything
+    // between them and the footer scrolls together.
+    int scrollableRowsStart() const
+    {
+        for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+            if (rows[static_cast<size_t>(i)].kind != FlatRow::Control) {
+                return i;
+            }
+        }
+        return static_cast<int>(rows.size());
+    }
+
+    int scrollableAreaTop() const
+    {
+        int y = headerHeight();
+        const int start = scrollableRowsStart();
+        for (int i = 0; i < start && i < static_cast<int>(rows.size()); ++i) {
+            y += rowHeight(i);
+        }
+        return y;
+    }
+
+    int scrollableContentHeight() const
+    {
+        const int start = scrollableRowsStart();
+        const int end = footerStartRow();
+        int h = 0;
+        for (int i = start; i < end && i < static_cast<int>(rows.size()); ++i) {
+            h += rowHeight(i);
+        }
+        return h;
+    }
+
+    int scrollableViewportHeight(int widgetHeight) const
+    {
+        return qMax(0, footerBaseY(widgetHeight) - scrollableAreaTop());
+    }
+
+    int maxScrollOffset(int widgetHeight) const
+    {
+        return qMax(0, scrollableContentHeight() - scrollableViewportHeight(widgetHeight));
+    }
+
+    void clampScrollOffset(int widgetHeight)
+    {
+        scrollOffset = qBound(0, scrollOffset, maxScrollOffset(widgetHeight));
+    }
+
+    // Adjust scrollOffset so the row with the given key sits within the
+    // scrollable viewport. No-op if the key is in the pinned control area,
+    // the footer, or not present in the row list.
+    void scrollKeyIntoView(const QString &key, int widgetHeight)
+    {
+        if (key.isEmpty() || displayMode == FluentNavigationView::Top) {
+            return;
+        }
+
+        const int start = scrollableRowsStart();
+        const int end = footerStartRow();
+        int contentY = scrollableAreaTop();
+        for (int i = start; i < end && i < static_cast<int>(rows.size()); ++i) {
+            const int h = rowHeight(i);
+            if (rows[static_cast<size_t>(i)].key() == key) {
+                const int viewportTop = scrollableAreaTop();
+                const int viewportBottom = footerBaseY(widgetHeight);
+                const int rowTopView = contentY - scrollOffset;
+                const int rowBottomView = rowTopView + h;
+                if (rowTopView < viewportTop) {
+                    scrollOffset -= (viewportTop - rowTopView);
+                } else if (rowBottomView > viewportBottom) {
+                    scrollOffset += (rowBottomView - viewportBottom);
+                }
+                clampScrollOffset(widgetHeight);
+                return;
+            }
+            contentY += h;
+        }
+    }
+
+    QRectF scrollBarTrackRect(int widgetWidth, int widgetHeight) const
+    {
+        if (maxScrollOffset(widgetHeight) <= 0) {
+            return QRectF();
+        }
+        const qreal trackWidth = 6.0;
+        const qreal margin = 4.0;
+        const qreal top = scrollableAreaTop() + margin;
+        const qreal bottom = footerBaseY(widgetHeight) - margin;
+        if (bottom - top < 16.0) {
+            return QRectF();
+        }
+        return QRectF(widgetWidth - trackWidth - 3.0, top, trackWidth, bottom - top);
+    }
+
+    QRectF scrollBarThumbRect(int widgetWidth, int widgetHeight) const
+    {
+        const QRectF track = scrollBarTrackRect(widgetWidth, widgetHeight);
+        if (track.isEmpty()) {
+            return QRectF();
+        }
+        const int maxScroll = maxScrollOffset(widgetHeight);
+        if (maxScroll <= 0) {
+            return QRectF();
+        }
+        const int visibleH = scrollableViewportHeight(widgetHeight);
+        const int contentH = scrollableContentHeight();
+        if (contentH <= 0) {
+            return QRectF();
+        }
+        const qreal trackH = track.height();
+        qreal thumbH = trackH * qreal(visibleH) / qreal(contentH);
+        thumbH = qMax<qreal>(24.0, thumbH);
+        thumbH = qMin<qreal>(thumbH, trackH);
+        const qreal availTravel = trackH - thumbH;
+        const qreal thumbY = track.top() + availTravel * qreal(scrollOffset) / qreal(maxScroll);
+        return QRectF(track.left(), thumbY, track.width(), thumbH);
     }
 
     QRectF controlBackRect(const QRectF &rowRect) const
@@ -507,9 +637,13 @@ struct FluentNavigationView::Private
     int hitTest(const QPoint &pos, int widgetHeight) const
     {
         const int startRow = footerStartRow();
+        const int scrollableStart = scrollableRowsStart();
+        const int scrollTop = scrollableAreaTop();
+        const int scrollBottom = footerBaseY(widgetHeight);
 
+        // Pinned control rows at the top
         int y = headerHeight();
-        for (int i = 0; i < startRow && i < static_cast<int>(rows.size()); ++i) {
+        for (int i = 0; i < scrollableStart && i < startRow && i < static_cast<int>(rows.size()); ++i) {
             const int rowHeightValue = rowHeight(i);
             if (pos.y() >= y && pos.y() < y + rowHeightValue) {
                 return i;
@@ -517,6 +651,18 @@ struct FluentNavigationView::Private
             y += rowHeightValue;
         }
 
+        // Scrollable main rows (clipped to the scrollable viewport).
+        y = scrollTop - scrollOffset;
+        for (int i = scrollableStart; i < startRow && i < static_cast<int>(rows.size()); ++i) {
+            const int rowHeightValue = rowHeight(i);
+            if (pos.y() >= scrollTop && pos.y() < scrollBottom
+                && pos.y() >= y && pos.y() < y + rowHeightValue) {
+                return i;
+            }
+            y += rowHeightValue;
+        }
+
+        // Footer rows (pinned at bottom).
         y = footerBaseY(widgetHeight);
         for (int i = startRow; i < static_cast<int>(rows.size()); ++i) {
             const int rowHeightValue = rowHeight(i);
@@ -532,8 +678,14 @@ struct FluentNavigationView::Private
     QRectF rowRect(int index, int widgetWidth, int widgetHeight) const
     {
         const int startRow = footerStartRow();
-        if (index < startRow) {
+        const int scrollableStart = scrollableRowsStart();
+        if (index < scrollableStart) {
+            // Pinned control row.
             return QRectF(0, rowY(index), widgetWidth, rowHeight(index));
+        }
+        if (index < startRow) {
+            // Scrollable main row.
+            return QRectF(0, rowY(index) - scrollOffset, widgetWidth, rowHeight(index));
         }
 
         int y = footerBaseY(widgetHeight);
@@ -866,6 +1018,7 @@ void FluentNavigationView::setSelectedKey(const QString &key)
     d->ensureKeyVisible(key);
     d->rebuildRows();
     d->selectedKey = key;
+    d->scrollKeyIntoView(key, height());
     const QRectF newRect = d->selectionRectForKey(key, width(), height());
 
     const bool animRunning = d->selAnim->state() == QAbstractAnimation::Running;
@@ -1081,15 +1234,26 @@ QSize FluentNavigationView::sizeHint() const
     if (d->displayMode == Top) {
         return QSize(640, d->totalHeight());
     }
-    return QSize(d->currentWidth, d->totalHeight());
+    // Prefer the natural content height, but cap it so a long item list doesn't
+    // stretch the surrounding layout. The internal scrollbar handles overflow.
+    const int natural = d->totalHeight();
+    const int cap = d->headerHeight() + kRowHeight * 12;
+    return QSize(d->currentWidth, qMin(natural, cap));
 }
 
 QSize FluentNavigationView::minimumSizeHint() const
 {
     if (d->displayMode == Top) {
-        return QSize(280, d->totalHeight());
+        return QSize(280, kTopBarHeight);
     }
-    return QSize(d->compactWidth, d->totalHeight());
+    // Keep the minimum height small — the internal scrollbar handles overflow,
+    // so the navigation pane should not demand vertical space proportional to
+    // its content (otherwise a large item list would stretch the surrounding
+    // layout instead of scrolling).
+    const int chromeHeight = d->headerHeight()
+                             + kRowHeight                    // pinned control row
+                             + kRowHeight * 3;               // a few rows worth of viewport
+    return QSize(d->compactWidth, qMax(kRowHeight * 4, chromeHeight));
 }
 
 void FluentNavigationView::syncAutoCollapseState()
@@ -1160,6 +1324,9 @@ void FluentNavigationView::paintEvent(QPaintEvent * /*event*/)
     const auto &colors = ThemeManager::instance().colors();
     const int W = width();
     const int H = height();
+    // Keep scroll offset in valid range across all the things that can change
+    // the content height (rebuildRows, expand/collapse, resize, etc.).
+    d->clampScrollOffset(H);
     const qreal labelOpacity = d->labelOpacity();
 
     p.setPen(Qt::NoPen);
@@ -1294,11 +1461,18 @@ void FluentNavigationView::paintEvent(QPaintEvent * /*event*/)
     }
 
     const int footerStartRow = d->footerStartRow();
+    const int scrollableStart = d->scrollableRowsStart();
+    const int scrollTop = d->scrollableAreaTop();
+    const int scrollBottom = d->footerBaseY(H);
 
     const bool selectionAnimating = d->selAnim->state() == QAbstractAnimation::Running;
     const QRectF selectionRect = selectionAnimating ? d->selRect : d->selectionRectForKey(d->selectedKey, W, H);
     const qreal selectionOpacity = selectionAnimating ? qBound<qreal>(0.0, d->selOpacity, 1.0) : (selectionRect.isValid() ? 1.0 : 0.0);
     if (selectionRect.isValid() && selectionOpacity > 0.0) {
+        // Clip selection drawing to the area below the header so a scrolled
+        // selection rectangle doesn't bleed out of its viewport.
+        p.save();
+        p.setClipRect(QRectF(0, scrollTop, W, H - scrollTop));
         QColor fill = colors.accent;
         fill.setAlpha(qBound(0, static_cast<int>(std::lround(30.0 * selectionOpacity)), 30));
         p.setPen(Qt::NoPen);
@@ -1310,6 +1484,7 @@ void FluentNavigationView::paintEvent(QPaintEvent * /*event*/)
         p.setBrush(indicator);
         QRectF indicatorRect(selectionRect.left(), selectionRect.center().y() - kIndicatorHeight / 2.0, kIndicatorWidth, kIndicatorHeight);
         p.drawRoundedRect(indicatorRect, 1.5, 1.5);
+        p.restore();
     }
 
     auto paintRow = [&](int index, const QRectF &rect) {
@@ -1410,10 +1585,27 @@ void FluentNavigationView::paintEvent(QPaintEvent * /*event*/)
     };
 
     int y = d->headerHeight();
-    for (int i = 0; i < footerStartRow && i < static_cast<int>(d->rows.size()); ++i) {
+    // Pinned control rows (always drawn at the top, do not scroll).
+    for (int i = 0; i < scrollableStart && i < footerStartRow && i < static_cast<int>(d->rows.size()); ++i) {
         const int rowHeightValue = d->rowHeight(i);
         paintRow(i, QRectF(0, y, W, rowHeightValue));
         y += rowHeightValue;
+    }
+
+    // Scrollable main rows, clipped to their viewport.
+    {
+        p.save();
+        p.setClipRect(QRectF(0, scrollTop, W, qMax(0, scrollBottom - scrollTop)));
+        int sy = scrollTop - d->scrollOffset;
+        for (int i = scrollableStart; i < footerStartRow && i < static_cast<int>(d->rows.size()); ++i) {
+            const int rowHeightValue = d->rowHeight(i);
+            const QRectF rect(0, sy, W, rowHeightValue);
+            if (rect.bottom() >= scrollTop && rect.top() <= scrollBottom) {
+                paintRow(i, rect);
+            }
+            sy += rowHeightValue;
+        }
+        p.restore();
     }
 
     y = d->footerBaseY(H);
@@ -1422,6 +1614,27 @@ void FluentNavigationView::paintEvent(QPaintEvent * /*event*/)
         paintRow(i, QRectF(0, y, W, rowHeightValue));
         y += rowHeightValue;
     }
+
+    // Scrollbar (only when content overflows). Auto-hides when neither hovered
+    // nor being dragged isn't needed here — instead we keep a subtle indicator
+    // always when overflow exists, with a brighter thumb on hover/drag.
+    const QRectF thumbRect = d->scrollBarThumbRect(W, H);
+    if (!thumbRect.isEmpty()) {
+        const QRectF trackRect = d->scrollBarTrackRect(W, H);
+        QColor trackColor = colors.subText;
+        trackColor.setAlpha((d->scrollHover || d->scrollDragging) ? 40 : 0);
+        if (trackColor.alpha() > 0) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(trackColor);
+            p.drawRoundedRect(trackRect, trackRect.width() / 2.0, trackRect.width() / 2.0);
+        }
+
+        QColor thumbColor = colors.subText;
+        thumbColor.setAlpha((d->scrollHover || d->scrollDragging) ? 220 : 150);
+        p.setPen(Qt::NoPen);
+        p.setBrush(thumbColor);
+        p.drawRoundedRect(thumbRect, thumbRect.width() / 2.0, thumbRect.width() / 2.0);
+    }
 }
 
 void FluentNavigationView::mousePressEvent(QMouseEvent *event)
@@ -1429,6 +1642,33 @@ void FluentNavigationView::mousePressEvent(QMouseEvent *event)
     if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
+    }
+
+    // Scrollbar interaction takes priority in Left / LeftCompact modes.
+    if (d->displayMode != Top) {
+        const QRectF thumbRect = d->scrollBarThumbRect(width(), height());
+        const QRectF trackRect = d->scrollBarTrackRect(width(), height());
+        if (!thumbRect.isEmpty()) {
+            if (thumbRect.contains(event->pos())) {
+                d->scrollDragging = true;
+                d->scrollDragStartOffset = d->scrollOffset;
+                d->scrollDragStartY = event->pos().y();
+                return;
+            }
+            if (trackRect.contains(event->pos())) {
+                // Click on track: page-step toward the click.
+                const int viewport = d->scrollableViewportHeight(height());
+                const int page = qMax(40, viewport - 24);
+                if (event->pos().y() < thumbRect.top()) {
+                    d->scrollOffset -= page;
+                } else if (event->pos().y() > thumbRect.bottom()) {
+                    d->scrollOffset += page;
+                }
+                d->clampScrollOffset(height());
+                update();
+                return;
+            }
+        }
     }
 
     const auto refreshRows = [this]() {
@@ -1562,6 +1802,46 @@ void FluentNavigationView::mousePressEvent(QMouseEvent *event)
 
 void FluentNavigationView::mouseMoveEvent(QMouseEvent *event)
 {
+    // Scrollbar drag handling.
+    if (d->scrollDragging) {
+        const QRectF track = d->scrollBarTrackRect(width(), height());
+        const QRectF thumb = d->scrollBarThumbRect(width(), height());
+        if (!track.isEmpty() && !thumb.isEmpty()) {
+            const qreal travel = track.height() - thumb.height();
+            const int maxScroll = d->maxScrollOffset(height());
+            if (travel > 0.0 && maxScroll > 0) {
+                const int deltaPx = event->pos().y() - d->scrollDragStartY;
+                const qreal ratio = qreal(deltaPx) / travel;
+                d->scrollOffset = d->scrollDragStartOffset + qRound(ratio * maxScroll);
+                d->clampScrollOffset(height());
+                update();
+            }
+        }
+        return;
+    }
+
+    // Hover state for the scrollbar.
+    if (d->displayMode != Top) {
+        const QRectF track = d->scrollBarTrackRect(width(), height());
+        const bool overScroll = !track.isEmpty() && track.adjusted(-4.0, 0.0, 4.0, 0.0).contains(event->pos());
+        if (overScroll != d->scrollHover) {
+            d->scrollHover = overScroll;
+            update();
+        }
+        if (overScroll) {
+            // Suppress row hover while the cursor sits over the scrollbar.
+            if (d->hoverRowIndex != -1) {
+                d->hoverRowIndex = -1;
+                d->hoverAnim->stop();
+                d->hoverAnim->setStartValue(d->hoverLevel);
+                d->hoverAnim->setEndValue(0.0);
+                d->hoverAnim->start();
+            }
+            QWidget::mouseMoveEvent(event);
+            return;
+        }
+    }
+
     const int hit = (d->displayMode == Top) ? d->topHitTest(event->pos(), width()) : d->hitTest(event->pos(), height());
     if (hit != d->hoverRowIndex) {
         d->hoverRowIndex = hit;
@@ -1574,6 +1854,47 @@ void FluentNavigationView::mouseMoveEvent(QMouseEvent *event)
     QWidget::mouseMoveEvent(event);
 }
 
+void FluentNavigationView::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (d->scrollDragging && event->button() == Qt::LeftButton) {
+        d->scrollDragging = false;
+        update();
+        return;
+    }
+    QWidget::mouseReleaseEvent(event);
+}
+
+void FluentNavigationView::wheelEvent(QWheelEvent *event)
+{
+    if (d->displayMode == Top || d->maxScrollOffset(height()) <= 0) {
+        QWidget::wheelEvent(event);
+        return;
+    }
+
+    int deltaPx = 0;
+    if (!event->pixelDelta().isNull()) {
+        deltaPx = event->pixelDelta().y();
+    } else {
+        // 120 angle-delta units == one notch == ~3 rows.
+        deltaPx = (event->angleDelta().y() * kRowHeight * 3) / 120;
+    }
+
+    if (deltaPx == 0) {
+        QWidget::wheelEvent(event);
+        return;
+    }
+
+    const int before = d->scrollOffset;
+    d->scrollOffset -= deltaPx;
+    d->clampScrollOffset(height());
+    if (d->scrollOffset != before) {
+        update();
+        event->accept();
+        return;
+    }
+    QWidget::wheelEvent(event);
+}
+
 void FluentNavigationView::leaveEvent(QEvent *event)
 {
     d->hoverRowIndex = -1;
@@ -1581,6 +1902,10 @@ void FluentNavigationView::leaveEvent(QEvent *event)
     d->hoverAnim->setStartValue(d->hoverLevel);
     d->hoverAnim->setEndValue(0.0);
     d->hoverAnim->start();
+    if (d->scrollHover) {
+        d->scrollHover = false;
+        update();
+    }
     QWidget::leaveEvent(event);
 }
 
@@ -1593,6 +1918,7 @@ void FluentNavigationView::resizeEvent(QResizeEvent *event)
         d->headerWidget->setVisible(d->showHeader());
     }
 
+    d->clampScrollOffset(height());
     d->selRect = d->selectionRectForKey(d->selectedKey, width(), height());
     d->selStartRect = d->selRect;
     d->selTargetRect = d->selRect;

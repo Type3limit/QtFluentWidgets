@@ -399,6 +399,37 @@ QObject::connect(resetButton, &QAbstractButton::clicked, nav, [=]() {
     nav->setSelectedKey(QStringLiteral("home"));
 });
 
+// ---------------------------------------------------------------------------
+// 4) Overflow + scrolling: NavigationView paints its own vertical scrollbar
+//    automatically when items don't fit. setSelectedKey() also scrolls the
+//    selected row back into the viewport, so deeply nested or far-down items
+//    never get lost.
+// ---------------------------------------------------------------------------
+auto *bulkAddButton = new Fluent::FluentButton(QStringLiteral("Bulk-add 12 children (triggers scrolling)"));
+QObject::connect(bulkAddButton, &QAbstractButton::clicked, nav, [=]() {
+    QString parentKey = nav->selectedKey();
+    if (parentKey.isEmpty()) parentKey = QStringLiteral("home");
+
+    for (int i = 0; i < 12; ++i) {
+        const int n = ++(*dynamicCounter);
+        NI child;
+        child.key = QStringLiteral("dyn_%1").arg(n);
+        child.text = QStringLiteral("Dynamic child %1").arg(n);
+        applyGlyph(child, 0xE710);
+        (*dynamicExtras)[parentKey].push_back(child);
+    }
+    rebuildNavigation();
+    nav->setSelectedKey(parentKey); // keep parent selected; scrollbar appears
+});
+
+// Demonstrates auto-scroll-into-view: selecting any key (including a row that
+// is currently below the fold or inside a collapsed ancestor) scrolls it back
+// into the visible area after expanding all ancestors.
+auto *scrollToFirstButton = new Fluent::FluentButton(QStringLiteral("Jump to first dynamic child"));
+QObject::connect(scrollToFirstButton, &QAbstractButton::clicked, nav, [=]() {
+    nav->setSelectedKey(QStringLiteral("dyn_1"));
+});
+
 QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                  nav, [](const QString &key) {
     qDebug() << "selected:" << key;
@@ -413,13 +444,15 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                           "-父项可通过 selectsOnInvoked 控制“点击即选中”还是“只打开子菜单”\n"
                           "-backRequested / itemInvoked / selectedKeyChanged 可分别接回退、点击与选中逻辑\n"
                           "-Footer 通过 addFooterItem() 显式添加，不再暗示内置设置页\n"
-                          "-children 支持任意深度嵌套，setSelectedKey() 会自动展开所有祖先；点击右侧“追加子项到选中项”可动态构建多层结构",
+                          "-children 支持任意深度嵌套，setSelectedKey() 会自动展开所有祖先；点击右侧“追加子项到选中项”可动态构建多层结构\n"
+                          "-导航项超出可视区域时自动出现垂直滚动条（鼠标滚轮 / 拖动滑块 / 点击轨道翻页均可），调用 setSelectedKey() 还会自动把选中项滚动到可见区域",
                           "Highlights:\n"
                           "-Use setPaneDisplayMode() to switch between Left, LeftCompact, and Top layouts\n"
                           "-Parent items can use selectsOnInvoked to choose between select-on-click and submenu-only behavior\n"
                           "-backRequested, itemInvoked, and selectedKeyChanged separate back, invoke, and selection logic\n"
                           "-Footer entries are added explicitly through addFooterItem() instead of implying a built-in settings page\n"
-                          "-children now supports arbitrarily deep nesting; setSelectedKey() auto-expands every ancestor. Use the 'Add child to selected' button on the right to build multi-level structures at runtime"),
+                          "-children now supports arbitrarily deep nesting; setSelectedKey() auto-expands every ancestor. Use the 'Add child to selected' button on the right to build multi-level structures at runtime\n"
+                          "-A vertical scrollbar appears automatically when items overflow the pane (mouse wheel, thumb drag, and track paging are all supported), and setSelectedKey() also auto-scrolls the row into view"),
                 code,
                 [=](QVBoxLayout *body) {
                     auto *shell = new QWidget();
@@ -539,6 +572,10 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     dynamicLabel->setWordWrap(true);
                     dynamicLabel->setStyleSheet("font-size: 12px; opacity: 0.8;");
                     auto *addChildButton = new FluentButton(DEMO_TEXT("追加子项到选中项", "Add child to selected"));
+                    auto *bulkAddButton = new FluentButton(DEMO_TEXT("批量追加 12 个子项（触发滚动）",
+                                                                     "Bulk-add 12 children (triggers scrolling)"));
+                    auto *scrollToFirstButton = new FluentButton(DEMO_TEXT("跳转到首个动态子项（自动滚动可见）",
+                                                                           "Jump to first dynamic child (auto-scroll)"));
                     auto *resetDynamicButton = new FluentButton(DEMO_TEXT("清除追加的子项", "Reset dynamic children"));
 
                     optionsLayout->addWidget(optionsTitle);
@@ -557,6 +594,8 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                     optionsLayout->addSpacing(6);
                     optionsLayout->addWidget(dynamicLabel);
                     optionsLayout->addWidget(addChildButton);
+                    optionsLayout->addWidget(bulkAddButton);
+                    optionsLayout->addWidget(scrollToFirstButton);
                     optionsLayout->addWidget(resetDynamicButton);
                     optionsLayout->addStretch(1);
 
@@ -811,6 +850,50 @@ QObject::connect(nav, &Fluent::FluentNavigationView::selectedKeyChanged,
                         nav->setSelectedKey(QStringLiteral("home"));
                         detailEvent->setText(DEMO_TEXT("最近事件：已清除动态追加的子项",
                                                        "Latest event: dynamic children cleared"));
+                        updateDetail();
+                    });
+
+                    // Bulk-add: stacks 12 children under the current selection in one click
+                    // so the items overflow the pane and the vertical scrollbar appears.
+                    QObject::connect(bulkAddButton, &QAbstractButton::clicked, nav, [=]() {
+                        QString parentKey = nav->selectedKey();
+                        if (parentKey.isEmpty()) {
+                            parentKey = QStringLiteral("home");
+                        }
+
+                        QString lastAddedKey;
+                        for (int i = 0; i < 12; ++i) {
+                            const int n = ++(*dynamicCounter);
+                            NI child;
+                            child.key = QStringLiteral("dyn_%1").arg(n);
+                            child.text = DEMO_TEXT("动态子项 %1", "Dynamic child %1").arg(n);
+                            applyGlyph(child, 0xE710);
+                            (*dynamicExtras)[parentKey].push_back(child);
+                            lastAddedKey = child.key;
+                        }
+                        rebuildNavigation();
+                        // Select the last added child so the parent group is auto-expanded,
+                        // the new items render immediately, and the row is scrolled into
+                        // view — together this exercises both new behaviours at once.
+                        if (!lastAddedKey.isEmpty()) {
+                            nav->setSelectedKey(lastAddedKey);
+                        }
+                        detailEvent->setText(DEMO_TEXT(
+                            "最近事件：批量追加 12 项到 %1，导航栏出现垂直滚动条并自动滚动到新增项",
+                            "Latest event: bulk-added 12 children under %1 — scrollbar appears and the new item is scrolled into view")
+                                                 .arg(parentKey));
+                        updateDetail();
+                    });
+
+                    // Demonstrates auto-scroll-into-view: jumps to dyn_1 (which is usually
+                    // near the top of an overflowing list, but expanding ancestors may push
+                    // it out of the viewport). setSelectedKey() now scrolls it back into view.
+                    QObject::connect(scrollToFirstButton, &QAbstractButton::clicked, nav, [=]() {
+                        const QString target = QStringLiteral("dyn_1");
+                        nav->setSelectedKey(target);
+                        detailEvent->setText(DEMO_TEXT(
+                            "最近事件：setSelectedKey(\"dyn_1\")，自动展开祖先并把行滚动到可见区域",
+                            "Latest event: setSelectedKey(\"dyn_1\") — auto-expanded ancestors and scrolled the row into view"));
                         updateDetail();
                     });
 

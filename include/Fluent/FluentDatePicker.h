@@ -117,7 +117,7 @@ private:
     QDate m_date;
     QDate m_minimumDate;
     QDate m_maximumDate;
-    DateParts m_visibleParts = MonthPart | DayPart | YearPart;
+    DateParts m_visibleParts = static_cast<DateParts>(MonthPart | DayPart | YearPart);
     QString m_monthFormat;
     QString m_dayFormat;
     QString m_yearFormat;
