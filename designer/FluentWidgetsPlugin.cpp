@@ -12,12 +12,15 @@
 #include "Fluent/FluentLineEdit.h"
 #include "Fluent/FluentKeySequenceEdit.h"
 #include "Fluent/FluentTextEdit.h"
+#include "Fluent/FluentCodeEditor.h"
 #include "Fluent/FluentCalendarPicker.h"
 #include "Fluent/FluentDatePicker.h"
+#include "Fluent/FluentDateRangePicker.h"
 #include "Fluent/FluentTimePicker.h"
 #include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentColorDialog.h"
 #include "Fluent/FluentAngleSelector.h"
+#include "Fluent/FluentDial.h"
 #include "Fluent/FluentCard.h"
 #include "Fluent/FluentCheckBox.h"
 #include "Fluent/FluentRadioButton.h"
@@ -30,6 +33,7 @@
 #include "Fluent/FluentTabWidget.h"
 #include "Fluent/FluentListView.h"
 #include "Fluent/FluentTableView.h"
+#include "Fluent/FluentTableWidget.h"
 #include "Fluent/FluentTreeView.h"
 #include "Fluent/FluentGroupBox.h"
 #include "Fluent/FluentMenuBar.h"
@@ -38,7 +42,13 @@
 #include "Fluent/FluentStatusBar.h"
 #include "Fluent/FluentDialog.h"
 #include "Fluent/FluentMessageBox.h"
+#include "Fluent/FluentWidget.h"
+#include "Fluent/FluentScrollArea.h"
+#include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentAnnotatedScrollBar.h"
+#include "Fluent/FluentSplitter.h"
+#include "Fluent/FluentToast.h"
+#include "Fluent/FluentNavigationView.h"
 
 namespace {
 
@@ -83,12 +93,15 @@ public:
         if (m_className == "FluentLineEdit") return new Fluent::FluentLineEdit(parent);
         if (m_className == "FluentKeySequenceEdit") return new Fluent::FluentKeySequenceEdit(parent);
         if (m_className == "FluentTextEdit") return new Fluent::FluentTextEdit(parent);
+        if (m_className == "FluentCodeEditor") return new Fluent::FluentCodeEditor(parent);
         if (m_className == "FluentCalendarPicker") return new Fluent::FluentCalendarPicker(parent);
         if (m_className == "FluentDatePicker") return new Fluent::FluentDatePicker(parent);
+        if (m_className == "FluentDateRangePicker") return new Fluent::FluentDateRangePicker(parent);
         if (m_className == "FluentTimePicker") return new Fluent::FluentTimePicker(parent);
         if (m_className == "FluentColorPicker") return new Fluent::FluentColorPicker(parent);
         if (m_className == "FluentColorDialog") return new Fluent::FluentColorDialog(QColor("#0067C0"), parent);
         if (m_className == "FluentAngleSelector") return new Fluent::FluentAngleSelector(parent);
+        if (m_className == "FluentDial") return new Fluent::FluentDial(parent);
         if (m_className == "FluentCard") return new Fluent::FluentCard(parent);
         if (m_className == "FluentCheckBox") return new Fluent::FluentCheckBox(parent);
         if (m_className == "FluentRadioButton") return new Fluent::FluentRadioButton(parent);
@@ -102,6 +115,7 @@ public:
         if (m_className == "FluentTabWidget") return new Fluent::FluentTabWidget(parent);
         if (m_className == "FluentListView") return new Fluent::FluentListView(parent);
         if (m_className == "FluentTableView") return new Fluent::FluentTableView(parent);
+        if (m_className == "FluentTableWidget") return new Fluent::FluentTableWidget(parent);
         if (m_className == "FluentTreeView") return new Fluent::FluentTreeView(parent);
         if (m_className == "FluentGroupBox") return new Fluent::FluentGroupBox(parent);
         if (m_className == "FluentMenuBar") return new Fluent::FluentMenuBar(parent);
@@ -110,7 +124,13 @@ public:
         if (m_className == "FluentStatusBar") return new Fluent::FluentStatusBar(parent);
         if (m_className == "FluentDialog") return new Fluent::FluentDialog(parent);
         if (m_className == "FluentMessageBox") return new Fluent::FluentMessageBox(QStringLiteral("FluentMessageBox"), QStringLiteral("Message"), Fluent::FluentMessageBox::Info, parent);
+        if (m_className == "FluentWidget") return new Fluent::FluentWidget(parent);
+        if (m_className == "FluentScrollArea") return new Fluent::FluentScrollArea(parent);
+        if (m_className == "FluentScrollBar") return new Fluent::FluentScrollBar(Qt::Vertical, parent);
         if (m_className == "FluentAnnotatedScrollBar") return new Fluent::FluentAnnotatedScrollBar(parent);
+        if (m_className == "FluentSplitter") return new Fluent::FluentSplitter(Qt::Horizontal, parent);
+        if (m_className == "FluentToast") return new Fluent::FluentToast(QStringLiteral("FluentToast"), QStringLiteral("Message"), parent);
+        if (m_className == "FluentNavigationView") return new Fluent::FluentNavigationView(parent);
         return nullptr;
     }
 
@@ -148,12 +168,15 @@ public:
         m_plugins.append(new FluentWidgetPlugin("FluentLineEdit", "Fluent/FluentLineEdit.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentKeySequenceEdit", "Fluent/FluentKeySequenceEdit.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTextEdit", "Fluent/FluentTextEdit.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentCodeEditor", "Fluent/FluentCodeEditor.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCalendarPicker", "Fluent/FluentCalendarPicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentDatePicker", "Fluent/FluentDatePicker.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentDateRangePicker", "Fluent/FluentDateRangePicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTimePicker", "Fluent/FluentTimePicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentColorPicker", "Fluent/FluentColorPicker.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentColorDialog", "Fluent/FluentColorDialog.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentAngleSelector", "Fluent/FluentAngleSelector.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentDial", "Fluent/FluentDial.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCard", "Fluent/FluentCard.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentCheckBox", "Fluent/FluentCheckBox.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentRadioButton", "Fluent/FluentRadioButton.h", group, false, this));
@@ -167,6 +190,7 @@ public:
         m_plugins.append(new FluentWidgetPlugin("FluentTabWidget", "Fluent/FluentTabWidget.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentListView", "Fluent/FluentListView.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTableView", "Fluent/FluentTableView.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentTableWidget", "Fluent/FluentTableWidget.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentTreeView", "Fluent/FluentTreeView.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentGroupBox", "Fluent/FluentGroupBox.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentMenuBar", "Fluent/FluentMenuBar.h", group, true, this));
@@ -175,7 +199,13 @@ public:
         m_plugins.append(new FluentWidgetPlugin("FluentStatusBar", "Fluent/FluentStatusBar.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentDialog", "Fluent/FluentDialog.h", group, true, this));
         m_plugins.append(new FluentWidgetPlugin("FluentMessageBox", "Fluent/FluentMessageBox.h", group, true, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentWidget", "Fluent/FluentWidget.h", group, true, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentScrollArea", "Fluent/FluentScrollArea.h", group, true, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentScrollBar", "Fluent/FluentScrollBar.h", group, false, this));
         m_plugins.append(new FluentWidgetPlugin("FluentAnnotatedScrollBar", "Fluent/FluentAnnotatedScrollBar.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentSplitter", "Fluent/FluentSplitter.h", group, true, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentToast", "Fluent/FluentToast.h", group, false, this));
+        m_plugins.append(new FluentWidgetPlugin("FluentNavigationView", "Fluent/FluentNavigationView.h", group, true, this));
     }
 
     QList<QDesignerCustomWidgetInterface *> customWidgets() const override

@@ -7,12 +7,18 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 COMPONENTS Widgets UiPlugin Svg QUIET)
+option(FLUENT_BUILD_DESIGNER_PLUGIN "Build Qt Designer plugin" ON)
+
+find_package(Qt6 COMPONENTS Widgets Svg QUIET)
 if(Qt6_FOUND)
     set(QT_PACKAGE Qt6)
 else()
-    find_package(Qt5 REQUIRED COMPONENTS Widgets UiPlugin Svg)
+    find_package(Qt5 REQUIRED COMPONENTS Widgets Svg)
     set(QT_PACKAGE Qt5)
+endif()
+
+if(FLUENT_BUILD_DESIGNER_PLUGIN)
+    find_package(${QT_PACKAGE} REQUIRED COMPONENTS UiPlugin)
 endif()
 
 add_library(QtFluentWidgets
@@ -189,8 +195,6 @@ endif()
 
 # Visual Studio: set debugger environment for F5.
 set_property(TARGET QtFluentDemo PROPERTY VS_DEBUGGER_ENVIRONMENT "QTFLUENT_SUPPRESS_KNOWN_PAINT_WARNINGS=$<IF:$<BOOL:${QTFLUENT_DEMO_SUPPRESS_KNOWN_PAINT_WARNINGS}>,1,0>")
-
-option(FLUENT_BUILD_DESIGNER_PLUGIN "Build Qt Designer plugin" ON)
 
 if(FLUENT_BUILD_DESIGNER_PLUGIN)
     add_library(QtFluentWidgetsPlugin MODULE

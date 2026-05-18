@@ -297,12 +297,6 @@ void FluentMainWindow::setCentralWidget(QWidget *widget)
         return;
     }
 
-    // Remove old
-    if (m_userCentralWidget && m_userCentralWidget->parent() == m_frameHost) {
-        m_userCentralWidget->setParent(nullptr);
-    }
-    m_userCentralWidget = widget;
-
     auto *layout = qobject_cast<QVBoxLayout *>(m_frameHost->layout());
     if (!layout) {
         layout = new QVBoxLayout(m_frameHost);
@@ -310,19 +304,28 @@ void FluentMainWindow::setCentralWidget(QWidget *widget)
         layout->setSpacing(0);
     }
 
+    QWidget *oldWidget = m_userCentralWidget;
     while (layout->count() > 0) {
         QLayoutItem *it = layout->takeAt(0);
         if (it) {
             if (QWidget *w = it->widget()) {
+                w->hide();
                 w->setParent(nullptr);
             }
             delete it;
         }
     }
 
+    if (oldWidget && oldWidget != widget) {
+        oldWidget->deleteLater();
+    }
+
+    m_userCentralWidget = widget;
+
     if (widget) {
         widget->setParent(m_frameHost);
         layout->addWidget(widget);
+        widget->show();
     }
 
 
@@ -551,9 +554,11 @@ void FluentMainWindow::ensureFrameHostAsCentral()
         m_frameHost->setObjectName("FluentMainWindowFrameHost");
     }
 
-    auto *layout = new QVBoxLayout(m_frameHost);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    if (!m_frameHost->layout()) {
+        auto *layout = new QVBoxLayout(m_frameHost);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+    }
 
     QMainWindow::setCentralWidget(m_frameHost);
 }
@@ -721,12 +726,30 @@ void FluentMainWindow::setFluentMenuBar(FluentMenuBar *menuBar)
         return;
     }
 
-    if (m_menuBar && m_menuBar->parent() == m_titleBarHost) {
+    auto refreshLeftHostWidth = [this]() {
+        if (!m_leftHost) {
+            return;
+        }
+        m_leftHost->setMinimumWidth(0);
+        if (m_leftHost->layout()) {
+            m_leftHost->layout()->activate();
+        }
+        m_leftHost->setMinimumWidth(m_leftHost->sizeHint().width());
+    };
+
+    if (m_menuBar) {
+        if (m_leftHost && m_leftHost->layout()) {
+            m_leftHost->layout()->removeWidget(m_menuBar);
+        }
+        m_menuBar->hide();
+        m_menuBar->setParent(nullptr);
         m_menuBar->deleteLater();
     }
 
     m_menuBar = menuBar;
     if (!m_menuBar) {
+        refreshLeftHostWidth();
+        updateTitleBarContent();
         return;
     }
 
@@ -742,12 +765,7 @@ void FluentMainWindow::setFluentMenuBar(FluentMenuBar *menuBar)
         }
     }
 
-    if (m_leftHost) {
-        if (m_leftHost->layout()) {
-            m_leftHost->layout()->activate();
-        }
-        m_leftHost->setMinimumWidth(m_leftHost->sizeHint().width());
-    }
+    refreshLeftHostWidth();
     updateTitleBarContent();
 }
 

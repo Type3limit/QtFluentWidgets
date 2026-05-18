@@ -41,11 +41,18 @@ QDate FluentDateRangePicker::endDate()   const { return m_endDate;   }
 
 void FluentDateRangePicker::setDateRange(const QDate &start, const QDate &end)
 {
-    m_startDate = start.isValid() ? start : QDate();
-    m_endDate   = end.isValid()   ? end   : QDate();
-    if (m_startDate.isValid() && m_endDate.isValid() && m_endDate < m_startDate)
-        qSwap(m_startDate, m_endDate);
+    QDate nextStart = start.isValid() ? start : QDate();
+    QDate nextEnd   = end.isValid()   ? end   : QDate();
+    if (nextStart.isValid() && nextEnd.isValid() && nextEnd < nextStart)
+        qSwap(nextStart, nextEnd);
+    if (m_startDate == nextStart && m_endDate == nextEnd)
+        return;
+    m_startDate = nextStart;
+    m_endDate   = nextEnd;
+    if (m_popup)
+        m_popup->setDateRange(m_startDate, m_endDate);
     update();
+    emit dateRangeChanged(m_startDate, m_endDate);
 }
 
 // ── Display format ────────────────────────────────────────────────────────
