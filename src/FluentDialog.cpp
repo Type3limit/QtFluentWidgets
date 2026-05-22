@@ -97,10 +97,6 @@ private:
     qreal m_opacity = 0.35;
 };
 
-static QString rgbaString(const QColor &c)
-{
-    return QString("rgba(%1,%2,%3,%4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(QString::number(c.alphaF(), 'f', 3));
-}
 }
 
 FluentDialog::FluentDialog(QWidget *parent)
@@ -576,20 +572,17 @@ void FluentDialog::updateTitleBarContent()
     m_titleLabel->setMaximumWidth(maxTitleWidth);
     m_titleLabel->setText(titleText);
 
-    QColor divider = colors.border;
-    divider.setAlpha(140);
-
-    QColor topHighlight = QColor(255, 255, 255, (colors.background.lightnessF() < 0.5) ? 26 : 0);
-    if (!anyButtonsVisible) {
-        divider.setAlpha(0);
-        topHighlight.setAlpha(0);
-    }
-
     // Keep title bar subtle; dialog panel already has its own border.
-    m_titleBarHost->setStyleSheet(QString(
-        "#FluentDialogTitleBarHost { background: transparent; border-bottom: 1px solid %1; border-top: 1px solid %2; }"
-        "#FluentDialogTitle { color: %3; font-weight: 600; }"
-    ).arg(rgbaString(divider), rgbaString(topHighlight), colors.text.name()));
+    const QString bottomRule = anyButtonsVisible
+        ? QStringLiteral("border-bottom: 1px solid palette(mid);")
+        : QStringLiteral("border-bottom: none;");
+    const QString next = QString(
+        "#FluentDialogTitleBarHost { background: transparent; %1 border-top: none; }"
+        "#FluentDialogTitle { color: palette(window-text); font-weight: 600; }"
+    ).arg(bottomRule);
+    if (m_titleBarHost->styleSheet() != next) {
+        m_titleBarHost->setStyleSheet(next);
+    }
 }
 
 void FluentDialog::updateWindowControlIcons()

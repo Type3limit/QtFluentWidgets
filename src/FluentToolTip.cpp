@@ -96,11 +96,10 @@ private:
         });
     }
     void applyTheme() {
-        const auto &colors = ThemeManager::instance().colors();
         QFont f = QApplication::font();
         f.setPointSizeF(12.0);
         m_label->setFont(f);
-        const QString next = QStringLiteral("QLabel { background: transparent; color: %1; font-weight: 500; }").arg(colors.text.name());
+        const QString next = QStringLiteral("QLabel { background: transparent; color: palette(window-text); font-weight: 500; }");
         if (m_label->styleSheet() != next) m_label->setStyleSheet(next);
     }
     void updateGeometryForText() {

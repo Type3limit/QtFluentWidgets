@@ -975,33 +975,21 @@ void FluentMenu::applyTheme()
         m_border.syncFromTheme();
     }
 
-    const auto &colors = ThemeManager::instance().colors();
-    const bool dark = colors.background.lightnessF() < 0.5;
-
-    QColor sep = colors.border;
-    sep.setAlpha(dark ? 140 : 90);
-
-    QColor disabled = colors.disabledText;
-    disabled.setAlpha(dark ? 180 : 160);
-
-    const QString next = QString(
+    const QString next = QStringLiteral(
         "QMenu { background: transparent; border: none; padding: 4px; }"
         "QMenu::item {"
         "  padding: 5px 20px 5px 32px;"
         "  min-height: 22px;"
         "  border-radius: 4px;"
         "  background: transparent;"
-        "  color: %1;"
+        "  color: palette(text);"
         "}"
-        "QMenu::item:disabled { color: %2; } "
+        "QMenu::item:disabled { color: palette(mid); } "
         "QMenu::item:selected { background: transparent; }"
-        "QMenu::item:selected:disabled { color: %2; }"
-        "QMenu::separator { height: 1px; background: %3; margin: 6px 10px; }"
+        "QMenu::item:selected:disabled { color: palette(mid); }"
+        "QMenu::separator { height: 1px; background: palette(mid); margin: 6px 10px; }"
         "QMenu::indicator { width: 0px; height: 0px; }"
-        "QMenu::right-arrow { width: 0px; height: 0px; image: none; }")
-        .arg(colors.text.name())
-        .arg(rgbaString2(disabled))
-        .arg(rgbaString2(sep));
+        "QMenu::right-arrow { width: 0px; height: 0px; image: none; }");
 
     if (styleSheet() != next) {
         setStyleSheet(next);

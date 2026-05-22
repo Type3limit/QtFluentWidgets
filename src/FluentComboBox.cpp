@@ -1130,12 +1130,13 @@ void FluentComboBox::applyTheme()
     if (view()) {
         QPalette viewPal = view()->palette();
         viewPal.setColor(QPalette::Text, colors.text);
+        viewPal.setColor(QPalette::Mid, colors.border);
         view()->setPalette(viewPal);
 
-        const QString viewNext = QString(
+        const QString viewNext = QStringLiteral(
             "QListView#FluentComboPopupView {"
             "  background: transparent;"
-            "  color: %1;"
+            "  color: palette(text);"
             "  border: none;"
             "  outline: 0;"
             "}"
@@ -1148,16 +1149,14 @@ void FluentComboBox::applyTheme()
             "  margin: 2px;"
             "}"
             "QScrollBar::handle:vertical {"
-            "  background-color: %2;"
+            "  background-color: palette(mid);"
             "  border: 1px solid transparent;"
             "  border-radius: 999px;"
             "  min-height: 24px;"
             "}"
             "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
             "  height: 0px;"
-            "}"
-        ).arg(colors.text.name())
-         .arg(colors.border.name());
+            "}");
 
         if (view()->styleSheet() != viewNext) {
             view()->setStyleSheet(viewNext);

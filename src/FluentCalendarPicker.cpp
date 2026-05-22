@@ -11,6 +11,7 @@
 #include <QLocale>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPalette>
 #include <QTimer>
 #include <QVariantAnimation>
 
@@ -132,14 +133,13 @@ void FluentCalendarPicker::changeEvent(QEvent *event)
 
 void FluentCalendarPicker::applyTheme()
 {
-    const auto &colors = ThemeManager::instance().colors();
     {
-        const QString next = QString("QDateEdit { background: transparent; color: %1; }")
-                                 .arg(colors.text.name());
+        const QString next = QStringLiteral("QDateEdit { background: transparent; color: palette(window-text); }");
         if (styleSheet() != next) {
             setStyleSheet(next);
         }
     }
+    const auto &colors = ThemeManager::instance().colors();
     if (auto *lineEdit = findChild<QLineEdit *>()) {
         const auto m = Style::metrics();
         lineEdit->setTextMargins(m.paddingX, 0, m.iconAreaWidth, 0);
@@ -149,23 +149,19 @@ void FluentCalendarPicker::applyTheme()
 
         QColor selectionBg = colors.accent;
         selectionBg.setAlphaF(dark ? 0.35 : 0.22);
-        const QString selectionBgStr = QStringLiteral("rgba(%1,%2,%3,%4)")
-                                           .arg(selectionBg.red())
-                                           .arg(selectionBg.green())
-                                           .arg(selectionBg.blue())
-                                           .arg(QString::number(selectionBg.alphaF(), 'f', 3));
 
-        const QString next = QString(
-            "QLineEdit { background: transparent; color: %1; border: none; selection-background-color: %2; selection-color: %3; }")
-                                 .arg(textColor.name())
-                                 .arg(selectionBgStr)
-                                 .arg(colors.text.name());
+        const QString next = QStringLiteral(
+            "QLineEdit { background: transparent; color: palette(window-text); border: none; "
+            "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
+            "QLineEdit:disabled { color: palette(mid); }");
         if (lineEdit->styleSheet() != next) {
             lineEdit->setStyleSheet(next);
         }
 
         // Keep caret accent while selection/text colors come from stylesheet.
         QPalette pal = lineEdit->palette();
+        pal.setColor(QPalette::WindowText, textColor);
+        pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
         pal.setColor(QPalette::Text, colors.accent);
         pal.setColor(QPalette::Highlight, selectionBg);
         pal.setColor(QPalette::HighlightedText, colors.text);

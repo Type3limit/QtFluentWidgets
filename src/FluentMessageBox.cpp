@@ -901,30 +901,44 @@ void FluentMessageBox::applyTheme()
     }
     titleFont.setWeight(QFont::DemiBold);
     m_titleLabel->setFont(titleFont);
-    m_titleLabel->setStyleSheet(QString("color: %1;").arg(colors.text.name()));
+    const QString titleStyle = QStringLiteral("color: palette(window-text);");
+    if (m_titleLabel->styleSheet() != titleStyle) {
+        m_titleLabel->setStyleSheet(titleStyle);
+    }
 
-    m_messageLabel->setStyleSheet(QString("color: %1;").arg(colors.text.name()));
+    const QString messageStyle = QStringLiteral("color: palette(window-text);");
+    if (m_messageLabel->styleSheet() != messageStyle) {
+        m_messageLabel->setStyleSheet(messageStyle);
+    }
 
     if (m_detailEdit) {
-        m_detailEdit->setStyleSheet(QString(
+        const QString detailStyle = QStringLiteral(
             "QTextEdit {"
-            "  color: %1;"
-            "  background: %2;"
-            "  border: 1px solid %3;"
+            "  color: palette(window-text);"
+            "  background: palette(light);"
+            "  border: 1px solid palette(mid);"
             "  border-radius: 8px;"
             "  padding: 8px 10px;"
             "}"
-        ).arg(colors.subText.name(), colors.hover.name(), colors.border.name()));
+        );
+        if (m_detailEdit->styleSheet() != detailStyle) {
+            m_detailEdit->setStyleSheet(detailStyle);
+        }
     }
 
     if (m_divider) {
-        const QColor div = Style::withAlpha(colors.border, 180);
-        m_divider->setStyleSheet(QString("background: %1;").arg(div.name(QColor::HexArgb)));
+        const QString dividerStyle = QStringLiteral("background: palette(mid);");
+        if (m_divider->styleSheet() != dividerStyle) {
+            m_divider->setStyleSheet(dividerStyle);
+        }
     }
 
     if (m_linkLabel) {
         // Base stylesheet already styles #FluentLink, but keep explicit for dialogs.
-        m_linkLabel->setStyleSheet(QString("color: %1;").arg(colors.accent.name()));
+        const QString linkStyle = QStringLiteral("color: palette(link);");
+        if (m_linkLabel->styleSheet() != linkStyle) {
+            m_linkLabel->setStyleSheet(linkStyle);
+        }
     }
 
     // Icon

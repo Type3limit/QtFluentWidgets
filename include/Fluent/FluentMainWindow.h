@@ -115,6 +115,11 @@ private:
     void updateTitleBarContent();
     void updateWindowControlIcons();
     void ensureFrameHostAsCentral();
+    int titleBarLeftHintWidth() const;
+    int titleBarRightHintWidth() const;
+    int titleBarContentHintHeight() const;
+    void refreshTitleBarLeftWidth();
+    void refreshTitleBarRightWidth();
 
     void syncBorderVisualState();
     void updateFrameHost();

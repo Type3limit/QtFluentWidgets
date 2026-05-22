@@ -13,6 +13,8 @@
 #include <QPainter>
 #include <QPointer>
 #include <QScreen>
+#include <QStyle>
+#include <QStyleFactory>
 #include <QToolButton>
 #include <QVariantAnimation>
 #include <QWidget>
@@ -21,6 +23,69 @@ namespace Fluent {
 
 namespace {
 constexpr int kFluentMenuPopupGap = 5;
+constexpr int kMenuBarOuterMargin = 4;
+constexpr int kMenuBarItemMinWidth = 34;
+constexpr int kMenuBarItemHPadding = 12;
+constexpr int kMenuBarItemIconTextGap = 6;
+constexpr int kMenuBarItemArrowWidth = 18;
+constexpr int kMenuBarItemPaintInset = 2;
+constexpr int kMenuPopupOuterPadding = 4;
+constexpr int kMenuPopupTextLeft = 32;
+constexpr int kMenuPopupTextRight = 18;
+constexpr int kMenuPopupShortcutGap = 12;
+constexpr int kMenuPopupMinWidth = 140;
+constexpr int kMenuPopupItemHeight = 34;
+constexpr int kMenuPopupSeparatorHeight = 13;
+
+QString textWithoutMnemonic(QString text)
+{
+    text.remove(QLatin1Char('&'));
+    return text;
+}
+
+void markActionLayoutDirty(QHash<QAction *, QRect> &rects, QSize &sizeHint, bool &dirty)
+{
+    dirty = true;
+    sizeHint = QSize();
+    rects.clear();
+}
+
+QSize fluentMenuPopupSizeHint(QMenu *menu, const QFont &font)
+{
+    QFontMetrics fm(font);
+    int width = kMenuPopupMinWidth;
+    int height = kMenuPopupOuterPadding * 2;
+
+    for (QAction *action : menu ? menu->actions() : QList<QAction *>()) {
+        if (!action || !action->isVisible()) {
+            continue;
+        }
+
+        if (action->isSeparator()) {
+            height += kMenuPopupSeparatorHeight;
+            continue;
+        }
+
+        QString text = action->text();
+        QString shortcut;
+        const qsizetype tabPos = text.indexOf(QLatin1Char('\t'));
+        if (tabPos >= 0) {
+            shortcut = text.mid(tabPos + 1);
+            text = text.left(tabPos);
+        } else if (!action->shortcut().isEmpty()) {
+            shortcut = action->shortcut().toString(QKeySequence::NativeText);
+        }
+
+        const int textWidth = fm.horizontalAdvance(textWithoutMnemonic(text));
+        const int shortcutWidth = shortcut.isEmpty() ? 0 : fm.horizontalAdvance(shortcut) + kMenuPopupShortcutGap;
+        width = qMax(width,
+                     kMenuPopupTextLeft + textWidth + shortcutWidth + kMenuPopupTextRight
+                         + kMenuPopupOuterPadding * 2);
+        height += kMenuPopupItemHeight;
+    }
+
+    return QSize(width, height);
+}
 
 class FluentMenuBarPopup final : public QWidget
 {
@@ -75,43 +140,7 @@ public:
 
     QSize sizeHint() const override
     {
-        constexpr int kOuterPadding = 4;
-        constexpr int kTextLeft = 32;
-        constexpr int kTextRight = 18;
-        constexpr int kShortcutGap = 12;
-        constexpr int kMinWidth = 140;
-
-        QFontMetrics fm(font());
-        int width = kMinWidth;
-        int height = kOuterPadding * 2;
-
-        for (QAction *action : m_menu ? m_menu->actions() : QList<QAction *>()) {
-            if (!action || !action->isVisible()) {
-                continue;
-            }
-
-            if (action->isSeparator()) {
-                height += separatorHeight();
-                continue;
-            }
-
-            QString text = action->text();
-            QString shortcut;
-            const qsizetype tabPos = text.indexOf(QLatin1Char('\t'));
-            if (tabPos >= 0) {
-                shortcut = text.mid(tabPos + 1);
-                text = text.left(tabPos);
-            } else if (!action->shortcut().isEmpty()) {
-                shortcut = action->shortcut().toString(QKeySequence::NativeText);
-            }
-
-            const int textWidth = fm.horizontalAdvance(text.replace(QLatin1Char('&'), QString()));
-            const int shortcutWidth = shortcut.isEmpty() ? 0 : fm.horizontalAdvance(shortcut) + kShortcutGap;
-            width = qMax(width, kTextLeft + textWidth + shortcutWidth + kTextRight + kOuterPadding * 2);
-            height += itemHeight();
-        }
-
-        return QSize(width, height);
+        return fluentMenuPopupSizeHint(m_menu.data(), font());
     }
 
 protected:
@@ -298,8 +327,8 @@ protected:
     }
 
 private:
-    static int itemHeight() { return 34; }
-    static int separatorHeight() { return 13; }
+    static int itemHeight() { return kMenuPopupItemHeight; }
+    static int separatorHeight() { return kMenuPopupSeparatorHeight; }
 
     QRect actionRect(QAction *target) const
     {
@@ -446,26 +475,22 @@ public:
 FluentMenuBar::FluentMenuBar(QWidget *parent)
     : QMenuBar(parent)
 {
+    // QApplication style sheets wrap every widget in QStyleSheetStyle. FluentMenuBar is
+    // fully custom-painted, so keep it on a local base style and avoid the expensive
+    // QMenuBar polish path that has also proven crash-prone during startup.
+    if (QStyle *baseStyle = QStyleFactory::create(QStringLiteral("Fusion"))) {
+        baseStyle->setParent(this);
+        setStyle(baseStyle);
+    }
+    setStyleSheet(QString());
+    setAttribute(Qt::WA_StyledBackground, false);
+    setAutoFillBackground(false);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setNativeMenuBar(false);
 
     // Keep menubar popup menus Fluent even if user calls QMenuBar::addMenu().
     ensureMenusFluent();
-
-    connect(this, &QMenuBar::hovered, this, [this](QAction *a) {
-        if (a == m_hoverAction) {
-            return;
-        }
-        m_hoverAction = a;
-        updateHighlightForAction(a, true);
-        startHoverAnimation(a ? 1.0 : 0.0);
-
-        const bool hasOpenMenu = (m_openPopup && m_openPopup->isVisible()) || (m_openMenu && m_openMenu->isVisible());
-        if (hasOpenMenu && a && a != m_openAction && menuForAction(a)) {
-            openMenuForAction(a);
-        }
-    });
 
     m_hoverAnim = new QVariantAnimation(this);
     m_hoverAnim->setDuration(120);
@@ -488,9 +513,27 @@ FluentMenuBar::FluentMenuBar(QWidget *parent)
 
 void FluentMenuBar::changeEvent(QEvent *event)
 {
-    QMenuBar::changeEvent(event);
-    if (event->type() == QEvent::EnabledChange) {
+    const QEvent::Type type = event ? event->type() : QEvent::None;
+    if (type != QEvent::StyleChange && type != QEvent::PaletteChange) {
+        QMenuBar::changeEvent(event);
+    }
+    switch (type) {
+    case QEvent::EnabledChange:
         applyTheme();
+        break;
+    case QEvent::FontChange:
+        invalidateActionLayout();
+        break;
+    case QEvent::LayoutDirectionChange:
+        invalidateActionLayout();
+        break;
+    case QEvent::StyleChange:
+    case QEvent::PaletteChange:
+        markActionLayoutDirty(m_actionRects, m_cachedSizeHint, m_layoutDirty);
+        update();
+        break;
+    default:
+        break;
     }
 }
 
@@ -499,40 +542,39 @@ void FluentMenuBar::actionEvent(QActionEvent *event)
     QMenuBar::actionEvent(event);
 
     if (event->type() == QEvent::ActionRemoved) {
-        m_actionMenus.remove(event->action());
+        QAction *action = event->action();
+        m_actionMenus.remove(action);
+        m_actionRects.remove(action);
+        if (m_hoverAction == action) {
+            m_hoverAction = nullptr;
+        }
+        if (m_pressedAction == action) {
+            m_pressedAction = nullptr;
+        }
+        if (m_highlightAction == action) {
+            m_highlightAction = nullptr;
+            m_highlightRect = QRect();
+        }
+        if (m_openAction == action) {
+            m_openAction = nullptr;
+        }
     }
 
     // When actions/menus are added by external code, ensure they're Fluent.
     if (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionChanged) {
         ensureMenusFluent();
     }
+
+    invalidateActionLayout();
 }
 
 void FluentMenuBar::applyTheme()
 {
-    const auto &colors = ThemeManager::instance().colors();
-    // Keep it visually consistent with FluentMenu: transparent background and custom hover painting.
-    const QString next = QString(
-        "QMenuBar { background: transparent; border: none; color: %1; }"
-        "QMenuBar::item { padding: 6px 12px; background: transparent; border-radius: 6px; }"
-        "QMenuBar::item:selected { background: transparent; }"
-        // Qt overflow extension button (appears when menubar is too narrow)
-        "QToolButton#qt_menubar_ext_button {"
-        "  background: transparent;"
-        "  border: none;"
-        "  border-radius: 6px;"
-        "  padding: 4px 8px;"
-        "  color: %1;"
-        "}"
-        // Keep it visually quiet; the FluentMenuBar paints its own hover highlight.
-        "QToolButton#qt_menubar_ext_button:hover { background: transparent; }"
-        "QToolButton#qt_menubar_ext_button:pressed { background: transparent; }"
-    ).arg(colors.text.name());
-    if (styleSheet() != next) {
-        setStyleSheet(next);
-    }
-
+    // This widget is fully custom-painted. Avoid QMenuBar style sheets here:
+    // polishing a QMenuBar inside the title bar is surprisingly expensive on
+    // Windows and was visible in demo startup logs as a >1s menu-bar phase.
     ensureMenusFluent();
+    update();
 }
 
 FluentMenu *FluentMenuBar::addFluentMenu(const QString &title)
@@ -540,11 +582,13 @@ FluentMenu *FluentMenuBar::addFluentMenu(const QString &title)
     auto *menu = new FluentMenu(title, this);
     QAction *action = QMenuBar::addAction(title);
     m_actionMenus.insert(action, menu);
+    invalidateActionLayout();
     return menu;
 }
 
 void FluentMenuBar::ensureMenusFluent()
 {
+    bool layoutChanged = false;
     const QList<QAction *> acts = actions();
     for (QAction *a : acts) {
         if (!a) {
@@ -580,6 +624,7 @@ void FluentMenuBar::ensureMenusFluent()
         fluent->setParent(this);
         a->setMenu(nullptr);
         m_actionMenus.insert(a, fluent);
+        layoutChanged = true;
         sub->deleteLater();
     }
 
@@ -614,6 +659,10 @@ void FluentMenuBar::ensureMenusFluent()
         // Ensure it won't pop anything.
         ext->setMenu(nullptr);
     }
+
+    if (layoutChanged) {
+        invalidateActionLayout();
+    }
 }
 
 QMenu *FluentMenuBar::menuForAction(QAction *action) const
@@ -630,15 +679,104 @@ QMenu *FluentMenuBar::menuForAction(QAction *action) const
     return action->menu();
 }
 
+void FluentMenuBar::invalidateActionLayout()
+{
+    m_layoutDirty = true;
+    m_cachedSizeHint = QSize();
+    m_actionRects.clear();
+    const int nextMinimumWidth = sizeHint().width();
+    if (minimumWidth() != nextMinimumWidth) {
+        setMinimumWidth(nextMinimumWidth);
+    }
+    updateGeometry();
+    update();
+}
+
+int FluentMenuBar::actionItemWidth(QAction *action, const QFontMetrics &fm) const
+{
+    if (!action || action->isSeparator() || !action->isVisible()) {
+        return 0;
+    }
+
+    const int textWidth = fm.horizontalAdvance(textWithoutMnemonic(action->text()));
+    const int iconWidth = action->icon().isNull() ? 0 : 16 + kMenuBarItemIconTextGap;
+    const int arrowWidth = menuForAction(action) ? kMenuBarItemArrowWidth : 0;
+    return qMax(kMenuBarItemMinWidth,
+                textWidth + iconWidth + arrowWidth + kMenuBarItemHPadding * 2 + kMenuBarItemPaintInset * 2);
+}
+
+void FluentMenuBar::rebuildActionLayout() const
+{
+    if (!m_layoutDirty) {
+        return;
+    }
+
+    m_actionRects.clear();
+
+    const QFontMetrics fm(font());
+    const int itemHeight = qMax(28, fm.height() + 12);
+    int x = kMenuBarOuterMargin;
+
+    const QList<QAction *> acts = actions();
+    for (QAction *action : acts) {
+        if (!action || action->isSeparator() || !action->isVisible()) {
+            continue;
+        }
+
+        const int itemWidth = actionItemWidth(action, fm);
+        if (itemWidth <= 0) {
+            continue;
+        }
+
+        m_actionRects.insert(action, QRect(x, 0, itemWidth, itemHeight));
+        x += itemWidth;
+    }
+
+    m_cachedSizeHint = QSize(qMax(kMenuBarOuterMargin * 2, x + kMenuBarOuterMargin), itemHeight);
+    m_layoutDirty = false;
+}
+
+QRect FluentMenuBar::actionRect(QAction *action) const
+{
+    if (!action) {
+        return QRect();
+    }
+
+    rebuildActionLayout();
+    return m_actionRects.value(action);
+}
+
+QAction *FluentMenuBar::actionAtPosition(const QPoint &pos) const
+{
+    rebuildActionLayout();
+
+    const QList<QAction *> acts = actions();
+    for (QAction *action : acts) {
+        if (!action || action->isSeparator() || !action->isVisible()) {
+            continue;
+        }
+
+        const QRect r = m_actionRects.value(action);
+        if (r.isValid() && r.contains(pos)) {
+            return action;
+        }
+    }
+
+    return nullptr;
+}
+
 void FluentMenuBar::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton) {
-        QAction *a = actionAt(event->pos());
-        if (a && !a->isSeparator()) {
+    if (event && event->button() == Qt::LeftButton) {
+        QAction *a = actionAtPosition(event->pos());
+        m_pressedAction = a;
+        if (a && !a->isSeparator() && a->isEnabled()) {
             openMenuForAction(a);
             event->accept();
             return;
         }
+        event->accept();
+        return;
     }
 
     QMenuBar::mousePressEvent(event);
@@ -646,8 +784,12 @@ void FluentMenuBar::mousePressEvent(QMouseEvent *event)
 
 void FluentMenuBar::mouseReleaseEvent(QMouseEvent *event)
 {
-    // Swallow release to prevent QMenuBar's built-in popup logic from kicking in.
-    if (event->button() == Qt::LeftButton) {
+    if (event && event->button() == Qt::LeftButton) {
+        QAction *action = actionAtPosition(event->pos());
+        if (action && action == m_pressedAction && action->isEnabled() && !menuForAction(action)) {
+            action->trigger();
+        }
+        m_pressedAction = nullptr;
         event->accept();
         return;
     }
@@ -656,7 +798,7 @@ void FluentMenuBar::mouseReleaseEvent(QMouseEvent *event)
 
 void FluentMenuBar::openMenuForAction(QAction *action)
 {
-    if (!action) {
+    if (!action || action->isSeparator() || !action->isEnabled()) {
         return;
     }
 
@@ -695,8 +837,13 @@ void FluentMenuBar::openMenuForAction(QAction *action)
     updateHighlightForAction(action, true);
     startHoverAnimation(1.0);
 
-    const QRect r = actionGeometry(action);
-    const QSize popupSize = menu->sizeHint();
+    const QRect r = actionRect(action);
+    if (!r.isValid()) {
+        return;
+    }
+    QSize popupSize = qobject_cast<FluentMenu *>(menu)
+        ? fluentMenuPopupSizeHint(menu, font())
+        : menu->sizeHint();
     const QPoint actionTopLeft = mapToGlobal(r.topLeft());
     const QPoint actionBottomLeft = mapToGlobal(QPoint(r.left(), r.bottom()));
 
@@ -767,7 +914,7 @@ void FluentMenuBar::setHoverLevel(qreal value)
 
 void FluentMenuBar::mouseMoveEvent(QMouseEvent *event)
 {
-    QAction *action = actionAt(event->pos());
+    QAction *action = event ? actionAtPosition(event->pos()) : nullptr;
     if (action != m_hoverAction) {
         m_hoverAction = action;
         updateHighlightForAction(action, true);
@@ -786,15 +933,20 @@ void FluentMenuBar::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
-    QMenuBar::mouseMoveEvent(event);
+    if (event) {
+        event->accept();
+    }
 }
 
 void FluentMenuBar::leaveEvent(QEvent *event)
 {
     startHoverAnimation(0.0);
     m_hoverAction = nullptr;
+    m_pressedAction = nullptr;
     updateHighlightForAction(nullptr, true);
-    QMenuBar::leaveEvent(event);
+    if (event) {
+        event->accept();
+    }
 }
 
 QRect FluentMenuBar::highlightTargetRect(QAction *action) const
@@ -802,7 +954,10 @@ QRect FluentMenuBar::highlightTargetRect(QAction *action) const
     if (!action || action->isSeparator()) {
         return QRect();
     }
-    QRect r = actionGeometry(action).adjusted(2, 2, -2, -2);
+    QRect r = actionRect(action).adjusted(kMenuBarItemPaintInset,
+                                          kMenuBarItemPaintInset,
+                                          -kMenuBarItemPaintInset,
+                                          -kMenuBarItemPaintInset);
     return r;
 }
 
@@ -825,6 +980,8 @@ void FluentMenuBar::updateHighlightForAction(QAction *action, bool animate)
 
 void FluentMenuBar::paintEvent(QPaintEvent *event)
 {
+    Q_UNUSED(event)
+
     const auto &colors = ThemeManager::instance().colors();
     QPainter painter(this);
     if (!painter.isActive()) {
@@ -842,7 +999,8 @@ void FluentMenuBar::paintEvent(QPaintEvent *event)
     if (!m_highlightRect.isNull()) {
         QColor fill = colors.hover;
 
-        const bool active = (m_highlightAction != nullptr) && (m_highlightAction == activeAction());
+        const bool active = (m_highlightAction != nullptr)
+            && (m_highlightAction == m_openAction || m_highlightAction == m_hoverAction);
         const qreal level = qBound<qreal>(0.0, m_hoverLevel, 1.0);
         int alpha = active ? static_cast<int>(120 + 70 * level) : static_cast<int>(80 + 60 * level);
         fill.setAlpha(qBound(0, alpha, 200));
@@ -859,13 +1017,16 @@ void FluentMenuBar::paintEvent(QPaintEvent *event)
             continue;
         }
 
-        QRect r = actionGeometry(a).adjusted(2, 2, -2, -2);
+        QRect r = actionRect(a).adjusted(kMenuBarItemPaintInset,
+                                         kMenuBarItemPaintInset,
+                                         -kMenuBarItemPaintInset,
+                                         -kMenuBarItemPaintInset);
         if (!r.isValid()) {
             continue;
         }
 
         const bool enabled = a->isEnabled() && isEnabled();
-        const bool active = (a == activeAction());
+        const bool active = (a == m_openAction || a == m_hoverAction);
 
         QFont f = font();
         f.setWeight(active ? QFont::DemiBold : QFont::Normal);
@@ -874,39 +1035,31 @@ void FluentMenuBar::paintEvent(QPaintEvent *event)
         const QColor textColor = enabled ? colors.text : colors.disabledText;
         painter.setPen(textColor);
 
-        const QRect textRect = r.adjusted(10, 0, -10, 0);
+        QRect textRect = r.adjusted(kMenuBarItemHPadding, 0, -kMenuBarItemHPadding, 0);
+        if (!a->icon().isNull()) {
+            const QRect iconRect(textRect.left(), r.center().y() - 8, 16, 16);
+            a->icon().paint(&painter,
+                             iconRect,
+                             Qt::AlignCenter,
+                             enabled ? QIcon::Normal : QIcon::Disabled);
+            textRect.setLeft(iconRect.right() + 1 + kMenuBarItemIconTextGap);
+        }
+        if (menuForAction(a)) {
+            Style::drawChevronDown(painter,
+                                   QPointF(textRect.right() - 7.0, r.center().y() + 0.5),
+                                   enabled ? colors.subText : colors.disabledText,
+                                   6.0,
+                                   1.45);
+            textRect.setRight(textRect.right() - kMenuBarItemArrowWidth);
+        }
         painter.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextShowMnemonic, a->text());
     }
 }
 
 QSize FluentMenuBar::sizeHint() const
 {
-    // Provide a stable width hint so layouts reserve enough space and QMenuBar
-    // won't collapse actions into the native overflow menu.
-    const QFontMetrics fm(font());
-
-    int w = 0;
-    const QList<QAction *> acts = actions();
-    for (QAction *a : acts) {
-        if (!a || a->isSeparator()) {
-            continue;
-        }
-
-        QString text = a->text();
-        text.remove('&');
-        const int textW = fm.horizontalAdvance(text);
-
-        // Match QSS padding: 6px 12px; plus a small safety margin.
-        const int itemW = textW + 24 + 8;
-        w += itemW;
-    }
-
-    // Small outer margin.
-    w += 8;
-
-    QSize base = QMenuBar::sizeHint();
-    base.setWidth(qMax(base.width(), w));
-    return base;
+    rebuildActionLayout();
+    return m_cachedSizeHint;
 }
 
 QSize FluentMenuBar::minimumSizeHint() const

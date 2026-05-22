@@ -13,22 +13,6 @@
 
 namespace Fluent {
 
-namespace {
-
-QString rgbaColorString(const QColor &color, qreal alpha)
-{
-    QColor rgba(color);
-    rgba.setAlphaF(qBound(0.0, alpha, 1.0));
-
-    return QStringLiteral("rgba(%1,%2,%3,%4)")
-        .arg(rgba.red())
-        .arg(rgba.green())
-        .arg(rgba.blue())
-        .arg(QString::number(rgba.alphaF(), 'f', 3));
-}
-
-} // namespace
-
 FluentKeySequenceEdit::FluentKeySequenceEdit(QWidget *parent)
     : QKeySequenceEdit(parent)
 {
@@ -231,27 +215,25 @@ void FluentKeySequenceEdit::applyTheme()
         const QString editorStyle = QString(
             "QLineEdit {"
             "  background: transparent;"
-            "  color: %1;"
+            "  color: palette(window-text);"
             "  border: none;"
-            "  padding: 0px %2px;"
-            "  selection-background-color: %3;"
-            "  selection-color: %4;"
+            "  padding: 0px %1px;"
+            "  selection-background-color: palette(highlight);"
+            "  selection-color: palette(highlighted-text);"
             "}"
             "QLineEdit:disabled {"
-            "  color: %5;"
+            "  color: palette(mid);"
             "}")
-            .arg(textColor.name())
-            .arg(Style::metrics().paddingX)
-            .arg(rgbaColorString(selectionBg, selectionBg.alphaF()))
-            .arg(colors.text.name())
-            .arg(colors.disabledText.name());
+            .arg(Style::metrics().paddingX);
         if (m_editor->styleSheet() != editorStyle) {
             m_editor->setStyleSheet(editorStyle);
         }
 
         QPalette palette = m_editor->palette();
+        palette.setColor(QPalette::WindowText, textColor);
+        palette.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
         palette.setColor(QPalette::Text, textColor);
-    palette.setColor(QPalette::Highlight, selectionBg);
+        palette.setColor(QPalette::Highlight, selectionBg);
         palette.setColor(QPalette::HighlightedText, colors.text);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
         QColor placeholder = colors.subText;

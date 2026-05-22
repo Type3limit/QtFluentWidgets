@@ -9,6 +9,7 @@
 #include <QLineEdit>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QPalette>
 #include <QEasingCurve>
 #include <QResizeEvent>
 #include <QStringList>
@@ -174,24 +175,20 @@ void FluentSpinBox::applyTheme()
         const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
         QColor selectionBg = colors.accent;
         selectionBg.setAlphaF(dark ? 0.35 : 0.22);
-        const QString selectionBgStr = QStringLiteral("rgba(%1,%2,%3,%4)")
-                                           .arg(selectionBg.red())
-                                           .arg(selectionBg.green())
-                                           .arg(selectionBg.blue())
-                                           .arg(QString::number(selectionBg.alphaF(), 'f', 3));
 
-        const QString next = QString(
-            "QLineEdit { background: transparent; color: %1; border: none; selection-background-color: %2; selection-color: %3; }")
-                                 .arg(textColor.name())
-                                 .arg(selectionBgStr)
-                                 .arg(colors.text.name());
+        const QString next = QStringLiteral(
+            "QLineEdit { background: transparent; color: palette(window-text); border: none; "
+            "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
+            "QLineEdit:disabled { color: palette(mid); }");
         if (m_editor->styleSheet() != next) {
             m_editor->setStyleSheet(next);
         }
 
         // Try to make caret follow accent while keeping text color from stylesheet.
         QPalette pal = m_editor->palette();
-        pal.setColor(QPalette::Text, colors.accent);
+        pal.setColor(QPalette::WindowText, textColor);
+        pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
+        pal.setColor(QPalette::Text, textColor);
         pal.setColor(QPalette::Highlight, selectionBg);
         pal.setColor(QPalette::HighlightedText, colors.text);
     #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
@@ -598,24 +595,20 @@ void FluentDoubleSpinBox::applyTheme()
             const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
             QColor selectionBg = colors.accent;
             selectionBg.setAlphaF(dark ? 0.35 : 0.22);
-            const QString selectionBgStr = QStringLiteral("rgba(%1,%2,%3,%4)")
-                                               .arg(selectionBg.red())
-                                               .arg(selectionBg.green())
-                                               .arg(selectionBg.blue())
-                                               .arg(QString::number(selectionBg.alphaF(), 'f', 3));
 
-            const QString next = QString(
-                "QLineEdit { background: transparent; color: %1; border: none; selection-background-color: %2; selection-color: %3; }")
-                                         .arg(textColor.name())
-                                         .arg(selectionBgStr)
-                                         .arg(colors.text.name());
+            const QString next = QStringLiteral(
+                "QLineEdit { background: transparent; color: palette(window-text); border: none; "
+                "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
+                "QLineEdit:disabled { color: palette(mid); }");
             if (m_editor->styleSheet() != next) {
                 m_editor->setStyleSheet(next);
             }
 
             // Try to make caret follow accent while keeping text color from stylesheet.
             QPalette pal = m_editor->palette();
-            pal.setColor(QPalette::Text, colors.accent);
+            pal.setColor(QPalette::WindowText, textColor);
+            pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
+            pal.setColor(QPalette::Text, textColor);
             pal.setColor(QPalette::Highlight, selectionBg);
             pal.setColor(QPalette::HighlightedText, colors.text);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)

@@ -253,9 +253,10 @@ public:
     {
         m_border.syncFromTheme();
         if (m_view) {
-            const auto &colors = ThemeManager::instance().colors();
             QPalette palette = m_view->palette();
+            const auto &colors = ThemeManager::instance().colors();
             palette.setColor(QPalette::Text, colors.text);
+            palette.setColor(QPalette::Mid, colors.border);
             m_view->setPalette(palette);
             m_view->setStyleSheet(QStringLiteral(
                 "QListView#FluentAutoSuggestPopupView {"
@@ -272,14 +273,14 @@ public:
                 "  margin: 2px;"
                 "}"
                 "QScrollBar::handle:vertical {"
-                "  background-color: %1;"
+                "  background-color: palette(mid);"
                 "  border: 1px solid transparent;"
                 "  border-radius: 999px;"
                 "  min-height: 24px;"
                 "}"
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
                 "  height: 0px;"
-                "}").arg(colors.border.name()));
+                "}"));
         }
         update();
     }

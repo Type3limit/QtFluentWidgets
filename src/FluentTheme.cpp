@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QTimer>
+#include <QWidget>
 #include <QtGlobal>
 
 namespace Fluent {
@@ -158,29 +159,14 @@ FluentThemeTokens Theme::tokens(const ThemeColors &colors)
 }
 
 QString Theme::baseStyleSheet(const ThemeColors &colors) {
-  const bool dark = isDark(colors);
   const auto themeTokens = tokens(colors);
-  const QColor sbHandle =
-      dark ? QColor(255, 255, 255, 70) : QColor(0, 0, 0, 70);
-  const QColor sbHandleHover =
-      dark ? QColor(255, 255, 255, 110) : QColor(0, 0, 0, 110);
-  const QColor sbHandlePressed =
-      dark ? QColor(255, 255, 255, 140) : QColor(0, 0, 0, 140);
-  const QColor toolTipBackground =
-      Style::mix(colors.surface, colors.accent, dark ? 0.18 : 0.08);
-  const QColor toolTipBorder =
-      Style::mix(colors.border, colors.accent, dark ? 0.78 : 0.84);
-  const QColor toolTipText = colors.text;
+  Q_UNUSED(colors);
 
   return QString(
              "QWidget {"
-             "  color: %1;"
              "  font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft "
              "YaHei', sans-serif;"
-             "  font-size: %10px;"
-             "}"
-             "QWidget:window, QMainWindow, QDialog {"
-             "  background: %2;"
+             "  font-size: %1px;"
              "}"
              "QLabel {"
              "  background: transparent;"
@@ -202,13 +188,13 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  margin: 2px;"
              "}"
              "QAbstractScrollArea:hover QScrollBar::handle:vertical {"
-             "  background-color: %3;"
+             "  background-color: rgba(128,128,128,0.45);"
              "}"
              "QScrollBar::handle:vertical:hover {"
-             "  background-color: %4;"
+             "  background-color: rgba(128,128,128,0.62);"
              "}"
              "QScrollBar::handle:vertical:pressed {"
-             "  background-color: %5;"
+             "  background-color: rgba(128,128,128,0.76);"
              "}"
              "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
              "  height: 0px;"
@@ -229,13 +215,13 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  margin: 2px;"
              "}"
              "QAbstractScrollArea:hover QScrollBar::handle:horizontal {"
-             "  background-color: %3;"
+             "  background-color: rgba(128,128,128,0.45);"
              "}"
              "QScrollBar::handle:horizontal:hover {"
-             "  background-color: %4;"
+             "  background-color: rgba(128,128,128,0.62);"
              "}"
              "QScrollBar::handle:horizontal:pressed {"
-             "  background-color: %5;"
+             "  background-color: rgba(128,128,128,0.76);"
              "}"
              "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal "
              "{"
@@ -248,37 +234,24 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
              "  background: none;"
              "}"
              "QToolTip {"
-                  "  background: %6;"
-                  "  color: %7;"
-                  "  border: 1px solid %8;"
+             "  background: palette(tool-tip-base);"
+             "  color: palette(tool-tip-text);"
+             "  border: 1px solid rgba(128,128,128,0.55);"
              "  padding: 7px 10px;"
              "  border-radius: 8px;"
              "  font-size: 12px;"
              "  font-weight: 500;"
-             "}"
-             "QLabel#FluentLink {"
-                  "  color: %9;"
              "}")
-                .arg(colors.text.name())
-                .arg(colors.background.name())
-      .arg(sbHandle.name(QColor::HexArgb))
-      .arg(sbHandleHover.name(QColor::HexArgb))
-      .arg(sbHandlePressed.name(QColor::HexArgb))
-      .arg(toolTipBackground.name())
-      .arg(toolTipText.name())
-                .arg(toolTipBorder.name())
-                .arg(colors.accent.name())
-                .arg(themeTokens.typography.body);
+      .arg(themeTokens.typography.body);
 }
 
 QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {
-  const auto themeTokens = tokens(colors);
-  const QString borderColor =
-      primary ? colors.accent.name() : colors.border.name();
-  const QString background =
-      primary ? colors.accent.name() : colors.surface.name();
-  const QString textColor = primary ? themeTokens.onAccent.name() : colors.text.name();
-
+  Q_UNUSED(colors);
+  const QString background = primary ? QStringLiteral("palette(highlight)") : QStringLiteral("palette(button)");
+  const QString textColor = primary ? QStringLiteral("palette(highlighted-text)") : QStringLiteral("palette(button-text)");
+  const QString borderColor = primary ? QStringLiteral("palette(highlight)") : QStringLiteral("palette(mid)");
+  const QString hover = primary ? QStringLiteral("palette(shadow)") : QStringLiteral("palette(light)");
+  const QString pressed = primary ? QStringLiteral("palette(midlight)") : QStringLiteral("palette(dark)");
   return QString("QPushButton {"
                  "  background: %1;"
                  "  color: %2;"
@@ -300,73 +273,66 @@ QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {
       .arg(background)
       .arg(textColor)
       .arg(borderColor)
-      .arg(primary ? themeTokens.accent.dark1.name() : colors.hover.name())
-      .arg(primary ? themeTokens.accent.dark2.name() : colors.pressed.name())
-      .arg(colors.hover.name())
-      .arg(colors.disabledText.name())
-      .arg(colors.border.name());
+      .arg(hover)
+      .arg(pressed)
+      .arg(QStringLiteral("palette(light)"))
+      .arg(QStringLiteral("palette(mid)"))
+      .arg(QStringLiteral("palette(mid)"));
 }
 
 QString Theme::labelStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QLabel {"
-                 "  color: %1;"
-                 "}")
-      .arg(colors.text.name());
+                 "  color: palette(window-text);"
+                 "}");
 }
 
 QString Theme::lineEditStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QLineEdit {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 10px;"
                  "}"
                  "QLineEdit:focus {"
-                 "  border: 1px solid %4;"
+                 "  border: 1px solid palette(highlight);"
                  "}"
                  "QLineEdit:disabled {"
-                 "  color: %5;"
-                 "  background: %6;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.focus.name())
-      .arg(colors.disabledText.name())
-      .arg(colors.hover.name());
+                 "  color: palette(mid);"
+                 "  background: palette(light);"
+                 "}");
 }
 
 QString Theme::textEditStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QTextEdit {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 10px;"
                  "}"
                  "QTextEdit:focus {"
-                 "  border: 1px solid %4;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.focus.name());
+                 "  border: 1px solid palette(highlight);"
+                 "}");
 }
 
 QString Theme::dateTimeStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QDateEdit, QTimeEdit {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 10px;"
                  "}"
                  "QDateEdit:hover, QTimeEdit:hover {"
-                 "  border-color: %4;"
+                 "  border-color: palette(highlight);"
                  "}"
                  "QDateEdit:focus, QTimeEdit:focus {"
-                 "  border: 2px solid %4;"
+                 "  border: 2px solid palette(highlight);"
                  "}"
                  "QDateEdit::up-button, QTimeEdit::up-button,"
                  "QDateEdit::down-button, QTimeEdit::down-button {"
@@ -383,34 +349,30 @@ QString Theme::dateTimeStyle(const ThemeColors &colors) {
                  "}"
                  "QDateEdit::up-button:hover, QTimeEdit::up-button:hover,"
                  "QDateEdit::down-button:hover, QTimeEdit::down-button:hover {"
-                 "  background: %5;"
+                 "  background: palette(light);"
                  "  border-radius: 3px;"
                  "}"
                  "QCalendarWidget QWidget {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.focus.name())
-      .arg(colors.hover.name());
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "}");
 }
 
 QString Theme::calendarPopupStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QCalendarWidget {"
-                 "  background: %1;"
-                 "  border: 1px solid %4;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 8px;"
                  "}"
                  "QCalendarWidget QWidget {"
-                 "  background: %1;"
-                 "  color: %2;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
                  "}"
                  "QCalendarWidget QAbstractItemView:enabled {"
-                 "  background: %1;"
-                 "  selection-background-color: %3;"
-                 "  selection-color: white;"
+                 "  background: palette(base);"
+                 "  selection-background-color: palette(highlight);"
+                 "  selection-color: palette(highlighted-text);"
                  "  border: none;"
                  "  outline: none;"
                  "}"
@@ -419,16 +381,16 @@ QString Theme::calendarPopupStyle(const ThemeColors &colors) {
                  "  border-radius: 4px;"
                  "}"
                  "QCalendarWidget QAbstractItemView::item:hover {"
-                 "  background: %5;"
+                 "  background: palette(light);"
                  "}"
                  "QCalendarWidget QAbstractItemView::item:selected {"
-                 "  background: %3;"
-                 "  color: white;"
+                 "  background: palette(highlight);"
+                 "  color: palette(highlighted-text);"
                  "  font-weight: 600;"
                  "}"
                  "QCalendarWidget QHeaderView::section {"
-                 "  background: %1;"
-                 "  color: %7;"
+                 "  background: palette(base);"
+                 "  color: palette(mid);"
                  "  padding: 8px;"
                  "  border: none;"
                  "  font-weight: 600;"
@@ -438,14 +400,14 @@ QString Theme::calendarPopupStyle(const ThemeColors &colors) {
                  "  border: none;"
                  "  border-radius: 4px;"
                  "  padding: 6px;"
-                 "  color: %2;"
+                 "  color: palette(text);"
                  "  icon-size: 16px;"
                  "}"
                  "QCalendarWidget QToolButton:hover {"
-                 "  background: %5;"
+                 "  background: palette(light);"
                  "}"
                  "QCalendarWidget QToolButton:pressed {"
-                 "  background: %6;"
+                 "  background: palette(dark);"
                  "}"
                  "QCalendarWidget QToolButton#qt_calendar_prevmonth,"
                  "QCalendarWidget QToolButton#qt_calendar_nextmonth {"
@@ -463,11 +425,11 @@ QString Theme::calendarPopupStyle(const ThemeColors &colors) {
                  "  width: 0px;"
                  "}"
                  "QCalendarWidget QSpinBox {"
-                 "  border: 1px solid %4;"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 4px;"
                  "  padding: 4px 8px;"
-                 "  background: %1;"
-                 "  selection-background-color: %3;"
+                 "  background: palette(base);"
+                 "  selection-background-color: palette(highlight);"
                  "}"
                  "QCalendarWidget QSpinBox::up-button,"
                  "QCalendarWidget QSpinBox::down-button {"
@@ -479,94 +441,81 @@ QString Theme::calendarPopupStyle(const ThemeColors &colors) {
                  "}"
                  "QCalendarWidget QSpinBox::up-button:hover,"
                  "QCalendarWidget QSpinBox::down-button:hover {"
-                 "  background: %5;"
+                 "  background: palette(light);"
                  "}"
                  "QCalendarWidget QAbstractItemView::item:focus {"
-                 "  border: 2px solid %3;"
+                 "  border: 2px solid palette(highlight);"
                  "  background: transparent;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.accent.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name())
-      .arg(colors.pressed.name())
-      .arg(colors.subText.name());
+                 "}");
 }
 
 QString Theme::checkBoxStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QCheckBox {"
                  "  spacing: 8px;"
-                 "  color: %1;"
+                 "  color: palette(window-text);"
                  "}"
                  "QCheckBox::indicator {"
                  "  width: 18px;"
                  "  height: 18px;"
                  "  border-radius: 4px;"
-                 "  border: 1px solid %2;"
-                 "  background: %3;"
+                 "  border: 1px solid palette(mid);"
+                 "  background: palette(base);"
                  "}"
                  "QCheckBox::indicator:checked {"
-                 "  background: %4;"
-                 "  border-color: %4;"
+                 "  background: palette(highlight);"
+                 "  border-color: palette(highlight);"
                  "  image: "
                  "url(:/qt-project.org/styles/commonstyle/images/"
                  "checkbox_checked.png);"
                  "}"
                  "QCheckBox::indicator:disabled {"
-                 "  background: %5;"
-                 "  border-color: %2;"
-                 "}")
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.surface.name())
-      .arg(colors.accent.name())
-      .arg(colors.hover.name());
+                 "  background: palette(light);"
+                 "  border-color: palette(mid);"
+                 "}");
 }
 
 QString Theme::radioButtonStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QRadioButton {"
                  "  spacing: 8px;"
-                 "  color: %1;"
+                 "  color: palette(window-text);"
                  "}"
                  "QRadioButton::indicator {"
                  "  width: 18px;"
                  "  height: 18px;"
                  "  border-radius: 9px;"
-                 "  border: 1px solid %2;"
-                 "  background: %3;"
+                 "  border: 1px solid palette(mid);"
+                 "  background: palette(base);"
                  "}"
                  "QRadioButton::indicator:checked {"
-                 "  background: %4;"
-                 "  border-color: %4;"
-                 "}")
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.surface.name())
-      .arg(colors.accent.name());
+                 "  background: palette(highlight);"
+                 "  border-color: palette(highlight);"
+                 "}");
 }
 
 QString Theme::toggleSwitchStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QCheckBox {"
                  "  spacing: 10px;"
-                 "  color: %1;"
+                 "  color: palette(window-text);"
                  "}"
                  "QCheckBox::indicator {"
                  "  width: 36px;"
                  "  height: 20px;"
                  "  border-radius: 10px;"
-                 "  background: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(mid);"
+                 "  border: 1px solid palette(mid);"
                  "}"
                  "QCheckBox::indicator:checked {"
-                 "  background: %4;"
-                 "  border-color: %4;"
+                 "  background: palette(highlight);"
+                 "  border-color: palette(highlight);"
                  "}"
                  "QCheckBox::indicator:unchecked {"
-                 "  background: %2;"
+                 "  background: palette(mid);"
                  "}"
                  "QCheckBox::indicator:checked:pressed {"
-                 "  background: %5;"
+                 "  background: palette(shadow);"
                  "}"
                  "QCheckBox::indicator:checked {"
                  "  image: none;"
@@ -576,24 +525,20 @@ QString Theme::toggleSwitchStyle(const ThemeColors &colors) {
                  "}"
                  "QCheckBox::indicator::before {"
                  "  content: '';"
-                 "}")
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.border.name())
-      .arg(colors.accent.name())
-      .arg(colors.accent.darker(110).name());
+                 "}");
 }
 
 QString Theme::comboBoxStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QComboBox {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 30px 6px 10px;"
                  "}"
                  "QComboBox:hover {"
-                 "  border-color: %5;"
+                 "  border-color: palette(highlight);"
                  "}"
                  "QComboBox::drop-down {"
                  "  subcontrol-origin: padding;"
@@ -604,10 +549,10 @@ QString Theme::comboBoxStyle(const ThemeColors &colors) {
                  "  border-bottom-right-radius: 6px;"
                  "}"
                  "QComboBox QAbstractItemView {"
-                 "  background: %1;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
-                 "  selection-background-color: %4;"
+                 "  selection-background-color: palette(light);"
                  "  outline: none;"
                  "  padding: 4px;"
                  "}"
@@ -616,19 +561,15 @@ QString Theme::comboBoxStyle(const ThemeColors &colors) {
                  "  border-radius: 4px;"
                  "}"
                  "QComboBox QAbstractItemView::item:hover {"
-                 "  background: %4;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name())
-      .arg(colors.focus.name());
+                 "  background: palette(light);"
+                 "}");
 }
 
 QString Theme::sliderStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QSlider::groove:horizontal {"
                  "  height: 6px;"
-                 "  background: %1;"
+                 "  background: palette(mid);"
                  "  border-radius: 3px;"
                  "}"
                  "QSlider::handle:horizontal {"
@@ -636,63 +577,54 @@ QString Theme::sliderStyle(const ThemeColors &colors) {
                  "  height: 16px;"
                  "  margin: -6px 0;"
                  "  border-radius: 8px;"
-                 "  background: %2;"
-                 "}")
-      .arg(colors.border.name())
-      .arg(colors.accent.name());
+                 "  background: palette(highlight);"
+                 "}");
 }
 
 QString Theme::progressBarStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QProgressBar {"
-                 "  border: 1px solid %1;"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  text-align: center;"
-                 "  background: %2;"
+                 "  background: palette(base);"
                  "}"
                  "QProgressBar::chunk {"
-                 "  background: %3;"
+                 "  background: palette(highlight);"
                  "  border-radius: 6px;"
-                 "}")
-      .arg(colors.border.name())
-      .arg(colors.surface.name())
-      .arg(colors.accent.name());
+                 "}");
 }
 
 QString Theme::spinBoxStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QSpinBox, QDoubleSpinBox {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 10px;"
                  "}"
                  "QSpinBox:hover, QDoubleSpinBox:hover {"
-                 "  border-color: %4;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.focus.name());
+                 "  border-color: palette(highlight);"
+                 "}");
 }
 
 QString Theme::toolButtonStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QToolButton {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(button);"
+                 "  color: palette(button-text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 12px;"
                  "}"
                  "QToolButton:hover {"
-                 "  background: %4;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name());
+                 "  background: palette(light);"
+                 "}");
 }
 
 QString Theme::tabWidgetStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QTabWidget::pane {"
                  "  border: none;"
                  "  background: transparent;"
@@ -711,19 +643,18 @@ QString Theme::tabWidgetStyle(const ThemeColors &colors) {
                  "  margin: 6px 6px;"
                  "}"
                  "QTabBar QToolButton:hover {"
-                 "  background: %1;"
+                 "  background: palette(light);"
                  "}"
                  "QTabBar QToolButton:pressed {"
-                 "  background: %2;"
-                 "}")
-      .arg(colors.hover.name())
-      .arg(colors.pressed.name());
+                 "  background: palette(dark);"
+                 "}");
 }
 
 QString Theme::listViewStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QListView {"
-                 "  background: %1;"
-                 "  border: 1px solid %2;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  outline: none;"
                  "}"
@@ -737,16 +668,15 @@ QString Theme::listViewStyle(const ThemeColors &colors) {
                  "}"
                  "QListView::item:selected {"
                  "  background: transparent;"
-                 "}")
-      .arg(colors.surface.name())
-  .arg(colors.border.name());
+                 "}");
 }
 
 QString Theme::tableViewStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QTableView {"
-                 "  background: %1;"
-                 "  border: 1px solid %2;"
-                 "  gridline-color: %2;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
+                 "  gridline-color: palette(mid);"
                  "  border-radius: 6px;"
                  "  outline: none;"
                  "}"
@@ -758,26 +688,23 @@ QString Theme::tableViewStyle(const ThemeColors &colors) {
                  "  background: transparent;"
                  "}"
                  "QHeaderView::section {"
-                 "  background: %3;"
-                 "  color: %4;"
+                 "  background: palette(light);"
+                 "  color: palette(text);"
                  "  border: none;"
-                 "  border-bottom: 1px solid %2;"
+                 "  border-bottom: 1px solid palette(mid);"
                  "  padding: 6px 8px;"
                  "  font-weight: 600;"
                  "}"
                  "QTableView::item:selected {"
                  "  background: transparent;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name())
-  .arg(colors.text.name());
+                 "}");
 }
 
 QString Theme::treeViewStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QTreeView {"
-                 "  background: %1;"
-                 "  border: 1px solid %2;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  outline: none;"
                  "}"
@@ -804,141 +731,123 @@ QString Theme::treeViewStyle(const ThemeColors &colors) {
                  "  image: none;"
                  "}"
                  "QHeaderView::section {"
-                 "  background: %3;"
-                 "  color: %4;"
+                 "  background: palette(light);"
+                 "  color: palette(text);"
                  "  border: none;"
-                 "  border-bottom: 1px solid %2;"
+                 "  border-bottom: 1px solid palette(mid);"
                  "  padding: 6px 8px;"
                  "  font-weight: 600;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name())
-  .arg(colors.text.name());
+                 "}");
 }
 
 QString Theme::groupBoxStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QGroupBox {"
-                 "  background: %1;"
-                 "  border: 1px solid %2;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 10px;"
                  "  margin-top: 14px;"
                  "  padding: 10px;"
                  "  padding-top: 14px;"
                  "}"
                  "QGroupBox:disabled {"
-                 "  background: %3;"
-                 "  color: %4;"
+                 "  background: palette(light);"
+                 "  color: palette(mid);"
                  "}"
                  "QGroupBox::title {"
                  "  subcontrol-origin: margin;"
                  "  left: 12px;"
                  "  padding: 0 6px;"
-                 "  color: %5;"
-                 "  background: %1;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name())
-      .arg(colors.disabledText.name())
-      .arg(colors.text.name());
+                 "  color: palette(text);"
+                 "  background: palette(base);"
+                 "}");
 }
 
 QString Theme::menuBarStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QMenuBar {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border-bottom: 1px solid %3;"
+                 "  background: palette(button);"
+                 "  color: palette(button-text);"
+                 "  border-bottom: 1px solid palette(mid);"
                  "}"
                  "QMenuBar::item {"
                  "  padding: 6px 12px;"
                  "  background: transparent;"
                  "}"
                  "QMenuBar::item:selected {"
-                 "  background: %4;"
+                 "  background: palette(light);"
                  "  border-radius: 4px;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name())
-      .arg(colors.hover.name());
+                 "}");
 }
 
 QString Theme::toolBarStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QToolBar {"
-                 "  background: %1;"
-                 "  border-bottom: 1px solid %2;"
+                 "  background: palette(button);"
+                 "  border-bottom: 1px solid palette(mid);"
                  "  spacing: 6px;"
                  "}"
                  "QToolBar::separator {"
-                 "  background: %2;"
+                 "  background: palette(mid);"
                  "  width: 1px;"
                  "  margin: 4px 6px;"
                  "}"
                  "QToolButton {"
-                 "  background: %1;"
-                 "  color: %3;"
-                 "  border: 1px solid %2;"
+                 "  background: palette(button);"
+                 "  color: palette(button-text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 6px;"
                  "  padding: 6px 10px;"
                  "}"
                  "QToolButton:hover {"
-                 "  background: %4;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.border.name())
-      .arg(colors.text.name())
-      .arg(colors.hover.name());
+                 "  background: palette(light);"
+                 "}");
 }
 
 QString Theme::statusBarStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QStatusBar {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border-top: 1px solid %3;"
+                 "  background: palette(button);"
+                 "  color: palette(button-text);"
+                 "  border-top: 1px solid palette(mid);"
                  "  min-height: 28px;"
                  "}"
                  "QStatusBar::item {"
                  "  border: none;"
                  "}"
                  "QStatusBar QLabel {"
-                 "  color: %2;"
+                 "  color: palette(button-text);"
                  "  padding: 2px 8px;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name());
+                 "}");
 }
 
 QString Theme::dialogStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QDialog {"
-                 "  background: %1;"
-                 "  color: %2;"
-                 "  border: 1px solid %3;"
+                 "  background: palette(base);"
+                 "  color: palette(text);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 10px;"
                  "}"
                  "QDialog QWidget {"
                  "  background: transparent;"
                  "}"
                  "QDialog QLabel {"
-                 "  color: %2;"
-                 "}")
-      .arg(colors.surface.name())
-      .arg(colors.text.name())
-      .arg(colors.border.name());
+                 "  color: palette(text);"
+                 "}");
 }
 
 QString Theme::cardStyle(const ThemeColors &colors) {
+  Q_UNUSED(colors);
   return QString("QWidget#FluentCard {"
-                 "  background: %1;"
-                 "  border: 1px solid %2;"
+                 "  background: palette(base);"
+                 "  border: 1px solid palette(mid);"
                  "  border-radius: 10px;"
                  "}"
                  "QWidget#FluentCard:disabled {"
-                 "  background: %3;"
-                 "  border-color: %2;"
-                 "}")
-      .arg(colors.surface.name(), colors.border.name(), colors.hover.name());
+                 "  background: palette(light);"
+                 "  border-color: palette(mid);"
+                 "}");
 }
 
 ThemeManager &ThemeManager::instance() {
@@ -971,6 +880,34 @@ QString themeModeName(ThemeManager::ThemeMode mode)
 {
   return mode == ThemeManager::ThemeMode::Dark ? QStringLiteral("Dark") : QStringLiteral("Light");
 }
+
+struct UpdatesBlocker {
+  QVector<QWidget *> widgets;
+
+  UpdatesBlocker()
+  {
+    const auto topLevels = QApplication::topLevelWidgets();
+    widgets.reserve(topLevels.size());
+    for (QWidget *w : topLevels) {
+      if (!w || !w->isVisible() || !w->updatesEnabled()) {
+        continue;
+      }
+      widgets.push_back(w);
+      w->setUpdatesEnabled(false);
+    }
+  }
+
+  ~UpdatesBlocker()
+  {
+    for (QWidget *w : std::as_const(widgets)) {
+      if (!w) {
+        continue;
+      }
+      w->setUpdatesEnabled(true);
+      w->update();
+    }
+  }
+};
 
 } // namespace
 
@@ -1011,7 +948,16 @@ void ThemeManager::scheduleThemeChanged(const QString &reason)
     QElapsedTimer dispatchTimer;
     dispatchTimer.start();
     m_themeChangedPending = false;
-    emit themeChanged();
+    {
+      QElapsedTimer blockerTimer;
+      blockerTimer.start();
+      UpdatesBlocker updatesBlocker;
+      qInfo().noquote() << QStringLiteral("[ThemeSwitch] #%1 updates blocked for %2 top-level widgets +%3 ms")
+                               .arg(sequence)
+                               .arg(updatesBlocker.widgets.size())
+                               .arg(blockerTimer.elapsed());
+      emit themeChanged();
+    }
     qInfo().noquote() << QStringLiteral("[ThemeSwitch] #%1 dispatch done +%2 ms, total %3 ms")
                              .arg(sequence)
                              .arg(dispatchTimer.elapsed())

@@ -22,9 +22,12 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPalette>
 #include <QRegion>
 #include <QShowEvent>
+#include <QStyle>
 #include <QStatusBar>
+#include <QStringList>
 #include <QTimer>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -45,25 +48,175 @@ enum WindowGlyphType { GlyphMinimize = 0, GlyphMaximize = 1, GlyphRestore = 2, G
 // Window frame radius matching the Windows 11 DWM DWMWCP_ROUND corner clip (8 DIPs).
 static constexpr qreal kWindowFrameRadius = 8.0;
 
-static QString rgbaString(const QColor &c)
-{
-    return QStringLiteral("rgba(%1,%2,%3,%4)")
-        .arg(c.red())
-        .arg(c.green())
-        .arg(c.blue())
-        .arg(c.alpha());
-}
-
 static QString applicationStyleSignature(const ThemeColors &colors)
 {
     // QApplication::setStyleSheet() repolishes the whole widget tree. Fluent
-    // controls already repaint/apply local styles for accent, background,
-    // surface, border and text changes, so the app-level sheet should only be
-    // refreshed when the explicit structural theme family changes.
-    const auto mode = ThemeManager::instance().themeMode();
-    return QStringLiteral("%1|%2")
-        .arg(mode == ThemeManager::ThemeMode::Dark ? QStringLiteral("dark") : QStringLiteral("light"))
+    // controls already repaint/apply local styles for colors, while generic
+    // Qt widgets can follow QApplication's palette. Keep this signature purely
+    // structural so Light/Dark and accent changes do not force a global polish.
+    Q_UNUSED(colors);
+    return QStringLiteral("structure|%1")
         .arg(ThemeManager::instance().tokens().typography.body);
+}
+
+static QString applicationPaletteSignature(const ThemeColors &colors)
+{
+    return QStringLiteral("%1|%2|%3|%4|%5|%6")
+        .arg(colors.text.name(QColor::HexArgb))
+        .arg(colors.subText.name(QColor::HexArgb))
+        .arg(colors.disabledText.name(QColor::HexArgb))
+        .arg(colors.background.name(QColor::HexArgb))
+        .arg(colors.surface.name(QColor::HexArgb))
+        .arg(colors.accent.name(QColor::HexArgb));
+}
+
+static constexpr const char *kPaletteStyleDirtyProperty = "_fluentPaletteStyleDirty";
+static constexpr const char *kPaletteStyleFilterInstalledProperty = "_fluentPaletteStyleFilterInstalled";
+
+static bool hasPaletteDrivenStyleSheet(QWidget *widget)
+{
+    if (!widget) {
+        return false;
+    }
+
+    const QString styleSheet = widget->styleSheet();
+    return !styleSheet.isEmpty() && styleSheet.contains(QStringLiteral("palette("));
+}
+
+static void reapplyPaletteDrivenStyleSheet(QWidget *widget)
+{
+    if (!widget) {
+        return;
+    }
+
+    const QString styleSheet = widget->styleSheet();
+    if (styleSheet.isEmpty() || !styleSheet.contains(QStringLiteral("palette("))) {
+        return;
+    }
+
+    // Qt style sheets resolve palette() while the sheet is parsed. A plain
+    // polish is not enough after QApplication::setPalette(), so re-apply only
+    // these local palette-driven sheets.
+    widget->setStyleSheet(QString());
+    widget->setStyleSheet(styleSheet);
+    if (QStyle *style = widget->style()) {
+        style->unpolish(widget);
+        style->polish(widget);
+    }
+    widget->update();
+}
+
+static void applyApplicationPalette(QApplication *app, const ThemeColors &colors)
+{
+    if (!app) {
+        return;
+    }
+
+    const auto tokens = Theme::tokens(colors);
+    QPalette palette = app->palette();
+    palette.setColor(QPalette::Window, colors.background);
+    palette.setColor(QPalette::WindowText, colors.text);
+    palette.setColor(QPalette::Base, colors.surface);
+    palette.setColor(QPalette::AlternateBase, colors.hover);
+    palette.setColor(QPalette::ToolTipBase, Style::mix(colors.surface, colors.accent, tokens.dark ? 0.18 : 0.08));
+    palette.setColor(QPalette::ToolTipText, colors.text);
+    palette.setColor(QPalette::Text, colors.text);
+    palette.setColor(QPalette::Button, colors.surface);
+    palette.setColor(QPalette::ButtonText, colors.text);
+    palette.setColor(QPalette::BrightText, colors.error);
+    palette.setColor(QPalette::Light, colors.hover);
+    palette.setColor(QPalette::Midlight, tokens.accent.dark2);
+    palette.setColor(QPalette::Mid, colors.border);
+    palette.setColor(QPalette::Dark, colors.pressed);
+    palette.setColor(QPalette::Shadow, tokens.accent.dark1);
+    palette.setColor(QPalette::Highlight, colors.accent);
+    palette.setColor(QPalette::HighlightedText, tokens.onAccent);
+    palette.setColor(QPalette::Link, colors.accent);
+    palette.setColor(QPalette::LinkVisited, colors.accent.darker(120));
+    palette.setColor(QPalette::PlaceholderText, colors.disabledText);
+
+    palette.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
+    palette.setColor(QPalette::Disabled, QPalette::Text, colors.disabledText);
+    palette.setColor(QPalette::Disabled, QPalette::ButtonText, colors.disabledText);
+    palette.setColor(QPalette::Disabled, QPalette::Highlight, colors.hover);
+    palette.setColor(QPalette::Disabled, QPalette::HighlightedText, colors.disabledText);
+
+    app->setPalette(palette);
+}
+
+static int refreshPaletteDrivenStyleSheet(QWidget *widget, QObject *deferredFilter)
+{
+    if (!widget) {
+        return 0;
+    }
+
+    int polished = 0;
+    if (hasPaletteDrivenStyleSheet(widget)) {
+        if (widget->isVisible()) {
+            // ThemeManager blocks top-level updates while themeChanged is
+            // emitted, so visible local re-parsing stays visually atomic.
+            reapplyPaletteDrivenStyleSheet(widget);
+            widget->setProperty(kPaletteStyleDirtyProperty, false);
+            ++polished;
+        } else {
+            widget->setProperty(kPaletteStyleDirtyProperty, true);
+            if (deferredFilter && !widget->property(kPaletteStyleFilterInstalledProperty).toBool()) {
+                widget->installEventFilter(deferredFilter);
+                widget->setProperty(kPaletteStyleFilterInstalledProperty, true);
+            }
+        }
+    }
+
+    const auto children = widget->findChildren<QWidget *>(QString(), Qt::FindDirectChildrenOnly);
+    for (QWidget *child : children) {
+        polished += refreshPaletteDrivenStyleSheet(child, deferredFilter);
+    }
+    return polished;
+}
+
+static int refreshPaletteDrivenStyleSheets(QObject *deferredFilter)
+{
+    int polished = 0;
+    const auto topLevels = QApplication::topLevelWidgets();
+    for (QWidget *w : topLevels) {
+        polished += refreshPaletteDrivenStyleSheet(w, deferredFilter);
+    }
+    return polished;
+}
+
+static bool isLogicallyVisible(const QWidget *widget)
+{
+    // Before a top-level window is shown, QWidget::isVisible() is false for all
+    // children. isHidden() still tells us whether the widget was explicitly
+    // hidden by the control logic.
+    return widget && !widget->isHidden();
+}
+
+static int widgetHintWidth(const QWidget *widget)
+{
+    if (!isLogicallyVisible(widget)) {
+        return 0;
+    }
+    const int minimumWidth = widget->minimumWidth();
+    if (minimumWidth > 0) {
+        return minimumWidth;
+    }
+    return widget->sizeHint().width();
+}
+
+static int widgetHintHeight(const QWidget *widget)
+{
+    if (!isLogicallyVisible(widget)) {
+        return 0;
+    }
+    const int minimumHeight = widget->minimumHeight();
+    if (minimumHeight > 0) {
+        return minimumHeight;
+    }
+    if (const auto *label = qobject_cast<const QLabel *>(widget)) {
+        return label->fontMetrics().height();
+    }
+    return widget->sizeHint().height();
 }
 
 // ---------------------------------------------------------------------------
@@ -157,8 +310,47 @@ public:
     explicit TitleBarHost(QWidget *parent = nullptr)
         : QWidget(parent)
     {
-        setAttribute(Qt::WA_StyledBackground, true);
+        setAttribute(Qt::WA_StyledBackground, false);
+        setAutoFillBackground(false);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event)
+
+        QPainter p(this);
+        if (!p.isActive()) {
+            return;
+        }
+        p.setRenderHint(QPainter::Antialiasing, true);
+
+        const auto &colors = ThemeManager::instance().colors();
+        const qreal radius = property("_fluentTitleBarRadius").toReal();
+        const QRectF r = QRectF(rect()).adjusted(0.0, 0.0, -0.5, -0.5);
+
+        QPainterPath path;
+        if (radius > 0.0) {
+            path.moveTo(r.left(), r.bottom());
+            path.lineTo(r.left(), r.top() + radius);
+            path.quadTo(r.left(), r.top(), r.left() + radius, r.top());
+            path.lineTo(r.right() - radius, r.top());
+            path.quadTo(r.right(), r.top(), r.right(), r.top() + radius);
+            path.lineTo(r.right(), r.bottom());
+            path.closeSubpath();
+        } else {
+            path.addRect(r);
+        }
+
+        p.fillPath(path, colors.surface);
+
+        if (property("_fluentTitleBarBottomRule").toBool()) {
+            QColor divider = colors.border;
+            divider.setAlpha(Theme::isDark(colors) ? 180 : 130);
+            p.setPen(QPen(divider, 1.0));
+            p.drawLine(QPointF(r.left(), r.bottom()), QPointF(r.right(), r.bottom()));
+        }
     }
 };
 
@@ -263,6 +455,120 @@ void FluentMainWindow::syncBorderVisualState()
     updateTitleBarContent();
     if (m_titleBarHost) {
         m_titleBarHost->update();
+    }
+}
+
+int FluentMainWindow::titleBarLeftHintWidth() const
+{
+    int width = 0;
+    int visibleItems = 0;
+
+    auto addWidth = [&](const QWidget *widget) {
+        const int itemWidth = widgetHintWidth(widget);
+        if (itemWidth <= 0) {
+            return;
+        }
+        width += itemWidth;
+        ++visibleItems;
+    };
+
+    addWidth(m_iconLabel);
+    if (m_leftCustomWidget) {
+        addWidth(m_leftSlotHost);
+    }
+    addWidth(m_menuBar);
+
+    if (visibleItems > 1) {
+        width += (visibleItems - 1) * 8;
+    }
+    return width;
+}
+
+int FluentMainWindow::titleBarRightHintWidth() const
+{
+    int width = 0;
+    int visibleItems = 0;
+
+    auto addWidth = [&](const QWidget *widget) {
+        const int itemWidth = widgetHintWidth(widget);
+        if (itemWidth <= 0) {
+            return;
+        }
+        width += itemWidth;
+        ++visibleItems;
+    };
+
+    if (m_rightCustomWidget) {
+        addWidth(m_rightSlotHost);
+    }
+
+    const int buttonCount =
+        (m_windowButtons.testFlag(MinimizeButton) ? 1 : 0)
+        + (m_windowButtons.testFlag(MaximizeButton) ? 1 : 0)
+        + (m_windowButtons.testFlag(CloseButton) ? 1 : 0);
+    if (buttonCount > 0) {
+        const auto wm = Style::windowMetrics();
+        width += buttonCount * wm.windowButtonWidth
+            + qMax(0, buttonCount - 1) * wm.windowButtonSpacing;
+        ++visibleItems;
+    }
+
+    if (visibleItems > 1) {
+        width += (visibleItems - 1) * 8;
+    }
+    return width;
+}
+
+int FluentMainWindow::titleBarContentHintHeight() const
+{
+    int height = 0;
+    auto addHeight = [&](const QWidget *widget) {
+        height = qMax(height, widgetHintHeight(widget));
+    };
+
+    addHeight(m_iconLabel);
+    if (m_leftCustomWidget) {
+        addHeight(m_leftSlotHost);
+    }
+    // FluentMenuBar is hosted inside the title-bar chrome and should follow
+    // WindowMetrics::titleBarHeight instead of making the title bar grow by a
+    // few pixels. Querying QMenuBar height here can also trigger an expensive
+    // QMainWindow layout pass during startup.
+    addHeight(m_centerCustomWidget ? m_centerCustomWidget : m_titleLabel);
+    if (m_rightCustomWidget) {
+        addHeight(m_rightSlotHost);
+    }
+    if (m_windowButtons.testFlag(MinimizeButton)
+        || m_windowButtons.testFlag(MaximizeButton)
+        || m_windowButtons.testFlag(CloseButton)) {
+        height = qMax(height, Style::windowMetrics().windowButtonHeight);
+    }
+
+    if (height <= 0) {
+        return 0;
+    }
+    return height + Style::windowMetrics().titleBarPaddingY * 2;
+}
+
+void FluentMainWindow::refreshTitleBarLeftWidth()
+{
+    if (!m_leftHost) {
+        return;
+    }
+    const int width = titleBarLeftHintWidth();
+    if (m_leftHost->minimumWidth() != width) {
+        m_leftHost->setMinimumWidth(width);
+    }
+}
+
+void FluentMainWindow::refreshTitleBarRightWidth()
+{
+    if (!m_rightHost) {
+        return;
+    }
+    const int width = titleBarRightHintWidth();
+    if (m_rightHost->minimumWidth() != width) {
+        m_rightHost->setMinimumWidth(width);
     }
 }
 
@@ -497,10 +803,7 @@ void FluentMainWindow::setFluentTitleBarLeftWidget(QWidget *widget)
         m_leftSlotHost->hide();
     }
 
-    if (m_leftHost && m_leftHost->layout()) {
-        m_leftHost->layout()->activate();
-        m_leftHost->setMinimumWidth(m_leftHost->sizeHint().width());
-    }
+    refreshTitleBarLeftWidth();
 
     updateTitleBarContent();
 }
@@ -557,10 +860,7 @@ void FluentMainWindow::setFluentTitleBarRightWidget(QWidget *widget)
         m_rightHost->setVisible(anyButtons || (m_rightCustomWidget != nullptr));
     }
 
-    if (m_rightHost && m_rightHost->layout()) {
-        m_rightHost->layout()->activate();
-        m_rightHost->setMinimumWidth(m_rightHost->sizeHint().width());
-    }
+    refreshTitleBarRightWidth();
 
     updateTitleBarContent();
 }
@@ -597,26 +897,44 @@ void FluentMainWindow::setFluentWindowButtons(WindowButtons buttons)
 {
     m_windowButtons = buttons;
 
+    auto syncExplicitVisibility = [](QWidget *widget, bool visible) {
+        if (!widget) {
+            return;
+        }
+
+        if (visible) {
+            if (widget->isHidden()) {
+                widget->show();
+            }
+        } else {
+            if (!widget->isHidden()) {
+                widget->hide();
+            }
+        }
+    };
+
     if (m_minBtn) {
-        m_minBtn->setVisible(m_windowButtons.testFlag(MinimizeButton));
+        syncExplicitVisibility(m_minBtn, m_windowButtons.testFlag(MinimizeButton));
     }
     if (m_maxBtn) {
-        m_maxBtn->setVisible(m_windowButtons.testFlag(MaximizeButton));
+        syncExplicitVisibility(m_maxBtn, m_windowButtons.testFlag(MaximizeButton));
     }
     if (m_closeBtn) {
-        m_closeBtn->setVisible(m_windowButtons.testFlag(CloseButton));
+        syncExplicitVisibility(m_closeBtn, m_windowButtons.testFlag(CloseButton));
     }
 
     if (m_windowButtonsHost) {
         const bool any = m_windowButtons.testFlag(MinimizeButton) || m_windowButtons.testFlag(MaximizeButton) || m_windowButtons.testFlag(CloseButton);
-        m_windowButtonsHost->setVisible(any);
+        syncExplicitVisibility(m_windowButtonsHost, any);
     }
 
     if (m_rightHost) {
         const bool anyButtons = m_windowButtons.testFlag(MinimizeButton) || m_windowButtons.testFlag(MaximizeButton) || m_windowButtons.testFlag(CloseButton);
         const bool anyRight = (m_rightCustomWidget != nullptr);
-        m_rightHost->setVisible(anyButtons || anyRight);
+        syncExplicitVisibility(m_rightHost, anyButtons || anyRight);
     }
+
+    refreshTitleBarRightWidth();
 
     updateTitleBarContent();
     updateWindowControlIcons();
@@ -853,21 +1171,23 @@ bool FluentMainWindow::fluentTitleBarEnabled() const
 
 void FluentMainWindow::setFluentMenuBar(FluentMenuBar *menuBar)
 {
+    QElapsedTimer timer;
+    timer.start();
+    qint64 last = 0;
+    auto mark = [&](const QString &step) {
+        const qint64 now = timer.elapsed();
+        qInfo().noquote() << QStringLiteral("[DemoStartup] FluentMainWindow::setFluentMenuBar %1 +%2 ms, total %3 ms")
+                                 .arg(step)
+                                 .arg(now - last)
+                                 .arg(now);
+        last = now;
+    };
+
     ensureTitleBar();
+    mark(QStringLiteral("ensure title bar"));
     if (m_menuBar == menuBar) {
         return;
     }
-
-    auto refreshLeftHostWidth = [this]() {
-        if (!m_leftHost) {
-            return;
-        }
-        m_leftHost->setMinimumWidth(0);
-        if (m_leftHost->layout()) {
-            m_leftHost->layout()->activate();
-        }
-        m_leftHost->setMinimumWidth(m_leftHost->sizeHint().width());
-    };
 
     if (m_menuBar) {
         if (m_leftHost && m_leftHost->layout()) {
@@ -877,28 +1197,34 @@ void FluentMainWindow::setFluentMenuBar(FluentMenuBar *menuBar)
         m_menuBar->setParent(nullptr);
         m_menuBar->deleteLater();
     }
+    mark(QStringLiteral("remove old"));
 
     m_menuBar = menuBar;
     if (!m_menuBar) {
-        refreshLeftHostWidth();
+        refreshTitleBarLeftWidth();
         updateTitleBarContent();
+        mark(QStringLiteral("clear menu bar"));
         return;
     }
 
     m_menuBar->setParent(m_leftHost ? m_leftHost : m_titleBarHost);
     m_menuBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
+    m_menuBar->setFixedHeight(Style::windowMetrics().windowButtonHeight);
     m_menuBar->setMinimumWidth(m_menuBar->minimumSizeHint().width());
+    mark(QStringLiteral("parent and size policy"));
 
     if (m_leftHost) {
         auto *layout = qobject_cast<QHBoxLayout *>(m_leftHost->layout());
         if (layout) {
             layout->addWidget(m_menuBar, 1);
-            layout->activate();
         }
     }
+    mark(QStringLiteral("add to left host"));
 
-    refreshLeftHostWidth();
+    refreshTitleBarLeftWidth();
+    mark(QStringLiteral("left width"));
     updateTitleBarContent();
+    mark(QStringLiteral("title content"));
 }
 
 void FluentMainWindow::changeEvent(QEvent *event)
@@ -955,6 +1281,15 @@ void FluentMainWindow::showEvent(QShowEvent *event)
 
 bool FluentMainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (event && event->type() == QEvent::Show) {
+        if (auto *widget = qobject_cast<QWidget *>(watched)) {
+            if (widget->property(kPaletteStyleDirtyProperty).toBool()) {
+                widget->setProperty(kPaletteStyleDirtyProperty, false);
+                reapplyPaletteDrivenStyleSheet(widget);
+            }
+        }
+    }
+
     if (watched == this && m_initialTracePending && event && event->type() == QEvent::Paint) {
         m_initialTracePending = false;
         m_initialTracePlayed = true;
@@ -1291,6 +1626,28 @@ void FluentMainWindow::applyThemeToApplication()
 
     if (auto *app = qobject_cast<QApplication *>(QCoreApplication::instance())) {
         const auto &colors = ThemeManager::instance().colors();
+        static QString s_lastApplicationPaletteSignature;
+        const QString paletteSignature = applicationPaletteSignature(colors);
+        if (s_lastApplicationPaletteSignature == paletteSignature) {
+            mark(QStringLiteral("application palette skipped"));
+        } else {
+            QElapsedTimer paletteTimer;
+            paletteTimer.start();
+            applyApplicationPalette(app, colors);
+            s_lastApplicationPaletteSignature = paletteSignature;
+            qInfo().noquote() << QStringLiteral("[ThemeSwitch] QApplication::setPalette +%1 ms")
+                                     .arg(paletteTimer.elapsed());
+            mark(QStringLiteral("application palette"));
+
+            QElapsedTimer polishTimer;
+            polishTimer.start();
+            const int polished = refreshPaletteDrivenStyleSheets(this);
+            qInfo().noquote() << QStringLiteral("[ThemeSwitch] palette-driven stylesheet polish %1 widgets +%2 ms")
+                                     .arg(polished)
+                                     .arg(polishTimer.elapsed());
+            mark(QStringLiteral("palette-driven stylesheet polish"));
+        }
+
         static QString s_lastApplicationStyleSignature;
         const QString styleSignature = applicationStyleSignature(colors);
         if (s_lastApplicationStyleSignature == styleSignature) {
@@ -1338,6 +1695,18 @@ void FluentMainWindow::ensureTitleBar()
         return;
     }
 
+    QElapsedTimer timer;
+    timer.start();
+    qint64 last = 0;
+    auto mark = [&](const QString &step) {
+        const qint64 now = timer.elapsed();
+        qInfo().noquote() << QStringLiteral("[DemoStartup] FluentMainWindow::ensureTitleBar %1 +%2 ms, total %3 ms")
+                                 .arg(step)
+                                 .arg(now - last)
+                                 .arg(now);
+        last = now;
+    };
+
     auto *titleBarHost = new TitleBarHost();
     m_titleBarHost = titleBarHost;
     m_titleBarHost->setObjectName("FluentTitleBarHost");
@@ -1361,9 +1730,14 @@ void FluentMainWindow::ensureTitleBar()
         m_maxBtn = nullptr;
         m_closeBtn = nullptr;
     });
+    mark(QStringLiteral("host"));
 
     const auto wm = Style::windowMetrics();
     m_titleBarHost->setMinimumHeight(0);
+    // Establish the common title-bar height before the host is handed to
+    // QMainWindow::setMenuWidget(). Changing the menu-widget height after it is
+    // installed can force an expensive main-window layout pass on startup.
+    m_titleBarHost->setFixedHeight(wm.titleBarHeight);
 
     auto *layout = new QHBoxLayout(m_titleBarHost);
     layout->setContentsMargins(wm.titleBarPaddingX, wm.titleBarPaddingY, wm.titleBarPaddingX, wm.titleBarPaddingY);
@@ -1387,6 +1761,7 @@ void FluentMainWindow::ensureTitleBar()
     leftLayout->addWidget(m_leftSlotHost);
 
     layout->addWidget(m_leftHost, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    mark(QStringLiteral("left zone"));
 
     // Center zone: title (kept visually centered via symmetric stretches)
     layout->addStretch(1);
@@ -1401,11 +1776,15 @@ void FluentMainWindow::ensureTitleBar()
     m_titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_titleLabel->setMinimumWidth(0);
     m_titleLabel->setAlignment(Qt::AlignCenter);
+    QFont titleFont = m_titleLabel->font();
+    titleFont.setWeight(QFont::DemiBold);
+    m_titleLabel->setFont(titleFont);
     centerLayout->addWidget(m_titleLabel);
 
     layout->addWidget(m_centerHost, 0, Qt::AlignCenter);
 
     layout->addStretch(1);
+    mark(QStringLiteral("center zone"));
 
     // Right zone: optional slot + window control buttons.
     m_rightHost = new QWidget(m_titleBarHost);
@@ -1462,36 +1841,94 @@ void FluentMainWindow::ensureTitleBar()
     rightLayout->addWidget(m_windowButtonsHost, 0, Qt::AlignVCenter);
 
     layout->addWidget(m_rightHost, 0, Qt::AlignRight | Qt::AlignVCenter);
+    mark(QStringLiteral("right zone"));
 
     setMenuWidget(m_titleBarHost);
+    mark(QStringLiteral("set menu widget"));
 
-    // Apply initial visibility flags.
-    setFluentWindowButtons(m_windowButtons);
+    // Apply initial visibility flags without forcing `show()` on freshly created
+    // child widgets. Calling show/setVisible(true) here makes Qt polish the
+    // caption buttons immediately under the global stylesheet, which dominates
+    // demo startup. Widgets that are not explicitly hidden will appear naturally
+    // when the title bar host is shown.
+    const bool initialMinVisible = m_windowButtons.testFlag(MinimizeButton);
+    const bool initialMaxVisible = m_windowButtons.testFlag(MaximizeButton);
+    const bool initialCloseVisible = m_windowButtons.testFlag(CloseButton);
+    if (!initialMinVisible) {
+        m_minBtn->hide();
+    }
+    if (!initialMaxVisible) {
+        m_maxBtn->hide();
+    }
+    if (!initialCloseVisible) {
+        m_closeBtn->hide();
+    }
+    const bool anyInitialButtons = initialMinVisible || initialMaxVisible || initialCloseVisible;
+    if (!anyInitialButtons) {
+        m_windowButtonsHost->hide();
+        if (!m_rightCustomWidget) {
+            m_rightHost->hide();
+        }
+    }
+    refreshTitleBarRightWidth();
+    mark(QStringLiteral("window buttons"));
 
     updateTitleBarContent();
+    mark(QStringLiteral("title content"));
     updateWindowControlIcons();
+    mark(QStringLiteral("window control icons"));
 }
 
 void FluentMainWindow::updateTitleBarContent()
 {
+    QElapsedTimer traceTimer;
+    traceTimer.start();
+    qint64 traceLast = 0;
+    QStringList traceParts;
+    auto traceMark = [&](const QString &step) {
+        const qint64 now = traceTimer.elapsed();
+        traceParts << QStringLiteral("%1 +%2 ms, total %3 ms")
+                          .arg(step)
+                          .arg(now - traceLast)
+                          .arg(now);
+        traceLast = now;
+    };
+    auto flushSlowTrace = [&]() {
+        if (traceTimer.elapsed() >= 20) {
+            qInfo().noquote() << QStringLiteral("[DemoStartup] FluentMainWindow::updateTitleBarContent slow: %1")
+                                     .arg(traceParts.join(QStringLiteral(" | ")));
+        }
+    };
+
     if (!m_titleBarHost) {
         return;
     }
 
     const auto &colors = ThemeManager::instance().colors();
-    const bool dark = colors.background.lightnessF() < 0.5;
+    traceMark(QStringLiteral("theme"));
+
+    refreshTitleBarLeftWidth();
+    refreshTitleBarRightWidth();
+    traceMark(QStringLiteral("refresh widths"));
 
     // Elide title to avoid pushing menu/buttons.
-    const int leftW = m_leftHost ? qMax(m_leftHost->minimumWidth(), m_leftHost->sizeHint().width()) : 0;
-    const int rightW = m_rightHost ? qMax(m_rightHost->minimumWidth(), m_rightHost->sizeHint().width()) : 0;
+    const int leftW = m_leftHost ? m_leftHost->minimumWidth() : 0;
+    const int rightW = m_rightHost ? m_rightHost->minimumWidth() : 0;
     const int margins = Style::windowMetrics().titleBarPaddingX * 2 + 24;
     const int maxTitleWidth = qMax(0, width() - leftW - rightW - margins);
     const QString effectiveTitle = m_hasTitleOverride ? m_titleOverride : windowTitle();
     const QString titleText = fontMetrics().elidedText(effectiveTitle, Qt::ElideRight, maxTitleWidth);
 
     m_titleLabel->setMaximumWidth(maxTitleWidth);
-    m_titleLabel->setText(titleText);
-    m_titleLabel->setStyleSheet(QString("color: %1;").arg(colors.text.name()));
+    if (m_titleLabel->text() != titleText) {
+        m_titleLabel->setText(titleText);
+    }
+    QPalette titlePalette = m_titleLabel->palette();
+    if (titlePalette.color(QPalette::WindowText) != colors.text) {
+        titlePalette.setColor(QPalette::WindowText, colors.text);
+        m_titleLabel->setPalette(titlePalette);
+    }
+    traceMark(QStringLiteral("title label"));
 
     QIcon icon;
     if (m_hasIconOverride) {
@@ -1499,10 +1936,12 @@ void FluentMainWindow::updateTitleBarContent()
     } else {
         icon = windowIcon().isNull() ? qApp->windowIcon() : windowIcon();
     }
-    m_iconLabel->setPixmap(icon.pixmap(16, 16));
-
-    QColor divider = colors.border;
-    divider.setAlpha(dark ? 180 : 130);
+    const qint64 iconKey = icon.cacheKey();
+    if (m_iconLabel->property("_fluentTitleBarIconKey").toLongLong() != iconKey) {
+        m_iconLabel->setProperty("_fluentTitleBarIconKey", iconKey);
+        m_iconLabel->setPixmap(icon.pixmap(16, 16));
+    }
+    traceMark(QStringLiteral("icon"));
 
     const bool maximizedOrFullscreen = isMaximized() || isFullScreen();
 
@@ -1516,6 +1955,7 @@ void FluentMainWindow::updateTitleBarContent()
 
     // Update the border overlay to match current content area.
     updateFrameHost();
+    traceMark(QStringLiteral("margins and frame"));
 
     // NOTE: do not use isVisible() here; before the window is shown it will be false even if
     // the widgets are logically visible. Use our flags instead.
@@ -1530,50 +1970,54 @@ void FluentMainWindow::updateTitleBarContent()
 
     const bool titleBarNeeded = anyButtonsVisible || anyCustomContent || anyMenu || m_hasTitleOverride || m_hasIconOverride;
     const bool titleBarVisible = m_titleBarEnabled && titleBarNeeded;
-    m_titleBarHost->setVisible(titleBarVisible);
 
     if (!titleBarVisible) {
+        if (!m_titleBarHost->isHidden()) {
+            m_titleBarHost->hide();
+        }
         if (m_titleBarHost->height() != 0) {
             m_titleBarHost->setFixedHeight(0);
         }
+        traceMark(QStringLiteral("hide"));
+        flushSlowTrace();
         return;
     }
-
-    const QString bottomRule = anyButtonsVisible
-        ? QStringLiteral("border-bottom: 1px solid %1;").arg(rgbaString(divider))
-        : QStringLiteral("border-bottom: none;");
+    if (isVisible() && m_titleBarHost->isHidden()) {
+        m_titleBarHost->show();
+    }
+    traceMark(QStringLiteral("visibility"));
 
     // The frame host draws the outer border with full kWindowFrameRadius.
     // The title bar is inside the 1px inset, so its effective inner radius is slightly smaller.
     const qreal innerRadius = maximizedOrFullscreen ? 0.0 : qMax(0.0, kWindowFrameRadius - 1.0);
     const int frameRadius = static_cast<int>(innerRadius);
-    const QString radiusRule = QStringLiteral(
-        "border-top-left-radius: %1px; border-top-right-radius: %1px; "
-        "border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;")
-        .arg(frameRadius);
-
-    // Background for title bar area (slightly separated from window background)
-    m_titleBarHost->setStyleSheet(QString(
-        "#FluentTitleBarHost { background: %1; %2 %3 }"
-        "#FluentWindowTitle { color: %4; font-weight: 600; }"
-    ).arg(colors.surface.name(), bottomRule, radiusRule, colors.text.name()));
-
-    // Dynamically adjust title bar height to fit its contents.
-    if (auto *l = m_titleBarHost->layout()) {
-        l->activate();
-        const int contentHintH = l->sizeHint().height();
-        const int baseH = anyButtonsVisible ? Style::windowMetrics().titleBarHeight : 0;
-        const int desiredH = qMax(baseH, contentHintH);
-        if (m_titleBarHost->height() != desiredH) {
-            m_titleBarHost->setFixedHeight(desiredH);
-        }
+    if (m_titleBarHost->property("_fluentTitleBarBottomRule").toBool() != anyButtonsVisible) {
+        m_titleBarHost->setProperty("_fluentTitleBarBottomRule", anyButtonsVisible);
     }
+    if (!qFuzzyCompare(m_titleBarHost->property("_fluentTitleBarRadius").toReal(), static_cast<qreal>(frameRadius))) {
+        m_titleBarHost->setProperty("_fluentTitleBarRadius", frameRadius);
+    }
+    m_titleBarHost->update();
+    traceMark(QStringLiteral("host properties"));
+
+    int desiredH = 0;
+    if (anyButtonsVisible || anyMenu) {
+        desiredH = Style::windowMetrics().titleBarHeight;
+    } else {
+        const int contentHintH = titleBarContentHintHeight();
+        desiredH = contentHintH;
+    }
+    if (m_titleBarHost->height() != desiredH) {
+        m_titleBarHost->setFixedHeight(desiredH);
+    }
+    traceMark(QStringLiteral("height"));
 
     // NOTE: We intentionally do NOT set a QRegion mask on the title bar.
     // QRegion masks are pixel-based and produce visible jaggies on rounded corners.
     // On Windows 11, DWM DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND provides
     // smooth system-level corner clipping.  The CSS border-radius on the title bar
     // provides the visual rounded background.
+    flushSlowTrace();
 }
 
 void FluentMainWindow::updateWindowControlIcons()

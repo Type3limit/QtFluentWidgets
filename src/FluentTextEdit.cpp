@@ -179,16 +179,12 @@ void FluentTextEdit::applyTheme()
 
     QColor selectionBg = colors.accent;
     selectionBg.setAlphaF(dark ? 0.35 : 0.22);
-    const QString selectionBgStr = QStringLiteral("rgba(%1,%2,%3,%4)")
-                                       .arg(selectionBg.red())
-                                       .arg(selectionBg.green())
-                                       .arg(selectionBg.blue())
-                                       .arg(QString::number(selectionBg.alphaF(), 'f', 3));
 
-    const QString next = QString(
-        "QTextEdit { background: transparent; color: %1; border: none; selection-background-color: %2; selection-color: %3; }"
+    const QString next = QStringLiteral(
+        "QTextEdit { background: transparent; color: palette(window-text); border: none; "
+        "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
         "QTextEdit QAbstractScrollArea::viewport { background: transparent; }"
-    ).arg(textColor.name()).arg(selectionBgStr).arg(colors.text.name());
+    );
 
     if (styleSheet() != next) {
         setStyleSheet(next);
@@ -198,6 +194,8 @@ void FluentTextEdit::applyTheme()
     pal.setColor(QPalette::Base, QColor(Qt::transparent));
     pal.setColor(QPalette::Window, QColor(Qt::transparent));
     // Keep caret accent like FluentLineEdit; text color is controlled via stylesheet.
+    pal.setColor(QPalette::WindowText, textColor);
+    pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
     pal.setColor(QPalette::Text, colors.accent);
     pal.setColor(QPalette::Highlight, selectionBg);
     pal.setColor(QPalette::HighlightedText, colors.text);
