@@ -4,6 +4,7 @@
 #include "Fluent/FluentCard.h"
 
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QItemSelectionModel>
 #include <QStandardItem>
 #include <QStandardItemModel>
@@ -36,6 +37,69 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
                                    DEMO_TEXT("ListView / TableView / TreeView（选择变化联动到详情区）", "ListView / TableView / TreeView with selection-driven detail updates"));
 
         page->addWidget(s.card);
+
+        // State preview
+        {
+            QString code;
+#define DATAVIEWS_STATE_PREVIEW(X) \
+    X(auto *listRow = new QHBoxLayout();) \
+    X(listRow->setContentsMargins(0, 0, 0, 0);) \
+    X(listRow->setSpacing(10);) \
+    X(auto *activeList = new FluentListView();) \
+    X(auto *activeListModel = new QStringListModel({QStringLiteral("Active item"), QStringLiteral("Selected item"), QStringLiteral("Hover target")}, activeList);) \
+    X(activeList->setModel(activeListModel);) \
+    X(activeList->setFixedHeight(118);) \
+    X(activeList->setCurrentIndex(activeListModel->index(1, 0));) \
+    X(activeList->selectionModel()->select(activeListModel->index(1, 0), QItemSelectionModel::ClearAndSelect);) \
+    X(auto *disabledList = new FluentListView();) \
+    X(auto *disabledListModel = new QStringListModel({QStringLiteral("Disabled item"), QStringLiteral("Disabled selection"), QStringLiteral("Disabled hover")}, disabledList);) \
+    X(disabledList->setModel(disabledListModel);) \
+    X(disabledList->setFixedHeight(118);) \
+    X(disabledList->setCurrentIndex(disabledListModel->index(1, 0));) \
+    X(disabledList->selectionModel()->select(disabledListModel->index(1, 0), QItemSelectionModel::ClearAndSelect);) \
+    X(disabledList->setEnabled(false);) \
+    X(listRow->addWidget(activeList, 1);) \
+    X(listRow->addWidget(disabledList, 1);) \
+    X(body->addLayout(listRow);) \
+    X(auto *table = new FluentTableView();) \
+    X(auto *tableModel = new QStandardItemModel(3, 2, table);) \
+    X(tableModel->setHorizontalHeaderLabels({DEMO_TEXT("状态", "State"), DEMO_TEXT("Token", "Token")} );) \
+    X(tableModel->setItem(0, 0, new QStandardItem(QStringLiteral("Normal"))); tableModel->setItem(0, 1, new QStandardItem(QStringLiteral("surface/text")));) \
+    X(tableModel->setItem(1, 0, new QStandardItem(QStringLiteral("Selected"))); tableModel->setItem(1, 1, new QStandardItem(QStringLiteral("accent + neutral")));) \
+    X(tableModel->setItem(2, 0, new QStandardItem(QStringLiteral("Focus"))); tableModel->setItem(2, 1, new QStandardItem(QStringLiteral("accent border")));) \
+    X(table->setModel(tableModel);) \
+    X(table->setFixedHeight(128);) \
+    X(table->setCurrentIndex(tableModel->index(1, 0));) \
+    X(table->selectionModel()->select(tableModel->index(1, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);) \
+    X(body->addWidget(table);)
+
+#define X(line) code += QStringLiteral(#line "\n");
+            DATAVIEWS_STATE_PREVIEW(X)
+#undef X
+
+            page->addWidget(Demo::makeCollapsedExample(
+                DEMO_TEXT("状态与主题联动", "State and theme coupling"),
+                DEMO_TEXT("快速检查 active / selected / disabled / focus 在浅色、深色与自定义 accent 下的观感。",
+                          "Quickly inspect active / selected / disabled / focus states under light, dark, and custom accent colors."),
+                DEMO_TEXT("要点：\n"
+                          "-ListView / TableView 的边框、文字、header、disabled 状态都由 theme token 派生\n"
+                          "-关闭全局动效后 hover 直接切换到最终状态\n"
+                          "-这个示例适合配合右侧设置面板切换主题后肉眼检查",
+                          "Highlights:\n"
+                          "-ListView / TableView borders, text, headers, and disabled states are derived from theme tokens\n"
+                          "-When global animations are disabled, hover jumps directly to its final state\n"
+                          "-Use this sample with the theme settings panel for quick visual checks"),
+                code,
+                [=](QVBoxLayout *body) {
+#define X(line) line
+                    DATAVIEWS_STATE_PREVIEW(X)
+#undef X
+                },
+                false,
+                250));
+
+#undef DATAVIEWS_STATE_PREVIEW
+        }
 
         // ListView
         {

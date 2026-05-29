@@ -1,4 +1,5 @@
 #include "Fluent/FluentToggleSwitch.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -6,7 +7,6 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPropertyAnimation>
-#include <QEasingCurve>
 #include <QKeyEvent>
 
 namespace Fluent {
@@ -20,16 +20,10 @@ FluentToggleSwitch::FluentToggleSwitch(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
 
     m_progressAnim = new QPropertyAnimation(this, "progress", this);
-    m_progressAnim->setDuration(200);
-    m_progressAnim->setEasingCurve(QEasingCurve::OutQuad);
 
     m_hoverAnim = new QPropertyAnimation(this, "hoverLevel", this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
 
     m_focusAnim = new QPropertyAnimation(this, "focusLevel", this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
 
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentToggleSwitch::applyTheme);
@@ -45,16 +39,10 @@ FluentToggleSwitch::FluentToggleSwitch(const QString &text, QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
 
     m_progressAnim = new QPropertyAnimation(this, "progress", this);
-    m_progressAnim->setDuration(200);
-    m_progressAnim->setEasingCurve(QEasingCurve::OutQuad);
 
     m_hoverAnim = new QPropertyAnimation(this, "hoverLevel", this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
 
     m_focusAnim = new QPropertyAnimation(this, "focusLevel", this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
 
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentToggleSwitch::applyTheme);
@@ -73,9 +61,14 @@ void FluentToggleSwitch::setChecked(bool checked)
 
     m_checked = checked;
     m_progressAnim->stop();
-    m_progressAnim->setStartValue(m_progress);
-    m_progressAnim->setEndValue(m_checked ? 1.0 : 0.0);
-    m_progressAnim->start();
+    const qreal target = m_checked ? 1.0 : 0.0;
+    if (m_progressAnim->duration() <= 0) {
+        setProgress(target);
+    } else {
+        m_progressAnim->setStartValue(m_progress);
+        m_progressAnim->setEndValue(target);
+        m_progressAnim->start();
+    }
     emit toggled(m_checked);
 }
 
@@ -145,6 +138,9 @@ void FluentToggleSwitch::changeEvent(QEvent *event)
 
 void FluentToggleSwitch::applyTheme()
 {
+    FluentMotion::configure(m_progressAnim, FluentMotionRole::Selection);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     update();
 }
 
@@ -263,6 +259,10 @@ void FluentToggleSwitch::focusOutEvent(QFocusEvent *event)
 void FluentToggleSwitch::startFocusAnimation(qreal endValue)
 {
     m_focusAnim->stop();
+    if (m_focusAnim->duration() <= 0) {
+        setFocusLevel(endValue);
+        return;
+    }
     m_focusAnim->setStartValue(m_focusLevel);
     m_focusAnim->setEndValue(endValue);
     m_focusAnim->start();
@@ -272,6 +272,10 @@ void FluentToggleSwitch::enterEvent(FluentEnterEvent *event)
 {
     QWidget::enterEvent(event);
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(1.0);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(1.0);
     m_hoverAnim->start();
@@ -281,6 +285,10 @@ void FluentToggleSwitch::leaveEvent(QEvent *event)
 {
     QWidget::leaveEvent(event);
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(0.0);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(0.0);
     m_hoverAnim->start();

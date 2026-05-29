@@ -42,7 +42,7 @@ view->setSelectionMode(QAbstractItemView::SingleSelection);
 ### Hover 动效
 
 - `mouseMoveEvent()` 中用 `indexAt(pos)` 更新 `hoverIndex()`。
-- `hoverLevel()` 由内部 `QVariantAnimation` 驱动（120ms），动画过程中持续 `viewport()->update()`。
+- `hoverLevel()` 由内部 `QVariantAnimation` 驱动，动画参数来自 `FluentMotionRole::Hover`，动画过程中持续 `viewport()->update()`；当全局动效关闭或 hover 时长为 0 时，会直接切到目标状态。
 - `leaveEvent()` 会清空 `hoverIndex()` 并将 hover 动效退回到 0。
 
 ### 选中切换动效（Current Index）
@@ -59,6 +59,7 @@ view->setSelectionMode(QAbstractItemView::SingleSelection);
 ### 主题联动
 
 - 主题变化（`ThemeManager::themeChanged`）或 enabled 状态变化时，会用 `Theme::listViewStyle(colors)` 刷新 `styleSheet`。
+- focus 边框、disabled 背景/文字/边框都由 theme token 派生，深色/浅色与高亮 accent 下保持一致的可读性。
 
 关键 API：
 
@@ -111,13 +112,14 @@ table->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 与 `FluentListView` 一致的思路：
 
-- hover：`hoverIndex()` + `hoverLevel()`（120ms）。
+- hover：`hoverIndex()` + `hoverLevel()`，动画参数来自 `FluentMotionRole::Hover`；当全局动效关闭或 hover 时长为 0 时，会直接切到目标状态。
 - 选中切换：监听 `selectionModel()->currentChanged`，用 180ms 动画插值选中背景矩形与透明度。
 - `SelectRows` 下，动画矩形会把同一行多个 cell 的 `visualRect` 做 union（跳过隐藏列），再做轻微内缩（`adjusted(2,1,-2,-1)`）。
 
 ### 主题联动
 
 - 主题变化/EnabledChange 时，会用 `Theme::tableViewStyle(colors)` 刷新 `styleSheet`。
+- 表格/表头的 focus、disabled、header 背景与分隔线均由同一套 neutral/accent token 派生，避免暗色模式下出现原生浅色残留。
 
 关键 API：
 
@@ -199,7 +201,7 @@ tree->setHeaderHidden(false);
 
 ### Hover/选中动效
 
-- hover：同样通过 `hoverIndex()` + `hoverLevel()`（120ms），在 `SelectRows` 下以“同 row + 同 parent”为一行。
+- hover：同样通过 `hoverIndex()` + `hoverLevel()`，动画参数来自 `FluentMotionRole::Hover`；在 `SelectRows` 下以“同 row + 同 parent”为一行。
 - 选中切换：与 TableView 相同，`SelectRows` 下会 union 一整行的可视矩形作为动画目标。
 
 ### 主题联动

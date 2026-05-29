@@ -114,6 +114,7 @@ QObject::connect(nav, &Fluent::FluentNavigationView::itemInvoked,
     - LeftCompact / Top 模式正文点击只打开 flyout，不会修改 `selectedKey`。
 - 对于叶子项，如果 `selectsOnInvoked = false`，点击仍会发出 `itemInvoked`，但不会改变当前选中态。
 - 返回按钮只发出 `backRequested()`，不会内置修改 `selectedKey`。应用层应维护自己的返回栈，并在收到信号后调用 `setSelectedKey(previousKey)`；Containers demo 展示了一个最小返回栈实现。
+- 动效使用 `FluentMotionRole::Navigation` / `Hover` / `Selection`：pane 宽度、行 hover 和选中指示器会随全局 motion token 更新；关闭全局动画时，宽度和选中条会直接落到目标位置。
 
 ## Header、自适应与信号
 

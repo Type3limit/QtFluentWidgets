@@ -1,5 +1,6 @@
 #include "Fluent/FluentTimePicker.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "datePicker/FluentWheelPickerSupport.h"
@@ -69,16 +70,14 @@ FluentTimePicker::FluentTimePicker(QWidget *parent)
     m_postMeridiemText = tr("下午");
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
@@ -286,6 +285,9 @@ void FluentTimePicker::changeEvent(QEvent *event)
 
 void FluentTimePicker::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     const QString next = QStringLiteral("QTimeEdit { background: transparent; color: transparent; border: none; }"
                                         "QTimeEdit::up-button, QTimeEdit::down-button { width: 0px; border: none; }"
                                         "QTimeEdit::up-arrow, QTimeEdit::down-arrow { width: 0px; height: 0px; }");

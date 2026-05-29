@@ -1,7 +1,8 @@
 #include "Fluent/FluentDateRangePicker.h"
-#include "Fluent/datePicker/FluentCalendarPopup.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
+#include "Fluent/datePicker/FluentCalendarPopup.h"
 
 #include <QEasingCurve>
 #include <QEvent>
@@ -22,8 +23,7 @@ FluentDateRangePicker::FluentDateRangePicker(QWidget *parent)
     setCursor(Qt::PointingHandCursor);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_hoverLevel = v.toReal();
         update();
@@ -123,7 +123,11 @@ QString FluentDateRangePicker::buildSideText(const QDate  &date,
 
 // ── Theme ─────────────────────────────────────────────────────────────────
 
-void FluentDateRangePicker::applyTheme() { update(); }
+void FluentDateRangePicker::applyTheme()
+{
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    update();
+}
 
 // ── Paint ─────────────────────────────────────────────────────────────────
 
@@ -258,6 +262,11 @@ bool FluentDateRangePicker::isPopupVisible() const
 void FluentDateRangePicker::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+        update();
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();

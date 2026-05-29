@@ -1,13 +1,18 @@
 #pragma once
 
+#include "Fluent/FluentQtCompat.h"
+
 #include <QByteArray>
 #include <QString>
 #include <QWidget>
 
 class QVBoxLayout;
-class QPropertyAnimation;
+class QVariantAnimation;
+class QPaintEvent;
 
 namespace Fluent {
+
+class FluentCardContentClip;
 
 class FluentCard final : public QWidget
 {
@@ -43,7 +48,11 @@ signals:
     void collapsedChanged(bool collapsed);
 
 protected:
+    bool event(QEvent *event) override;
     void changeEvent(QEvent *event) override;
+    void enterEvent(FluentEnterEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
@@ -54,6 +63,11 @@ private:
     void updateCollapseIndicatorGeometry();
     void syncCollapseIndicatorSpeed(int startFrame, int endFrame);
     void applyCollapsedState(bool animated);
+    void startHoverAnimation(qreal endValue);
+    void lockContentHeightForAnimation(int height);
+    void releaseContentHeightLock();
+    void scheduleContentClipGeometryRefresh();
+    void refreshContentClipGeometry();
 
     bool m_collapsible = false;
     bool m_collapsed = false;
@@ -65,9 +79,14 @@ private:
     class FluentToolButton *m_chevronButton = nullptr;
     class FluentAnimatedIcon *m_chevronAnimation = nullptr;
     bool m_hasChevronAnimation = false;
+    FluentCardContentClip *m_contentClip = nullptr;
     QWidget *m_content = nullptr;
     QVBoxLayout *m_contentLayout = nullptr;
-    QPropertyAnimation *m_collapseAnim = nullptr;
+    QVariantAnimation *m_collapseAnim = nullptr;
+    QVariantAnimation *m_hoverAnim = nullptr;
+    bool m_hovered = false;
+    bool m_contentRefreshPending = false;
+    qreal m_hoverLevel = 0.0;
 };
 
 } // namespace Fluent

@@ -209,7 +209,7 @@ Key APIs:
 - `FluentDropDownButton::setMenu(QMenu*)` / `addAction()`: open a menu from the button.
 - `FluentSplitButton::setDefaultAction(QAction*)`: run the primary action from the left side.
 - `FluentSplitButton::setMenu(QMenu*)`: open secondary actions from the right arrow.
-- `FluentCommandBar::addAction()` / `addCommand(QAction*)` / `addSeparator()` / `addWidget()`: compose command buttons, menu commands, separators, and custom widgets.
+- `FluentCommandBar::addAction()` / `addCommand(QAction*)` / `addSeparator()` / `addWidget()`: compose command buttons, menu commands, separators, and custom widgets; when space runs out, trailing commands automatically move into a right-side overflow FluentMenu.
 
 Example:
 
@@ -250,7 +250,7 @@ Notes:
 
 - `FluentCommandBar` is a lightweight command container, not a replacement for `QToolBar`; use `FluentToolBar` when you need main-window toolbar semantics.
 - `FluentSplitButton` separates default action and secondary menu. If the control only opens a menu, `FluentDropDownButton` is clearer.
-- `FluentCommandBar` is valuable when commands are managed centrally; it is not just a styled replacement for `QHBoxLayout + Button`.
+- `FluentCommandBar` is valuable when commands are managed centrally; it is not just a styled replacement for `QHBoxLayout + Button`. Overflow menu items reuse the same `QAction` instances, so enabled, text, icon, and submenu state stay synchronized.
 
 Demo: Buttons / Overview.
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGroupBox>
+#include <QRect>
 
 namespace Fluent {
 
@@ -13,9 +14,12 @@ public:
 
 protected:
     void changeEvent(QEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     void applyTheme();
+    QRect titleRect() const;
+    QRect checkBoxRect() const;
 };
 
 } // namespace Fluent

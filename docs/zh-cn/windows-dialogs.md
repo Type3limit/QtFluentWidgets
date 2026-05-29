@@ -104,6 +104,7 @@ tour->startGuide();
 - 引导第一个步骤会隐藏“上一步”，后续步骤默认显示 `Back`；也可以在 `GuideStyle::previousActionText` 中提供自定义文本。
 - TeachingTip 的 mask overlay 会挂在目标所在顶层窗口上，变暗背景、拦截背景鼠标输入，并在当前 `target` 周围留出高亮区域。
 - TeachingTip 的蒙版 cutout 使用矩形区域，不额外绘制高亮描边，避免 `QRegion` 圆角裁剪和描边层级带来的视觉不确定性。目标控件会保持可见，但背景区域仍会被遮罩拦截。
+- TeachingTip 的蒙版淡入/淡出使用 `FluentMotionRole::PopupOpen` / `PopupClose`；关闭全局动效后蒙版会立即显示或移除，TeachingTip 弹窗本体始终保持在 overlay 上层。
 
 Demo：Windows / Overview。
 
@@ -242,8 +243,8 @@ Demo：Windows / Overview。
 - **中性菜单边框**：菜单 popup 使用普通边框，不跟随窗口 accent 描边，避免单项菜单看起来像另一个按钮或第二条菜单。
 - **禁用原生 overflow 按钮**：检测到 `qt_menubar_ext_button` 后会隐藏/禁用，并清空其 menu（避免出现原生样式 overflow 菜单）。
 - **高亮动画**：
-    - hoverLevel：120ms 线性插值；
-    - highlightRect：160ms `OutCubic` 滑动；
+    - hoverLevel：使用 `FluentMotionRole::Hover`；
+    - highlightRect：使用 `FluentMotionRole::Selection`；
     - 自绘圆角高亮（radius=6）和底部分割线（alpha≈70）。
 - **稳定宽度**：`sizeHint()/minimumSizeHint()` 会按 action 文本计算“足够的宽度”，减少被挤进 overflow 的概率。
 
@@ -251,7 +252,7 @@ Demo：Windows / Overview。
 
 - `QProxyStyle` 覆写：子菜单延迟 120ms，关闭 sloppy submenu。
 - `aboutToShow` 时确保所有子菜单也转换为 `FluentMenu`（递归）。
-- **弹出动画**：show 时先 `opacity=0` 并下移 6px，然后 140ms `OutCubic` 同步 fade+slide 到最终位置。
+- **弹出动画**：show 时先 `opacity=0` 并按 `FluentMotion::popupSlideOffset()` 做轻微位移，然后用 `FluentMotionRole::PopupOpen` 同步 fade+slide 到最终位置。
 - **绘制语义**：
     - panel 圆角半径 10，先清透明，再用 `paintFluentPanel()` 绘制面板；
     - hover 高亮圆角 6，颜色来自 `colors.hover` 并按 hoverLevel 调整 alpha；
@@ -355,12 +356,12 @@ Demo：Windows / Overview。
 - Toast 通过内部 `ToastOverlay` 挂在目标窗口上（对象名 `FluentToastOverlay`），并用 **mask region** 只覆盖 toast 周围区域：
     - 有 toast 时 overlay 会拦截输入，但只在 toast 区域；其余窗口区域仍可交互。
     - 没有 toast 时 overlay 会 `WA_TransparentForMouseEvents=true`，完全不影响窗口。
-- 布局：每个位置（TopLeft/TopCenter/...）各维护一个队列，新 toast 会插在队列头部；其余 toast 会用 `QPropertyAnimation(pos)` 做平滑移动（150~180ms，`OutCubic`）。
+- 布局：每个位置（TopLeft/TopCenter/...）各维护一个队列，新 toast 会插在队列头部；其余 toast 会用 `QPropertyAnimation(pos)` 做平滑移动，时长来自 `FluentMotionRole::Toast`。
 - 尺寸稳定：为避免 `QLabel(wordWrap)` 在快速创建时出现“多一行跳动”，overlay 会先固定 label wrap 宽度，再 `adjustSize()`，并在下一次事件循环再次 stabilize + relayout。
 - 出现/消失：
-    - 出现时 opacity 180ms `OutCubic` 从 0→1；
+    - 出现和关闭 opacity 使用 `FluentMotionRole::Toast`；
     - 自动消失计时使用线性进度动画，最短 `max(800, durationMs)`；
-    - 关闭时 opacity 160ms `InCubic` 到 0（或不带动画直接销毁）。
+    - 关闭全局动画或把 Toast duration 设为 0 时，出现会直接显示，关闭会直接销毁。
 - 进度条：从中间向两侧扩展/收缩（以 label 区域居中为基准）。
 
 Demo：Windows / Pickers / Overview。

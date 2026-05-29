@@ -1,8 +1,11 @@
 #include "Fluent/FluentListView.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentTheme.h"
 #include "FluentPaintSupport.h"
 #include "FluentItemEditorSupport.h"
+#include "FluentItemViewPaintSupport.h"
+#include "FluentViewPaletteSupport.h"
 
 #include <QAbstractItemModel>
 #include <QEvent>
@@ -47,13 +50,9 @@ public:
         const bool isCurrent = (m_view && m_view->currentIndex().isValid() && index == m_view->currentIndex());
 
         if (selected && !isCurrent) {
-            bgColor = colors.accent;
-            bgColor.setAlpha(40); // Subtle selection
+            bgColor = Detail::fluentItemSelectionFill(colors, 0.86);
         } else if (m_view && index == m_view->hoverIndex()) {
-             QColor hover = colors.hover;
-             // Animation factor
-             hover.setAlphaF(0.3 * m_view->hoverLevel()); 
-             bgColor = hover;
+             bgColor = Detail::fluentItemHoverFill(colors, m_view->hoverLevel());
         }
 
         if (bgColor.alpha() > 0) {
@@ -128,15 +127,14 @@ FluentListView::FluentListView(QWidget *parent)
     setHorizontalScrollBar(new FluentScrollBar(Qt::Horizontal, this));
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(120);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         viewport()->update();
     });
 
     m_selAnim = new QVariantAnimation(this);
-    m_selAnim->setDuration(180);
-    m_selAnim->setEasingCurve(QEasingCurve::InOutCubic);
+    FluentMotion::configure(m_selAnim, FluentMotionRole::Selection);
     connect(m_selAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         const qreal t = value.toReal();
         const qreal tt = qBound<qreal>(0.0, t, 1.0);
@@ -204,19 +202,11 @@ void FluentListView::paintEvent(QPaintEvent *event)
                 QPainter p(viewport());
                 p.setRenderHint(QPainter::Antialiasing, true);
 
-                QColor fill = colors.accent;
-                fill.setAlpha(qBound(0, int(std::lround(40.0 * opacity)), 40));
                 p.setPen(Qt::NoPen);
-                p.setBrush(fill);
+                p.setBrush(Detail::fluentItemSelectionFill(colors, opacity));
                 p.drawRoundedRect(r, 4.0, 4.0);
 
-                // Left indicator
-                QColor indicator = colors.accent;
-                indicator.setAlpha(qBound(0, int(std::lround(255.0 * opacity)), 255));
-                p.setBrush(indicator);
-                const qreal indicatorHeight = 16.0;
-                QRectF indRect(r.left(), r.center().y() - indicatorHeight / 2.0, 3.0, indicatorHeight);
-                p.drawRoundedRect(indRect, 1.5, 1.5);
+                Detail::paintFluentItemSelectionIndicator(p, r, colors, opacity);
             }
         }
     }
@@ -243,10 +233,15 @@ void FluentListView::leaveEvent(QEvent *event)
 
 void FluentListView::applyTheme()
 {
-    const QString next = Theme::listViewStyle(ThemeManager::instance().colors());
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_selAnim, FluentMotionRole::Selection);
+
+    const auto &colors = ThemeManager::instance().colors();
+    const QString next = Theme::listViewStyle(colors);
     if (styleSheet() != next) {
         setStyleSheet(next);
     }
+    Detail::applyFluentViewPalette(this, viewport(), colors);
 }
 
 void FluentListView::hookSelectionModel()
@@ -350,6 +345,11 @@ void FluentListView::startSelectionAnimation(const QModelIndex &from, const QMod
 void FluentListView::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+        viewport()->update();
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();

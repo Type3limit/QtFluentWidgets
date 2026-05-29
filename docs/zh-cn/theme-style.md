@@ -5,11 +5,13 @@
 - `ThemeManager`：切换浅色/深色、更新全局 `ThemeColors`，并广播 `themeChanged()`。
 - `Theme`：生成基础 QSS 片段（按钮、输入框、菜单等的样式字符串）。
 - `Style`：提供统一 metrics（圆角、padding、标题栏高度等）与绘制方法（surface/border/trace）。
+- `FluentMotion`：提供 hover/press/popup/collapse/selection 等语义动画 token。
 
 对应公开头文件：
 
 - `Fluent/FluentTheme.h`
 - `Fluent/FluentStyle.h`
+- `Fluent/FluentMotion.h`
 
 Demo 页面：Overview（`demo/pages/PageOverview.cpp`）与 Windows（`demo/pages/PageWindows.cpp`）。
 
@@ -29,12 +31,14 @@ ThemeManager::instance().setDarkMode();
 - `ThemeManager::instance()`：全局单例。
 - `setThemeMode(ThemeMode)` / `themeMode()`
 - `setColors(const ThemeColors&)` / `colors()`
+- `setAnimationsEnabled(bool)` / `animationsEnabled()`
 - `themeChanged()`：主题变化信号。
 
 实现语义补充：
 
 - `themeChanged()` 会被“合并触发”：多次 `setColors()` / `setThemeMode()` / `setAccentBorderEnabled()` 会在同一轮事件循环中合并为一次信号（使用 `QTimer::singleShot(0, ...)`），避免频繁刷新卡顿。
 - `setThemeMode()` 切换 Light/Dark 时会保留当前 `accent`（更符合 Fluent 习惯），并将 `focus` 设置为 `accent.lighter(135)`。
+- `animationsEnabled()` 会影响使用 `FluentMotion` 的新增/已迁移动画：关闭时对应语义 duration 为 0，popup、折叠和按钮状态反馈会尽量即时完成。
 
 ## ThemeColors 色板字段
 
@@ -90,6 +94,51 @@ Style::paintControlSurface(p, QRectF(rect()), ThemeManager::instance().colors(),
 - `Style::setWindowMetrics()` 会对 trace 相关参数做防御性 clamp（例如 duration 范围 1..60000ms、overshoot 上限 0.25、overshootAt 上限 0.99），避免 Demo/外部输入把动画参数设置到不可用区间。
 - `Style::paintTraceBorder()` 支持轻微“越界脉冲”：当 `progress > 1`（rawProgress overshoot）时，会在绘制完整描边的同时略微增粗并提高 alpha（overshoot 最大按 0.10 截断），用来做更有“Fluent 味”的启用动画收尾。
 - `Style::windowMetrics()` 里的窗口级参数现在也直接影响 `FluentMainWindow`：例如 `titleBarHeight` / `windowButtonWidth` / `resizeBorder` 会影响标题栏布局与 `WM_NCHITTEST`，而 trace 参数会影响外层 accent 描边动画节奏。
+
+## Motion token
+
+`FluentMotion` 是当前质感升级中新增的动效语义层。控件应优先使用 `FluentMotionRole`，而不是直接写 `setDuration(150)`：
+
+```cpp
+#include "Fluent/FluentMotion.h"
+
+auto *anim = new QVariantAnimation(this);
+Fluent::FluentMotion::configure(anim, Fluent::FluentMotionRole::Hover);
+
+// 应用可按语义覆盖各类动画时长。
+Fluent::FluentMotion::setDuration(Fluent::FluentMotionRole::Hover, 90);
+Fluent::FluentMotion::setDuration(Fluent::FluentMotionRole::PopupOpen, 220);
+
+// 也可以整体替换 token，例如做“更轻快”或“更稳重”的动效配置。
+auto tokens = Fluent::ThemeManager::instance().motionTokens();
+tokens.selectionDuration = 120;
+tokens.collapseDuration = 240;
+Fluent::ThemeManager::instance().setMotionTokens(tokens);
+```
+
+当前常用语义：
+
+- `Hover` / `Press` / `Focus`
+- `PopupOpen` / `PopupClose`
+- `Collapse`
+- `Selection`
+- `Navigation` / `Page`
+- `Layout`
+- `Toast`
+- `WheelSnap`
+
+配置说明：
+
+- `FluentMotion::configuredDuration(role)` 返回用户配置的原始时长。
+- `FluentMotion::duration(role)` 返回实际生效时长；当全局动效关闭时为 0。
+- `ThemeManager::setMotionTokens(...)` 会保留在浅色/深色/颜色切换之后，不会因主题刷新回到默认值。
+
+Reduced motion：
+
+- `ThemeManager::setAnimationsEnabled(false)` 会让 `FluentMotion::duration(...)` 返回 0。
+- 已迁移控件会在下一次状态变化时即时完成动画；例如 Button/ToolButton/LineEdit/ComboBox 的 hover/focus 直接落到最终状态，popup 直接显示到最终几何，Toggle/Check/Radio/Slider/Progress 直接跳到目标状态。
+- 容器、导航和弹层控件也会跟随该开关：NavigationView 的 pane/selection、TabWidget 的切换指示器、DataViews hover、ScrollBar reveal/hover、DateRangePicker hover、TeachingTip mask、Toast opacity 和 Demo Page transition 都会直接完成或静态展示。
+- 对于 `FluentProgressRing` 的 indeterminate 状态，关闭全局动画会暂停旋转，只保留静态进度/弧段展示。
 
 ## Theme::baseStyleSheet（全局 QSS）
 

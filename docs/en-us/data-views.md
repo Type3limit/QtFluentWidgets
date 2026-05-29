@@ -40,7 +40,7 @@ Defaults & styling (differences from Qt defaults):
 Hover animation:
 
 - `mouseMoveEvent()` updates `hoverIndex()` using `indexAt(pos)`.
-- `hoverLevel()` is driven by an internal `QVariantAnimation` (~120ms). While animating, it continuously updates the viewport.
+- `hoverLevel()` is driven by an internal `QVariantAnimation` configured with `FluentMotionRole::Hover`. While animating, it continuously updates the viewport; when animations are globally disabled or the hover duration is 0, hover jumps directly to the target state.
 - `leaveEvent()` clears the hover index and animates hover back to 0.
 
 Selection transition (Current Index):
@@ -55,6 +55,7 @@ Selection transition (Current Index):
 Theme coupling:
 
 - On `ThemeManager::themeChanged` and Enabled changes, it refreshes `styleSheet` via `Theme::listViewStyle(colors)`.
+- Focus, disabled background/text/border, and the normal border are derived from Theme tokens, so dark mode no longer falls back to native Qt light colors.
 
 Key APIs:
 
@@ -96,13 +97,14 @@ The custom header draws separators in `viewportEvent(Paint)`:
 
 Hover & selection transition:
 
-- Hover uses `hoverIndex()` + `hoverLevel()` (~120ms).
+- Hover uses `hoverIndex()` + `hoverLevel()`, configured with `FluentMotionRole::Hover`, and jumps directly to the final state when animations are disabled.
 - Selection transition listens to `selectionModel()->currentChanged` and animates a background rect over ~180ms.
 - Under `SelectRows`, the animation target rect is computed by union-ing `visualRect()` across visible columns for the row, then applying a small inset (`adjusted(2,1,-2,-1)`).
 
 Theme coupling:
 
 - Refreshes `styleSheet` via `Theme::tableViewStyle(colors)` on theme/enabled changes.
+- Focus, disabled state, header background, and separator colors all come from the same neutral/accent tokens, avoiding native light remnants in dark mode.
 
 Key APIs:
 
@@ -181,7 +183,7 @@ Overrides `drawBranches()` and paints a chevron for items that have children and
 
 Hover & selection transition:
 
-- Hover uses `hoverIndex()` + `hoverLevel()` (~120ms). Under `SelectRows`, it treats "same row + same parent" as a line.
+- Hover uses `hoverIndex()` + `hoverLevel()`, configured with `FluentMotionRole::Hover`, and jumps directly to the final state when animations are disabled. Under `SelectRows`, it treats "same row + same parent" as a line.
 - Selection transition matches `FluentTableView` (row rect union across visible columns).
 
 Theme coupling:

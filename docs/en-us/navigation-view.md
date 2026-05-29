@@ -114,6 +114,7 @@ Use the incremental APIs when the menu is composed dynamically:
     - In `LeftCompact` and `Top`, clicking the body only opens the flyout and does not change `selectedKey`.
 - For leaf items with `selectsOnInvoked = false`, clicking still emits `itemInvoked`, but the current selection stays unchanged.
 - The back button only emits `backRequested()`; it does not mutate `selectedKey` by itself. Application code should keep its own back stack and call `setSelectedKey(previousKey)` when the signal arrives. The Containers demo shows a minimal back-stack implementation.
+- Motion uses `FluentMotionRole::Navigation` / `Hover` / `Selection`: pane width, row hover, and the selection indicator resync with global motion tokens. When global animations are disabled, width and selection changes snap to their target states.
 
 ## Header, auto-collapse, and signals
 

@@ -2,15 +2,17 @@
 
 #include "Fluent/FluentBorderEffect.h"
 #include "Fluent/FluentLineEdit.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "Fluent/FluentToolButton.h"
+#include "FluentPopupUtils.h"
+#include "FluentViewPaletteSupport.h"
 
 #include <QApplication>
 #include <QCursor>
-#include <QEasingCurve>
 #include <QEvent>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -36,7 +38,6 @@ namespace Fluent {
 namespace {
 
 constexpr int kAutoSuggestPopupGap = 5;
-constexpr int kAutoSuggestPopupSlideOffset = PopupSurface::kOpenSlideOffsetPx;
 constexpr int kAutoSuggestMaxVisibleRows = 6;
 constexpr int kAutoSuggestViewInset = 6;
 
@@ -65,8 +66,7 @@ public:
         }
 
         m_hoverAnim = new QVariantAnimation(this);
-        m_hoverAnim->setDuration(120);
-        m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
         connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
             m_hoverLevel = value.toReal();
             if (viewport()) {
@@ -77,6 +77,11 @@ public:
 
     QModelIndex hoverIndex() const { return m_hoverIndex; }
     qreal hoverLevel() const { return m_hoverLevel; }
+
+    void applyMotion()
+    {
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    }
 
 protected:
     void mouseMoveEvent(QMouseEvent *event) override
@@ -103,6 +108,13 @@ private:
             return;
         }
         m_hoverAnim->stop();
+        if (m_hoverAnim->duration() <= 0) {
+            m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+            if (viewport()) {
+                viewport()->update();
+            }
+            return;
+        }
         m_hoverAnim->setStartValue(m_hoverLevel);
         m_hoverAnim->setEndValue(endValue);
         m_hoverAnim->start();
@@ -222,22 +234,12 @@ public:
         });
 
         m_openAnim = new QVariantAnimation(this);
-        m_openAnim->setDuration(PopupSurface::kOpenDurationMs);
-        m_openAnim->setEasingCurve(QEasingCurve::OutCubic);
+        FluentMotion::configure(m_openAnim, FluentMotionRole::PopupOpen);
         connect(m_openAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-            const qreal t = qBound<qreal>(0.0, value.toReal(), 1.0);
-            setWindowOpacity(t);
-            if (m_targetGeom.isValid()) {
-                QRect geometry = m_targetGeom;
-                geometry.translate(0, static_cast<int>(std::lround((1.0 - t) * m_openSlideOffsetY)));
-                setGeometry(geometry);
-            }
+            Detail::applyPopupOpenProgress(this, m_targetGeom, m_openSlideOffsetY, value.toReal());
         });
         connect(m_openAnim, &QVariantAnimation::finished, this, [this]() {
-            setWindowOpacity(1.0);
-            if (m_targetGeom.isValid()) {
-                setGeometry(m_targetGeom);
-            }
+            Detail::finishPopupOpen(this, m_targetGeom);
         });
 
         if (owner && owner->lineEdit()) {
@@ -251,16 +253,16 @@ public:
 
     void applyTheme()
     {
+        FluentMotion::configure(m_openAnim, FluentMotionRole::PopupOpen);
         m_border.syncFromTheme();
         if (m_view) {
-            QPalette palette = m_view->palette();
+            m_view->applyMotion();
             const auto &colors = ThemeManager::instance().colors();
-            palette.setColor(QPalette::Text, colors.text);
-            palette.setColor(QPalette::Mid, colors.border);
-            m_view->setPalette(palette);
-            m_view->setStyleSheet(QStringLiteral(
+            Detail::applyFluentViewPalette(m_view, m_view->viewport(), colors);
+            const QString next = QStringLiteral(
                 "QListView#FluentAutoSuggestPopupView {"
                 "  background: transparent;"
+                "  color: %1;"
                 "  border: none;"
                 "  outline: 0;"
                 "}"
@@ -273,14 +275,19 @@ public:
                 "  margin: 2px;"
                 "}"
                 "QScrollBar::handle:vertical {"
-                "  background-color: palette(mid);"
+                "  background-color: %2;"
                 "  border: 1px solid transparent;"
                 "  border-radius: 999px;"
                 "  min-height: 24px;"
                 "}"
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
                 "  height: 0px;"
-                "}"));
+                "}")
+                .arg(colors.text.name(QColor::HexArgb),
+                     colors.border.name(QColor::HexArgb));
+            if (m_view->styleSheet() != next) {
+                m_view->setStyleSheet(next);
+            }
         }
         update();
     }
@@ -312,12 +319,7 @@ public:
         }
 
         m_openAnim->stop();
-        setWindowOpacity(0.0);
-        if (m_targetGeom.isValid()) {
-            QRect startGeom = m_targetGeom;
-            startGeom.translate(0, m_openSlideOffsetY);
-            setGeometry(startGeom);
-        }
+        Detail::preparePopupOpen(this, m_targetGeom, m_openSlideOffsetY);
 
         show();
         raise();
@@ -334,7 +336,11 @@ public:
 
         m_openAnim->setStartValue(0.0);
         m_openAnim->setEndValue(1.0);
-        m_openAnim->start();
+        if (m_openAnim->duration() <= 0) {
+            Detail::finishPopupOpen(this, m_targetGeom);
+        } else {
+            m_openAnim->start();
+        }
     }
 
     void dismiss(bool returnFocusToLineEdit = true)
@@ -450,7 +456,7 @@ protected:
         if (m_openAnim) {
             m_openAnim->stop();
         }
-        setWindowOpacity(1.0);
+        Detail::resetPopupOpenState(this);
         m_border.resetInitial();
     }
 
@@ -485,7 +491,7 @@ protected:
             return;
         }
         painter.setRenderHint(QPainter::Antialiasing, true);
-        PopupSurface::paintPanel(painter, rect(), colors, &m_border);
+        PopupSurface::paintPanelWithShadowMargins(painter, rect(), colors, &m_border);
     }
 
 private:
@@ -526,7 +532,7 @@ private:
             width += qMax(10, m_view->verticalScrollBar()->sizeHint().width());
         }
 
-        return QSize(qMax(width, 180), height);
+        return PopupSurface::withShadowMargins(QSize(qMax(width, 180), height));
     }
 
     void updateScrollPolicy()
@@ -544,7 +550,7 @@ private:
     void layoutView()
     {
         if (m_view) {
-            m_view->setGeometry(rect().adjusted(1, 1, -1, -1));
+            m_view->setGeometry(PopupSurface::shadowContentRect(rect()).adjusted(1, 1, -1, -1));
         }
     }
 
@@ -555,44 +561,11 @@ private:
             return;
         }
 
-        const QSize popupSize = popupSizeHint();
-        const QPoint anchorTopLeft = anchor->mapToGlobal(QPoint(0, 0));
-        const int anchorTopY = anchorTopLeft.y();
-        const int anchorBottomY = anchorTopLeft.y() + anchor->height();
-
-        QScreen *screen = QApplication::screenAt(anchorTopLeft);
-        if (!screen) {
-            screen = QApplication::primaryScreen();
-        }
-        const QRect avail = screen ? screen->availableGeometry() : QRect();
-
-        QRect popupGeom(anchorTopLeft, popupSize);
-        const int belowTop = anchorBottomY + kAutoSuggestPopupGap;
-        const int aboveTop = anchorTopY - kAutoSuggestPopupGap - popupSize.height();
-
-        const bool fitsBelow = !avail.isValid() || (belowTop + popupSize.height() <= avail.bottom() + 1);
-        const bool fitsAbove = !avail.isValid() || (aboveTop >= avail.top());
-
-        popupGeom.moveTop((fitsBelow || !fitsAbove) ? belowTop : aboveTop);
-        m_openSlideOffsetY = (fitsBelow || !fitsAbove) ? -kAutoSuggestPopupSlideOffset : kAutoSuggestPopupSlideOffset;
-
-        if (avail.isValid()) {
-            if (popupGeom.left() < avail.left()) {
-                popupGeom.moveLeft(avail.left());
-            }
-            if (popupGeom.right() > avail.right()) {
-                popupGeom.moveRight(avail.right());
-            }
-            if (popupGeom.top() < avail.top()) {
-                popupGeom.moveTop(avail.top());
-            }
-            if (popupGeom.bottom() > avail.bottom()) {
-                popupGeom.moveBottom(avail.bottom());
-            }
-        }
-
-        m_targetGeom = popupGeom;
-        setGeometry(popupGeom);
+        const Detail::PopupPlacementResult placed =
+            Detail::placePopupBelowOrAbove(anchor, popupSizeHint(), kAutoSuggestPopupGap);
+        m_targetGeom = placed.geometry;
+        m_openSlideOffsetY = placed.slideOffsetY;
+        setGeometry(m_targetGeom);
     }
 
     void moveCurrent(int delta)
@@ -626,7 +599,7 @@ private:
     FluentBorderEffect m_border;
     QVariantAnimation *m_openAnim = nullptr;
     QRect m_targetGeom;
-    int m_openSlideOffsetY = -kAutoSuggestPopupSlideOffset;
+    int m_openSlideOffsetY = -FluentMotion::popupSlideOffset();
     bool m_appFilterInstalled = false;
 };
 

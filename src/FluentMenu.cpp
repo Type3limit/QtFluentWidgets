@@ -1,8 +1,10 @@
 #include "Fluent/FluentMenu.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentQtCompat.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
+#include "FluentMenuPopupHost.h"
 
 #include <QApplication>
 #include <QAction>
@@ -122,11 +124,11 @@ static int popupOpenSlideOffsetY(const QMenu *menu, const QPoint &finalPos, int 
     const QRect anchorRect = popupAnchorRect(menu);
     if (anchorRect.isValid()) {
         if (finalPos.y() >= anchorRect.bottom()) {
-            return -PopupSurface::kOpenSlideOffsetPx;
+            return -FluentMotion::popupSlideOffset();
         }
 
         if (finalPos.y() + popupHeight <= anchorRect.top()) {
-            return PopupSurface::kOpenSlideOffsetPx;
+            return FluentMotion::popupSlideOffset();
         }
     }
 
@@ -137,10 +139,10 @@ static int popupOpenSlideOffsetY(const QMenu *menu, const QPoint &finalPos, int 
 
     const QRect avail = screen ? screen->availableGeometry() : QRect();
     if (avail.isValid() && finalPos.y() > avail.center().y()) {
-        return PopupSurface::kOpenSlideOffsetPx;
+        return FluentMotion::popupSlideOffset();
     }
 
-    return -PopupSurface::kOpenSlideOffsetPx;
+    return -FluentMotion::popupSlideOffset();
 }
 
 QRegion roundedPopupRegion(const QRect &rect)
@@ -156,565 +158,6 @@ QRegion roundedPopupRegion(const QRect &rect)
 
     return QRegion(polygon);
 }
-
-class FluentMenuPopupHost final : public QWidget
-{
-public:
-    explicit FluentMenuPopupHost(QMenu *sourceMenu)
-        : QWidget(nullptr, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
-        , m_menu(sourceMenu)
-        , m_border(this, this)
-    {
-        setAttribute(Qt::WA_TranslucentBackground, true);
-        setAttribute(Qt::WA_StyledBackground, false);
-        setAutoFillBackground(false);
-        setMouseTracking(true);
-        setFocusPolicy(Qt::StrongFocus);
-
-        m_border.setRequestUpdate([this]() { update(); });
-        m_border.syncFromTheme();
-
-        m_hoverAnim = new QVariantAnimation(this);
-        m_hoverAnim->setDuration(120);
-        connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-            m_hoverLevel = value.toReal();
-            update();
-        });
-
-        connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
-            if (isVisible()) {
-                m_border.onThemeChanged();
-            } else {
-                m_border.syncFromTheme();
-            }
-            update();
-        });
-    }
-
-    std::function<void()> onClosed;
-    std::function<void(QAction *)> onActionTriggered;
-    std::function<void()> onEntered;
-
-    // Called by an ancestor popup that is in the process of tearing the
-    // whole chain down. We remember the fact so that hideEvent doesn't
-    // bubble back up and ask our parent to close again (which would either
-    // recurse infinitely through onClosed or do nothing extra).
-    void closeFromParent()
-    {
-        m_closingFromParent = true;
-        close();
-    }
-
-    bool isClosingFromParent() const { return m_closingFromParent; }
-
-    void popupAt(const QPoint &pos, QAction *atAction = nullptr)
-    {
-        if (m_menu) {
-            QMetaObject::invokeMethod(m_menu, "aboutToShow", Qt::DirectConnection);
-        }
-
-        if (atAction) {
-            m_hoverAction = atAction;
-        }
-
-        resize(sizeHint());
-        move(pos);
-        show();
-        raise();
-        activateWindow();
-        setFocus(Qt::PopupFocusReason);
-        m_border.playInitialTraceOnce(0);
-    }
-
-    QSize sizeHint() const override
-    {
-        constexpr int kOuterPadding = 4;
-        constexpr int kTextLeft = 32;
-        constexpr int kTextRight = 18;
-        constexpr int kShortcutGap = 12;
-        constexpr int kMinWidth = 140;
-
-        QFontMetrics fm(font());
-        int width = kMinWidth;
-        int height = kOuterPadding * 2;
-
-        for (QAction *action : m_menu ? m_menu->actions() : QList<QAction *>()) {
-            if (!action || !action->isVisible()) {
-                continue;
-            }
-
-            if (action->isSeparator()) {
-                height += separatorHeight();
-                continue;
-            }
-
-            QString text = action->text();
-            QString shortcut;
-            const qsizetype tabPos = text.indexOf(QLatin1Char('\t'));
-            if (tabPos >= 0) {
-                shortcut = text.mid(tabPos + 1);
-                text = text.left(tabPos);
-            } else if (!action->shortcut().isEmpty()) {
-                shortcut = action->shortcut().toString(QKeySequence::NativeText);
-            }
-
-            const int textWidth = fm.horizontalAdvance(text.replace(QLatin1Char('&'), QString()));
-            const int shortcutWidth = shortcut.isEmpty() ? 0 : fm.horizontalAdvance(shortcut) + kShortcutGap;
-            width = qMax(width, kTextLeft + textWidth + shortcutWidth + kTextRight + kOuterPadding * 2);
-            height += itemHeight();
-        }
-
-        return QSize(width, height);
-    }
-
-    QMenu *menu() const { return m_menu.data(); }
-
-protected:
-    void hideEvent(QHideEvent *event) override
-    {
-        QWidget::hideEvent(event);
-        closeChildPopup();
-        if (m_menu) {
-            QMetaObject::invokeMethod(m_menu, "aboutToHide", Qt::DirectConnection);
-        }
-        m_border.resetInitial();
-        if (onClosed) {
-            onClosed();
-        }
-    }
-
-    void keyPressEvent(QKeyEvent *event) override
-    {
-        if (!event) {
-            return;
-        }
-
-        switch (event->key()) {
-        case Qt::Key_Escape:
-            close();
-            return;
-        case Qt::Key_Return:
-        case Qt::Key_Enter:
-        case Qt::Key_Space:
-            if (m_hoverAction && m_hoverAction->isEnabled()) {
-                triggerAction(m_hoverAction);
-            }
-            return;
-        default:
-            break;
-        }
-
-        QWidget::keyPressEvent(event);
-    }
-
-    void mouseMoveEvent(QMouseEvent *event) override
-    {
-        const QPoint localPos = event ? event->pos() : QPoint();
-        const QPoint globalPos = mapToGlobal(localPos);
-
-        if (rect().contains(localPos)) {
-            updateHoverFromLocalPos(localPos);
-        } else if (m_parentHost) {
-            // Cursor is outside our own rect. Because Qt::Popup gives us a
-            // mouse grab, the parent popups no longer receive their own
-            // mouseMoveEvents — even though the cursor may be over one of
-            // them. Forward the move along the parent chain so the right
-            // ancestor can update its hover/swap its submenu.
-            m_parentHost->handleForeignMouseMove(globalPos);
-        }
-
-        QWidget::mouseMoveEvent(event);
-    }
-
-    void handleForeignMouseMove(const QPoint &globalPos)
-    {
-        const QPoint localPos = mapFromGlobal(globalPos);
-        if (rect().contains(localPos)) {
-            updateHoverFromLocalPos(localPos);
-        } else if (m_parentHost) {
-            m_parentHost->handleForeignMouseMove(globalPos);
-        }
-        // If neither we nor any ancestor contains the cursor, the chain
-        // will be torn down by either leaveEvent on the child or an
-        // outside-click; nothing to do here.
-    }
-
-    void updateHoverFromLocalPos(const QPoint &localPos)
-    {
-        const QAction *action = actionAt(localPos);
-        if (action == m_hoverAction) {
-            return;
-        }
-
-        m_hoverAction = const_cast<QAction *>(action);
-        startHoverAnimation(m_hoverAction ? 1.0 : 0.0);
-        if (m_hoverAction && m_hoverAction->menu() && m_hoverAction->isEnabled()) {
-            // Hovering an action that has its own submenu: swap to it.
-            cancelPendingChildClose();
-            syncChildPopup();
-        } else if (m_childPopup) {
-            // Hovering a non-submenu action while a child popup is open:
-            // schedule a delayed close so the user can still glide
-            // diagonally toward the open submenu.
-            scheduleCloseChildPopup();
-        }
-        update();
-    }
-
-    void enterEvent(FluentEnterEvent *event) override
-    {
-        // Cursor returned to this popup — keep our own child popup open and
-        // tell our parent popup (if any) that it should keep us open too.
-        cancelPendingChildClose();
-        if (onEntered) {
-            onEntered();
-        }
-        QWidget::enterEvent(event);
-    }
-
-    void leaveEvent(QEvent *event) override
-    {
-        m_hoverAction = nullptr;
-        startHoverAnimation(0.0);
-        // Don't immediately schedule a child-popup close if the cursor is
-        // still geometrically inside us — Qt sends a synthetic leaveEvent
-        // whenever a brand-new child popup takes the mouse grab, even when
-        // the user hasn't actually moved off our rect. In that case the
-        // child popup will be the one driving updates via mouseMoveEvent
-        // forwarding (see handleForeignMouseMove above).
-        const QPoint cursorLocal = mapFromGlobal(QCursor::pos());
-        if (!rect().contains(cursorLocal)) {
-            scheduleCloseChildPopup();
-        }
-        QWidget::leaveEvent(event);
-    }
-
-    void mouseReleaseEvent(QMouseEvent *event) override
-    {
-        if (event && event->button() == Qt::LeftButton) {
-            if (QAction *action = const_cast<QAction *>(actionAt(event->pos()))) {
-                triggerAction(action);
-                return;
-            }
-        }
-        QWidget::mouseReleaseEvent(event);
-    }
-
-    void paintEvent(QPaintEvent *event) override
-    {
-        Q_UNUSED(event)
-
-        const auto &colors = ThemeManager::instance().colors();
-        QColor sep = colors.border;
-        sep.setAlpha(colors.background.lightnessF() < 0.5 ? 140 : 90);
-
-        {
-            QPainter clear(this);
-            if (!clear.isActive()) {
-                return;
-            }
-            clear.setCompositionMode(QPainter::CompositionMode_Source);
-            clear.fillRect(rect(), Qt::transparent);
-        }
-
-        const QPainterPath outerClip = PopupSurface::contentClipPath(rect());
-
-        QPainter p(this);
-        if (!p.isActive()) {
-            return;
-        }
-        p.setRenderHint(QPainter::Antialiasing, true);
-        PopupSurface::paintPanel(p, rect(), colors, &m_border);
-        p.setClipPath(outerClip);
-
-        if (QRect hoverRect = actionRect(m_hoverAction); hoverRect.isValid()) {
-            QColor fill = colors.hover;
-            fill.setAlpha(qBound(0, static_cast<int>(std::lround(110.0 * qBound<qreal>(0.0, m_hoverLevel, 1.0))), 110));
-
-            const QRect r = hoverRect.adjusted(4, 2, -4, -2);
-            p.setPen(Qt::NoPen);
-            p.setBrush(fill);
-            p.drawRoundedRect(r, 4, 4);
-
-            QColor indicator = colors.accent;
-            indicator.setAlpha(qBound(0, static_cast<int>(std::lround(255.0 * qBound<qreal>(0.0, m_hoverLevel, 1.0))), 255));
-            p.setBrush(indicator);
-            p.drawRoundedRect(QRectF(r.left(), r.center().y() - 8.0, 3.0, 16.0), 1.5, 1.5);
-        }
-
-        p.setFont(font());
-        for (QAction *action : m_menu ? m_menu->actions() : QList<QAction *>()) {
-            if (!action || !action->isVisible()) {
-                continue;
-            }
-
-            const QRect ar = actionRect(action);
-            if (!ar.isValid()) {
-                continue;
-            }
-
-            if (action->isSeparator()) {
-                p.setPen(QPen(sep, 1.0));
-                p.drawLine(QPointF(ar.left() + 10.0, ar.center().y() + 0.5), QPointF(ar.right() - 10.0, ar.center().y() + 0.5));
-                continue;
-            }
-
-            const bool enabled = action->isEnabled();
-            QString text = action->text();
-            QString shortcut;
-            const qsizetype tabPos = text.indexOf(QLatin1Char('\t'));
-            if (tabPos >= 0) {
-                shortcut = text.mid(tabPos + 1);
-                text = text.left(tabPos);
-            } else if (!action->shortcut().isEmpty()) {
-                shortcut = action->shortcut().toString(QKeySequence::NativeText);
-            }
-
-            const QRect textRect = ar.adjusted(32, 0, -18, 0);
-            const QFontMetrics fm(p.font());
-            const int shortcutWidth = shortcut.isEmpty() ? 0 : fm.horizontalAdvance(shortcut);
-            const QRect labelRect = shortcut.isEmpty()
-                ? textRect
-                : QRect(textRect.left(), textRect.top(), qMax(0, textRect.width() - shortcutWidth - 12), textRect.height());
-            const QRect shortcutRect = shortcut.isEmpty()
-                ? QRect()
-                : QRect(textRect.right() - shortcutWidth, textRect.top(), shortcutWidth, textRect.height());
-
-            if (!action->icon().isNull()) {
-                action->icon().paint(&p,
-                                    QRect(ar.left() + 10, ar.center().y() - 8, 16, 16),
-                                    Qt::AlignCenter,
-                                    enabled ? QIcon::Normal : QIcon::Disabled);
-            }
-
-            p.setPen(enabled ? colors.text : colors.disabledText);
-            p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextShowMnemonic, text);
-
-            if (!shortcut.isEmpty()) {
-                p.setPen(enabled ? colors.subText : colors.disabledText);
-                p.drawText(shortcutRect, Qt::AlignVCenter | Qt::AlignRight, shortcut);
-            }
-
-            if (action->isCheckable() && action->isChecked()) {
-                p.setPen(QPen(colors.accent, 1.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-                const QPointF center(ar.left() + 16.0, ar.center().y());
-                p.drawLine(center + QPointF(-4.0, 0.5), center + QPointF(-1.2, 3.3));
-                p.drawLine(center + QPointF(-1.2, 3.3), center + QPointF(5.2, -3.0));
-            }
-
-            if (action->menu()) {
-                const QColor arrow = enabled ? colors.subText : colors.disabledText;
-                Style::drawChevronRight(p, QPointF(ar.right() - 14.0, ar.center().y()), arrow, 7.5, 1.6);
-            }
-        }
-    }
-
-private:
-    static int itemHeight() { return 34; }
-    static int separatorHeight() { return 13; }
-
-    QRect actionRect(QAction *target) const
-    {
-        if (!m_menu || !target) {
-            return {};
-        }
-
-        int y = 4;
-        const int w = width() - 8;
-        for (QAction *action : m_menu->actions()) {
-            if (!action || !action->isVisible()) {
-                continue;
-            }
-
-            const int h = action->isSeparator() ? separatorHeight() : itemHeight();
-            const QRect rect(4, y, w, h);
-            if (action == target) {
-                return rect;
-            }
-            y += h;
-        }
-
-        return {};
-    }
-
-    QAction *actionAt(const QPoint &pos) const
-    {
-        if (!m_menu) {
-            return nullptr;
-        }
-
-        for (QAction *action : m_menu->actions()) {
-            if (!action || !action->isVisible() || action->isSeparator()) {
-                continue;
-            }
-            if (actionRect(action).contains(pos)) {
-                return action;
-            }
-        }
-
-        return nullptr;
-    }
-
-    void triggerAction(QAction *action)
-    {
-        if (!action || !action->isEnabled()) {
-            return;
-        }
-
-        if (action->menu()) {
-            m_hoverAction = action;
-            syncChildPopup();
-            return;
-        }
-
-        closeChildPopup();
-        close();
-        if (onActionTriggered) {
-            onActionTriggered(action);
-        }
-        action->trigger();
-    }
-
-    QPoint submenuPopupPosition(QAction *action, const QSize &popupSize) const
-    {
-        const QRect ar = actionRect(action);
-        QPoint pos = mapToGlobal(ar.topRight() + QPoint(4, 0));
-
-        QScreen *screen = QApplication::screenAt(pos);
-        if (!screen) {
-            screen = QApplication::primaryScreen();
-        }
-        const QRect avail = screen ? screen->availableGeometry() : QRect();
-        if (!avail.isValid()) {
-            return pos;
-        }
-
-        if (pos.x() + popupSize.width() > avail.right()) {
-            pos.setX(mapToGlobal(ar.topLeft()).x() - 4 - popupSize.width());
-        }
-        if (pos.y() + popupSize.height() > avail.bottom()) {
-            pos.setY(avail.bottom() - popupSize.height());
-        }
-        if (pos.y() < avail.top()) {
-            pos.setY(avail.top());
-        }
-        if (pos.x() < avail.left()) {
-            pos.setX(avail.left());
-        }
-        return pos;
-    }
-
-    void syncChildPopup()
-    {
-        QAction *action = m_hoverAction;
-        if (!action || !action->menu() || !action->isEnabled()) {
-            closeChildPopup();
-            return;
-        }
-
-        QMenu *submenuMenu = action->menu();
-        if (m_childPopup && m_childPopup->menu() == submenuMenu) {
-            cancelPendingChildClose();
-            return;
-        }
-
-        closeChildPopup();
-
-        auto *popup = new FluentMenuPopupHost(submenuMenu);
-        popup->m_parentHost = this;
-        QPointer<FluentMenuPopupHost> popupRef = popup;
-        popup->onClosed = [this, popupRef]() {
-            // The child went away. Two cases:
-            //   1) We initiated the close (closeChildPopup / timer / our own
-            //      hideEvent cascading down) → popupRef->isClosingFromParent()
-            //      is true. m_childPopup was already cleared by us; nothing
-            //      more to do.
-            //   2) The child closed on its own (user clicked outside the
-            //      chain, pressed Escape, etc.) → bubble UP by closing
-            //      ourselves with a plain close(). Our own hideEvent will
-            //      then trigger OUR onClosed and continue the bubble until
-            //      the entire chain has collapsed in a single user action.
-            const bool fromParent = popupRef && popupRef->isClosingFromParent();
-            m_childPopup = nullptr;
-            if (!fromParent) {
-                close();
-            }
-        };
-        popup->onActionTriggered = [this](QAction *triggeredAction) {
-            close();
-            if (onActionTriggered) {
-                onActionTriggered(triggeredAction);
-            }
-        };
-        // When the cursor enters the submenu, cancel any pending close on
-        // this (parent) popup. This is what lets the user slide the mouse
-        // diagonally from a parent action into its submenu without losing it.
-        popup->onEntered = [this]() {
-            cancelPendingChildClose();
-        };
-        m_childPopup = popup;
-        popup->popupAt(submenuPopupPosition(action, popup->sizeHint()));
-    }
-
-    void closeChildPopup()
-    {
-        cancelPendingChildClose();
-        if (m_childPopup) {
-            FluentMenuPopupHost *child = m_childPopup.data();
-            m_childPopup = nullptr;
-            // closeFromParent marks the close as "initiated from above" so
-            // the child's onClosed callback won't bubble back up here.
-            child->closeFromParent();
-        }
-    }
-
-    void scheduleCloseChildPopup(int delayMs = 320)
-    {
-        if (!m_childPopup) {
-            return;
-        }
-        if (!m_pendingCloseTimer) {
-            m_pendingCloseTimer = new QTimer(this);
-            m_pendingCloseTimer->setSingleShot(true);
-            connect(m_pendingCloseTimer, &QTimer::timeout, this, [this]() {
-                if (m_childPopup) {
-                    FluentMenuPopupHost *child = m_childPopup.data();
-                    m_childPopup = nullptr;
-                    child->closeFromParent();
-                }
-            });
-        }
-        m_pendingCloseTimer->start(delayMs);
-    }
-
-    void cancelPendingChildClose()
-    {
-        if (m_pendingCloseTimer && m_pendingCloseTimer->isActive()) {
-            m_pendingCloseTimer->stop();
-        }
-    }
-
-    void startHoverAnimation(qreal endValue)
-    {
-        if (!m_hoverAnim) {
-            return;
-        }
-        m_hoverAnim->stop();
-        m_hoverAnim->setStartValue(m_hoverLevel);
-        m_hoverAnim->setEndValue(endValue);
-        m_hoverAnim->start();
-    }
-
-    QPointer<QMenu> m_menu;
-    QPointer<FluentMenuPopupHost> m_childPopup;
-    QPointer<FluentMenuPopupHost> m_parentHost;
-    QTimer *m_pendingCloseTimer = nullptr;
-    bool m_closingFromParent = false;
-    FluentBorderEffect m_border;
-    QAction *m_hoverAction = nullptr;
-    qreal m_hoverLevel = 0.0;
-    QVariantAnimation *m_hoverAnim = nullptr;
-};
 
 #ifdef Q_OS_WIN
 static void applyWindowsMenuPopupAttributes(QWidget *widget)
@@ -814,15 +257,14 @@ FluentMenu::FluentMenu(QWidget *parent)
     m_border.syncFromTheme();
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(120);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_highlightAnim = new QVariantAnimation(this);
-    m_highlightAnim->setDuration(160);
-    m_highlightAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_highlightAnim, FluentMotionRole::Selection);
     connect(m_highlightAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_highlightRect = value.toRect();
         update();
@@ -859,15 +301,14 @@ FluentMenu::FluentMenu(const QString &title, QWidget *parent)
     m_border.syncFromTheme();
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(120);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_highlightAnim = new QVariantAnimation(this);
-    m_highlightAnim->setDuration(160);
-    m_highlightAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_highlightAnim, FluentMotionRole::Selection);
     connect(m_highlightAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_highlightRect = value.toRect();
         update();
@@ -969,6 +410,7 @@ void FluentMenu::ensureSubMenusFluent()
 
 void FluentMenu::applyTheme()
 {
+    const auto &colors = ThemeManager::instance().colors();
     if (isVisible()) {
         m_border.onThemeChanged();
     } else {
@@ -982,14 +424,17 @@ void FluentMenu::applyTheme()
         "  min-height: 22px;"
         "  border-radius: 4px;"
         "  background: transparent;"
-        "  color: palette(text);"
+        "  color: %1;"
         "}"
-        "QMenu::item:disabled { color: palette(mid); } "
+        "QMenu::item:disabled { color: %2; } "
         "QMenu::item:selected { background: transparent; }"
-        "QMenu::item:selected:disabled { color: palette(mid); }"
-        "QMenu::separator { height: 1px; background: palette(mid); margin: 6px 10px; }"
+        "QMenu::item:selected:disabled { color: %2; }"
+        "QMenu::separator { height: 1px; background: %3; margin: 6px 10px; }"
         "QMenu::indicator { width: 0px; height: 0px; }"
-        "QMenu::right-arrow { width: 0px; height: 0px; image: none; }");
+        "QMenu::right-arrow { width: 0px; height: 0px; image: none; }")
+            .arg(colors.text.name(QColor::HexArgb),
+                 colors.disabledText.name(QColor::HexArgb),
+                 colors.border.name(QColor::HexArgb));
 
     if (styleSheet() != next) {
         setStyleSheet(next);
@@ -1078,8 +523,7 @@ void FluentMenu::startPopupAnimation()
     move(finalPos + QPoint(0, slideOffsetY));
 
     m_popupFadeAnim = new QVariantAnimation(this);
-    m_popupFadeAnim->setDuration(PopupSurface::kOpenDurationMs);
-    m_popupFadeAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_popupFadeAnim, FluentMotionRole::PopupOpen);
     m_popupFadeAnim->setStartValue(0.0);
     m_popupFadeAnim->setEndValue(1.0);
     connect(m_popupFadeAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
@@ -1093,8 +537,7 @@ void FluentMenu::startPopupAnimation()
     });
 
     m_popupSlideAnim = new QVariantAnimation(this);
-    m_popupSlideAnim->setDuration(PopupSurface::kOpenDurationMs);
-    m_popupSlideAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_popupSlideAnim, FluentMotionRole::PopupOpen);
     m_popupSlideAnim->setStartValue(finalPos + QPoint(0, slideOffsetY));
     m_popupSlideAnim->setEndValue(finalPos);
     connect(m_popupSlideAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
@@ -1106,6 +549,16 @@ void FluentMenu::startPopupAnimation()
             m_popupSlideAnim = nullptr;
         }
     });
+
+    if (m_popupFadeAnim->duration() <= 0 || m_popupSlideAnim->duration() <= 0) {
+        setWindowOpacity(1.0);
+        move(finalPos);
+        m_popupFadeAnim->deleteLater();
+        m_popupFadeAnim = nullptr;
+        m_popupSlideAnim->deleteLater();
+        m_popupSlideAnim = nullptr;
+        return;
+    }
 
     m_popupFadeAnim->start();
     m_popupSlideAnim->start();

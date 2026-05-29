@@ -2,6 +2,7 @@
 #include "Fluent/FluentAnimatedIcon.h"
 #include "Fluent/FluentIcon.h"
 #include "Fluent/FluentMenu.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -1228,8 +1229,7 @@ FluentNavigationView::FluentNavigationView(QWidget *parent)
     setMouseTracking(true);
 
     d->widthAnim = new QVariantAnimation(this);
-    d->widthAnim->setDuration(200);
-    d->widthAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(d->widthAnim, FluentMotionRole::Navigation);
     connect(d->widthAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         d->currentWidth = value.toInt();
         updateModeGeometry();
@@ -1237,15 +1237,14 @@ FluentNavigationView::FluentNavigationView(QWidget *parent)
     });
 
     d->hoverAnim = new QVariantAnimation(this);
-    d->hoverAnim->setDuration(120);
+    FluentMotion::configure(d->hoverAnim, FluentMotionRole::Hover);
     connect(d->hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         d->hoverLevel = value.toReal();
         update();
     });
 
     d->selAnim = new QVariantAnimation(this);
-    d->selAnim->setDuration(180);
-    d->selAnim->setEasingCurve(QEasingCurve::InOutCubic);
+    FluentMotion::configure(d->selAnim, FluentMotionRole::Selection);
     connect(d->selAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         const qreal t = qBound<qreal>(0.0, value.toReal(), 1.0);
         d->selRect = QRectF(
@@ -1261,7 +1260,12 @@ FluentNavigationView::FluentNavigationView(QWidget *parent)
         update();
     });
 
-    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, QOverload<>::of(&QWidget::update));
+    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        FluentMotion::configure(d->widthAnim, FluentMotionRole::Navigation);
+        FluentMotion::configure(d->hoverAnim, FluentMotionRole::Hover);
+        FluentMotion::configure(d->selAnim, FluentMotionRole::Selection);
+        update();
+    });
 
     d->rebuildRows();
     updateModeGeometry();
@@ -1369,9 +1373,14 @@ void FluentNavigationView::setSelectedKey(const QString &key)
     d->selStartRect = animRunning ? d->selRect : oldRect;
     d->selTargetRect = newRect;
     d->selAnim->stop();
-    d->selAnim->setStartValue(0.0);
-    d->selAnim->setEndValue(1.0);
-    d->selAnim->start();
+    if (d->selAnim->duration() <= 0) {
+        d->selRect = d->selTargetRect;
+        d->selOpacity = 1.0;
+    } else {
+        d->selAnim->setStartValue(0.0);
+        d->selAnim->setEndValue(1.0);
+        d->selAnim->start();
+    }
 
     updateGeometry();
     emit selectedKeyChanged(key);
@@ -1408,9 +1417,14 @@ void FluentNavigationView::setPaneDisplayMode(PaneDisplayMode mode)
     } else {
         const int target = (mode == Left) ? d->expandedWidth : d->compactWidth;
         d->widthAnim->stop();
-        d->widthAnim->setStartValue(d->currentWidth);
-        d->widthAnim->setEndValue(target);
-        d->widthAnim->start();
+        if (d->widthAnim->duration() <= 0) {
+            d->currentWidth = target;
+            updateModeGeometry();
+        } else {
+            d->widthAnim->setStartValue(d->currentWidth);
+            d->widthAnim->setEndValue(target);
+            d->widthAnim->start();
+        }
     }
 
     d->selRect = d->selectionRectForKey(d->selectedKey, width(), height());
@@ -2271,9 +2285,14 @@ void FluentNavigationView::mouseMoveEvent(QMouseEvent *event)
             if (d->hoverRowIndex != -1) {
                 d->hoverRowIndex = -1;
                 d->hoverAnim->stop();
-                d->hoverAnim->setStartValue(d->hoverLevel);
-                d->hoverAnim->setEndValue(0.0);
-                d->hoverAnim->start();
+                if (d->hoverAnim->duration() <= 0) {
+                    d->hoverLevel = 0.0;
+                } else {
+                    d->hoverAnim->setStartValue(d->hoverLevel);
+                    d->hoverAnim->setEndValue(0.0);
+                    d->hoverAnim->start();
+                }
+                update();
             }
             QWidget::mouseMoveEvent(event);
             return;
@@ -2284,9 +2303,14 @@ void FluentNavigationView::mouseMoveEvent(QMouseEvent *event)
     if (hit != d->hoverRowIndex) {
         d->hoverRowIndex = hit;
         d->hoverAnim->stop();
-        d->hoverAnim->setStartValue(d->hoverLevel);
-        d->hoverAnim->setEndValue(hit >= 0 ? 1.0 : 0.0);
-        d->hoverAnim->start();
+        if (d->hoverAnim->duration() <= 0) {
+            d->hoverLevel = hit >= 0 ? 1.0 : 0.0;
+        } else {
+            d->hoverAnim->setStartValue(d->hoverLevel);
+            d->hoverAnim->setEndValue(hit >= 0 ? 1.0 : 0.0);
+            d->hoverAnim->start();
+        }
+        update();
     }
 
     QWidget::mouseMoveEvent(event);
@@ -2337,9 +2361,13 @@ void FluentNavigationView::leaveEvent(QEvent *event)
 {
     d->hoverRowIndex = -1;
     d->hoverAnim->stop();
-    d->hoverAnim->setStartValue(d->hoverLevel);
-    d->hoverAnim->setEndValue(0.0);
-    d->hoverAnim->start();
+    if (d->hoverAnim->duration() <= 0) {
+        d->hoverLevel = 0.0;
+    } else {
+        d->hoverAnim->setStartValue(d->hoverLevel);
+        d->hoverAnim->setEndValue(0.0);
+        d->hoverAnim->start();
+    }
     if (d->scrollHover) {
         d->scrollHover = false;
         update();

@@ -2,26 +2,41 @@
 
 #include "Fluent/FluentButton.h"
 #include "Fluent/FluentLabel.h"
+#include "Fluent/FluentMotion.h"
+#include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentToolButton.h"
 
 #include <QCursor>
 #include <QEvent>
 #include <QHideEvent>
 #include <QHBoxLayout>
+#include <QLayout>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QPropertyAnimation>
 #include <QPointer>
 #include <QRegion>
 #include <QShowEvent>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace Fluent {
 
 namespace {
 
+constexpr int kTeachingTipPanelWidth = 320;
+constexpr int kTeachingTipMinPanelWidth = 260;
+constexpr int kTeachingTipPanelHorizontalPadding = 8;
+constexpr int kTeachingTipBodyWidth = kTeachingTipPanelWidth - kTeachingTipPanelHorizontalPadding;
+constexpr int kTeachingTipTitleWidth = kTeachingTipBodyWidth - 8 - 34;
+constexpr int kTeachingTipGeometrySafetyHeight = 40;
+
 class TeachingTipMaskOverlay final : public QWidget
 {
+    Q_OBJECT
+    Q_PROPERTY(qreal overlayOpacity READ overlayOpacity WRITE setOverlayOpacity)
+
 public:
     explicit TeachingTipMaskOverlay(QWidget *window, qreal opacity)
         : QWidget(window)
@@ -40,10 +55,48 @@ public:
         }
     }
 
-    void setOpacity(qreal opacity)
+    qreal overlayOpacity() const
+    {
+        return m_opacity;
+    }
+
+    void setOverlayOpacity(qreal opacity)
     {
         m_opacity = qBound<qreal>(0.0, opacity, 1.0);
         update();
+    }
+
+    void setOpacity(qreal opacity)
+    {
+        setOverlayOpacity(opacity);
+    }
+
+    void animateOpacityTo(qreal opacity, FluentMotionRole role)
+    {
+        const qreal target = qBound<qreal>(0.0, opacity, 1.0);
+        if (m_opacityAnim) {
+            m_opacityAnim->stop();
+            m_opacityAnim->deleteLater();
+            m_opacityAnim = nullptr;
+        }
+        const int duration = FluentMotion::duration(role);
+        if (duration <= 0 || qFuzzyCompare(m_opacity, target)) {
+            setOverlayOpacity(target);
+            return;
+        }
+
+        auto *anim = new QPropertyAnimation(this, "overlayOpacity", this);
+        m_opacityAnim = anim;
+        FluentMotion::configure(anim, role);
+        anim->setStartValue(m_opacity);
+        anim->setEndValue(target);
+        connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
+            if (m_opacityAnim == anim) {
+                m_opacityAnim = nullptr;
+            }
+            anim->deleteLater();
+        });
+        anim->start();
     }
 
     void setTarget(QWidget *target)
@@ -174,17 +227,22 @@ private:
             return;
         }
 
-        const QRectF hole = targetCutoutRect();
-        if (!hole.isValid()) {
+        const QRectF targetHole = targetCutoutRect();
+        if (!targetHole.isValid()) {
             setMask(QRegion(rect()));
             return;
         }
 
-        setMask(QRegion(rect()).subtracted(QRegion(hole.toAlignedRect())));
+        QRegion region(rect());
+        if (targetHole.isValid()) {
+            region = region.subtracted(QRegion(targetHole.toAlignedRect()));
+        }
+        setMask(region);
     }
 
     QPointer<QWidget> m_window;
     QPointer<QWidget> m_target;
+    QPointer<QPropertyAnimation> m_opacityAnim;
     qreal m_opacity = 0.42;
 };
 
@@ -195,6 +253,7 @@ FluentTeachingTip::FluentTeachingTip(QWidget *parent)
 {
     m_panel = new QWidget(this);
     m_panel->setAttribute(Qt::WA_StyledBackground, false);
+    m_panel->setFixedWidth(kTeachingTipPanelWidth);
 
     m_rootLayout = new QVBoxLayout(m_panel);
     m_rootLayout->setContentsMargins(4, 2, 4, 4);
@@ -207,9 +266,11 @@ FluentTeachingTip::FluentTeachingTip(QWidget *parent)
     m_titleLabel = new FluentLabel(m_panel);
     m_titleLabel->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: 650;"));
     m_titleLabel->setWordWrap(true);
+    m_titleLabel->setFixedWidth(kTeachingTipTitleWidth);
 
     m_closeButton = new FluentToolButton(m_panel);
     m_closeButton->setProperty("fluentWindowGlyph", 3);
+    m_closeButton->setProperty("fluentNeutralCloseGlyph", true);
     m_closeButton->setFixedSize(34, 28);
     connect(m_closeButton, &QToolButton::clicked, this, [this]() {
         if (m_guideRunning) {
@@ -224,6 +285,7 @@ FluentTeachingTip::FluentTeachingTip(QWidget *parent)
 
     m_subtitleLabel = new FluentLabel(m_panel);
     m_subtitleLabel->setWordWrap(true);
+    m_subtitleLabel->setFixedWidth(kTeachingTipBodyWidth);
     m_subtitleLabel->setStyleSheet(QStringLiteral("font-size: 12px; opacity: 0.88;"));
 
     m_actionButton = new FluentButton(m_panel);
@@ -248,6 +310,7 @@ FluentTeachingTip::FluentTeachingTip(QWidget *parent)
     });
 
     m_actionsHost = new QWidget(m_panel);
+    m_actionsHost->setFixedWidth(kTeachingTipBodyWidth);
     auto *actionsLayout = new QHBoxLayout(m_actionsHost);
     actionsLayout->setContentsMargins(0, 0, 0, 0);
     actionsLayout->setSpacing(8);
@@ -260,7 +323,7 @@ FluentTeachingTip::FluentTeachingTip(QWidget *parent)
     m_rootLayout->addWidget(m_actionsHost);
 
     FluentFlyout::setContentWidget(m_panel);
-    setMinimumWidth(260);
+    setMinimumWidth(PopupSurface::withShadowMargins(QSize(kTeachingTipMinPanelWidth, 0)).width());
     updateContent();
 }
 
@@ -387,10 +450,12 @@ void FluentTeachingTip::setContentWidget(QWidget *widget)
     m_contentWidget = widget;
     if (m_contentWidget) {
         m_contentWidget->setParent(m_panel);
+        m_contentWidget->setFixedWidth(kTeachingTipBodyWidth);
         const int actionIndex = m_rootLayout->indexOf(m_actionsHost);
         m_rootLayout->insertWidget(actionIndex >= 0 ? actionIndex : m_rootLayout->count(), m_contentWidget);
     }
-    adjustSize();
+    updateGeometry();
+    setFixedSize(preferredPopupSize());
 }
 
 void FluentTeachingTip::setGuideTargets(const QList<QWidget *> &targets)
@@ -582,6 +647,31 @@ bool FluentTeachingTip::eventFilter(QObject *watched, QEvent *event)
     return FluentFlyout::eventFilter(watched, event);
 }
 
+QSize FluentTeachingTip::sizeHint() const
+{
+    return preferredPopupSize();
+}
+
+QSize FluentTeachingTip::minimumSizeHint() const
+{
+    return preferredPopupSize();
+}
+
+QSize FluentTeachingTip::popupWindowSize() const
+{
+    return preferredPopupSize();
+}
+
+bool FluentTeachingTip::popupRevealEnabled() const
+{
+    return false;
+}
+
+bool FluentTeachingTip::popupSlideEnabled() const
+{
+    return false;
+}
+
 void FluentTeachingTip::hideEvent(QHideEvent *event)
 {
     const bool wasGuideRunning = m_guideRunning;
@@ -600,6 +690,34 @@ void FluentTeachingTip::showEvent(QShowEvent *event)
         ensureMaskOverlay();
     }
     FluentFlyout::showEvent(event);
+    raise();
+}
+
+QSize FluentTeachingTip::preferredPopupSize() const
+{
+    if (!m_panel) {
+        return FluentFlyout::sizeHint();
+    }
+
+    int panelHeight = 0;
+    if (QLayout *panelLayout = m_panel->layout()) {
+        panelLayout->activate();
+        panelHeight = panelLayout->hasHeightForWidth()
+            ? panelLayout->heightForWidth(kTeachingTipPanelWidth)
+            : panelLayout->sizeHint().height();
+    } else {
+        panelHeight = m_panel->sizeHint().height();
+    }
+
+    panelHeight = qMax(panelHeight, m_panel->minimumSizeHint().height());
+    panelHeight = qMax(panelHeight,
+                       QLayout::closestAcceptableSize(const_cast<QWidget *>(m_panel),
+                                                      QSize(kTeachingTipPanelWidth, panelHeight)).height());
+    panelHeight += kTeachingTipGeometrySafetyHeight;
+    const QMargins margins = contentMargins();
+    const QSize contentSize(kTeachingTipPanelWidth + margins.left() + margins.right(),
+                            panelHeight + margins.top() + margins.bottom());
+    return PopupSurface::withShadowMargins(contentSize);
 }
 
 void FluentTeachingTip::updateContent()
@@ -617,7 +735,8 @@ void FluentTeachingTip::updateContent()
     m_previousButton->setVisible(showPrevious);
     m_actionsHost->setVisible(showPrevious || showAction);
     m_closeButton->setVisible(m_closeButtonVisible);
-    adjustSize();
+    updateGeometry();
+    setFixedSize(preferredPopupSize());
 }
 
 void FluentTeachingTip::ensureMaskOverlay()
@@ -638,11 +757,13 @@ void FluentTeachingTip::ensureMaskOverlay()
 
     teardownMaskOverlay();
 
-    auto *overlay = new TeachingTipMaskOverlay(host, m_maskOpacity);
+    auto *overlay = new TeachingTipMaskOverlay(host, 0.0);
     overlay->setGeometry(host->rect());
     overlay->setTarget(m_target);
     overlay->show();
     overlay->raise();
+    overlay->animateOpacityTo(m_maskOpacity, FluentMotionRole::PopupOpen);
+    raise();
     m_maskOverlay = overlay;
     m_maskHost = host;
 }
@@ -650,9 +771,25 @@ void FluentTeachingTip::ensureMaskOverlay()
 void FluentTeachingTip::teardownMaskOverlay()
 {
     if (m_maskOverlay) {
-        m_maskOverlay->hide();
-        m_maskOverlay->deleteLater();
+        QWidget *overlay = m_maskOverlay;
         m_maskOverlay = nullptr;
+        if (auto *typed = qobject_cast<TeachingTipMaskOverlay *>(overlay)) {
+            typed->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            typed->animateOpacityTo(0.0, FluentMotionRole::PopupClose);
+            const int duration = FluentMotion::duration(FluentMotionRole::PopupClose);
+            if (duration > 0) {
+                QTimer::singleShot(duration + 16, typed, [typed]() {
+                    typed->hide();
+                    typed->deleteLater();
+                });
+            } else {
+                typed->hide();
+                typed->deleteLater();
+            }
+        } else {
+            overlay->hide();
+            overlay->deleteLater();
+        }
     }
     m_maskHost = nullptr;
 }
@@ -682,6 +819,7 @@ void FluentTeachingTip::updateMaskOverlay()
     m_maskOverlay->show();
     m_maskOverlay->raise();
     m_maskOverlay->update();
+    raise();
 }
 
 QWidget *FluentTeachingTip::maskHostWindow() const
@@ -726,3 +864,5 @@ QString FluentTeachingTip::defaultGuidePreviousActionText(int index) const
 }
 
 } // namespace Fluent
+
+#include "FluentTeachingTip.moc"

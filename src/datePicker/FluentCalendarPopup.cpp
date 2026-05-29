@@ -1,7 +1,9 @@
 ﻿#include "Fluent/datePicker/FluentCalendarPopup.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
+#include "../FluentPopupUtils.h"
 #include <QApplication>
 #include <QEvent>
 #include <QFontMetrics>
@@ -91,12 +93,18 @@ static QFont adjustedFontSize(QFont font, qreal pointDelta)
     font.setPointSizeF(qMax<qreal>(1.0, 10.0 + pointDelta));
     return font;
 }
+
+static QColor onAccentText(const ThemeColors &colors)
+{
+    return Theme::contrastColor(colors.accent);
+}
 } // namespace
 // ── Constructor ──────────────────────────────────────────────────────────
 FluentCalendarPopup::FluentCalendarPopup(QWidget *anchor)
     : QWidget(anchor)
     , m_anchor(anchor)
 {
+    setObjectName(QStringLiteral("FluentCalendarPopup"));
     setWindowFlag(Qt::Popup, true);
     setWindowFlag(Qt::FramelessWindowHint, true);
     setWindowFlag(Qt::NoDropShadowWindowHint, true);
@@ -120,26 +128,23 @@ FluentCalendarPopup::FluentCalendarPopup(QWidget *anchor)
     });
 
     m_openAnim = new QVariantAnimation(this);
-    m_openAnim->setDuration(PopupSurface::kOpenDurationMs);
-    m_openAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_openAnim, FluentMotionRole::PopupOpen);
     connect(m_openAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_openProgress = v.toReal();
-        setWindowOpacity(m_openProgress);
-        if (m_targetGeom.isValid()) {
-            QRect g = m_targetGeom;
-            g.translate(0, -int((1.0 - m_openProgress) * PopupSurface::kOpenSlideOffsetPx));
-            setGeometry(g);
-        }
+        Detail::applyPopupOpenProgress(this, m_targetGeom, m_openSlideOffsetY, m_openProgress);
         update();
     });
+    connect(m_openAnim, &QVariantAnimation::finished, this, [this]() {
+        m_openProgress = 1.0;
+        Detail::finishPopupOpen(this, m_targetGeom);
+    });
     m_modeAnim = new QVariantAnimation(this);
-    m_modeAnim->setDuration(160);
-    m_modeAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_modeAnim, FluentMotionRole::Selection);
     connect(m_modeAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_modeProgress = v.toReal();
         update();
     });
-    resize(kSingleW, kSingleH);
+    resize(PopupSurface::withShadowMargins(QSize(kSingleW, kSingleH)));
 }
 // ── Public API ───────────────────────────────────────────────────────────
 void FluentCalendarPopup::setAnchor(QWidget *anchor) { m_anchor = anchor; }
@@ -170,9 +175,9 @@ void FluentCalendarPopup::setSelectionMode(SelectionMode mode)
         m_hoverDate    = QDate();
         m_selectingEnd = false;
         ensureRightPage();
-        resize(kRangePanelW * 2, kRangeH);
+        resize(PopupSurface::withShadowMargins(QSize(kRangePanelW * 2, kRangeH)));
     } else {
-        resize(kSingleW, kSingleH);
+        resize(PopupSurface::withShadowMargins(QSize(kSingleW, kSingleH)));
     }
 }
 FluentCalendarPopup::SelectionMode FluentCalendarPopup::selectionMode() const { return m_selectionMode; }
@@ -200,19 +205,16 @@ void FluentCalendarPopup::popup()
         m_selectingEnd = false;
         m_hoverDate    = QDate();
         ensureRightPage();
-        resize(kRangePanelW * 2, kRangeH);
+        resize(PopupSurface::withShadowMargins(QSize(kRangePanelW * 2, kRangeH)));
     } else {
         ensurePageFromSelected();
-        resize(kSingleW, kSingleH);
+        resize(PopupSurface::withShadowMargins(QSize(kSingleW, kSingleH)));
     }
     positionPopupBelowOrAbove(6);
     m_targetGeom = geometry();
     m_openAnim->stop();
     m_openProgress = 0.0;
-    setWindowOpacity(0.0);
-    QRect startGeom = m_targetGeom;
-    startGeom.translate(0, -PopupSurface::kOpenSlideOffsetPx);
-    setGeometry(startGeom);
+    Detail::preparePopupOpen(this, m_targetGeom, m_openSlideOffsetY);
     show();
     raise();
     activateWindow();
@@ -223,7 +225,12 @@ void FluentCalendarPopup::popup()
     }
     m_openAnim->setStartValue(0.0);
     m_openAnim->setEndValue(1.0);
-    m_openAnim->start();
+    if (m_openAnim->duration() <= 0) {
+        m_openProgress = 1.0;
+        Detail::finishPopupOpen(this, m_targetGeom);
+    } else {
+        m_openAnim->start();
+    }
 }
 void FluentCalendarPopup::dismiss()
 {
@@ -243,7 +250,7 @@ int FluentCalendarPopup::popupHeight() const
 }
 QRect FluentCalendarPopup::contentRect() const
 {
-    return rect().adjusted(kPadding, kPadding, -kPadding, -kPadding);
+    return PopupSurface::shadowContentRect(rect()).adjusted(kPadding, kPadding, -kPadding, -kPadding);
 }
 QRect FluentCalendarPopup::headerRect() const
 {
@@ -441,7 +448,7 @@ void FluentCalendarPopup::hideEvent(QHideEvent *e)
     if (m_openAnim) {
         m_openAnim->stop();
     }
-    setWindowOpacity(1.0);
+    Detail::resetPopupOpenState(this);
     m_border.resetInitial();
 }
 void FluentCalendarPopup::resizeEvent(QResizeEvent *e) { QWidget::resizeEvent(e); }
@@ -463,20 +470,24 @@ void FluentCalendarPopup::paintEvent(QPaintEvent *event)
     QPainter p(this);
     if (!p.isActive()) return;
     p.setRenderHint(QPainter::Antialiasing, true);
-    PopupSurface::paintPanel(p, rect(), c, &m_border);
+    PopupSurface::paintPanelWithShadowMargins(p, rect(), c, &m_border);
 
     // 3. Clip all subsequent content painting to the rounded panel rect.
-    p.setClipPath(PopupSurface::contentClipPath(rect()));
+    p.setClipPath(PopupSurface::shadowContentClipPath(rect()));
 
     // 4. Draw calendar content.
     if (m_selectionMode == SelectionMode::Range) {
-        paintRangePanelHeader(p, 0,            m_pageYear,      m_pageMonth,      false);
-        paintRangePanelDays  (p, 0,            m_pageYear,      m_pageMonth,      false);
-        paintRangePanelHeader(p, kRangePanelW, m_rightPageYear, m_rightPageMonth, true);
-        paintRangePanelDays  (p, kRangePanelW, m_rightPageYear, m_rightPageMonth, true);
+        const QRect surface = PopupSurface::shadowContentRect(rect());
+        const int leftPanelX = surface.left();
+        const int rightPanelX = surface.left() + kRangePanelW;
+        paintRangePanelHeader(p, leftPanelX,  m_pageYear,      m_pageMonth,      false);
+        paintRangePanelDays  (p, leftPanelX,  m_pageYear,      m_pageMonth,      false);
+        paintRangePanelHeader(p, rightPanelX, m_rightPageYear, m_rightPageMonth, true);
+        paintRangePanelDays  (p, rightPanelX, m_rightPageYear, m_rightPageMonth, true);
         QColor div = c.border; div.setAlpha(100);
         p.setPen(QPen(div, 1.0));
-        p.drawLine(QPointF(kRangePanelW + 0.5, 12), QPointF(kRangePanelW + 0.5, height() - 12));
+        p.drawLine(QPointF(rightPanelX + 0.5, surface.top() + 12),
+                   QPointF(rightPanelX + 0.5, surface.bottom() - 12));
         return;
     }
     paintHeader(p);
@@ -497,7 +508,11 @@ void FluentCalendarPopup::paintRangePanelHeader(QPainter &p, int panelX,
 {
     const auto &c = ThemeManager::instance().colors();
     const QLocale calendarLocale = locale();
-    const QRect content(panelX + kPadding, kPadding, kRangePanelW - 2*kPadding, height() - 2*kPadding);
+    const QRect surface = PopupSurface::shadowContentRect(rect());
+    const QRect content(panelX + kPadding,
+                        surface.top() + kPadding,
+                        kRangePanelW - 2 * kPadding,
+                        surface.height() - 2 * kPadding);
     const QRect h(content.x(), content.y(), content.width(), kHeaderH);
     QFont f = adjustedFontSize(font(), 0.5); QFontMetrics fm(f);
     const QString yearText = headerYearText(calendarLocale, pageYear);
@@ -545,7 +560,11 @@ void FluentCalendarPopup::paintRangePanelDays(QPainter &p, int panelX,
     const auto &c = ThemeManager::instance().colors();
     const QLocale calendarLocale = locale();
     const Qt::DayOfWeek firstDayOfWeek = calendarLocale.firstDayOfWeek();
-    const QRect content(panelX + kPadding, kPadding, kRangePanelW - 2*kPadding, height() - 2*kPadding);
+    const QRect surface = PopupSurface::shadowContentRect(rect());
+    const QRect content(panelX + kPadding,
+                        surface.top() + kPadding,
+                        kRangePanelW - 2 * kPadding,
+                        surface.height() - 2 * kPadding);
     const QRect g(content.x(), content.y()+kHeaderH, content.width(), content.height()-kHeaderH);
     const QRect dayNames(g.x(), g.y(), g.width(), kDayNamesH);
     const QRect cells(g.x(), g.y()+kDayNamesH, g.width(), g.height()-kDayNamesH);
@@ -626,7 +645,7 @@ void FluentCalendarPopup::paintRangePanelDays(QPainter &p, int panelX,
             // 4. Text
             QColor textColor;
             if (!inMonth)         textColor = c.disabledText;
-            else if (isStart || isEnd) textColor = QColor(Qt::white);
+            else if (isStart || isEnd) textColor = onAccentText(c);
             else if (isWeekendColumn(col, firstDayOfWeek)) textColor = c.subText;
             else                  textColor = c.text;
             p.setPen(textColor);
@@ -651,7 +670,7 @@ void FluentCalendarPopup::paintHeader(QPainter &p)
         const bool hov = (m_hoverPart==part), prs = (m_pressPart==part);
         QColor bg = Qt::transparent, tc = c.text;
         if (active) {
-            bg = c.accent; bg.setAlpha(220); tc = QColor(Qt::white);
+            bg = c.accent; bg.setAlpha(220); tc = onAccentText(c);
             if (prs) bg=bg.darker(112); else if (hov) bg=bg.lighter(106);
         } else {
             if (prs)      { bg=c.pressed; bg.setAlpha(150); }
@@ -731,7 +750,7 @@ void FluentCalendarPopup::paintDays(QPainter &p)
         if (isToday&&!selected) { QColor ring=c.accent; ring.setAlpha(170); p.setPen(QPen(ring,1.5)); p.setBrush(Qt::NoBrush); p.drawRoundedRect(rr,8.0,8.0); }
         QColor tc;
         if (!inMonth) tc=c.disabledText;
-        else if (selected) tc=QColor(Qt::white);
+        else if (selected) tc=onAccentText(c);
         else if (isWeekendColumn(col, firstDayOfWeek)) tc=c.subText;
         else tc=c.text;
         p.setPen(tc); p.drawText(rc, Qt::AlignCenter, QString::number(d.day()));
@@ -753,7 +772,7 @@ void FluentCalendarPopup::paintMonths(QPainter &p)
         if (sel) { QColor fill=c.accent; fill.setAlpha(210); p.setPen(Qt::NoPen); p.setBrush(fill); p.drawRoundedRect(rr,10.0,10.0); }
         else if (hov) { QColor fill=c.hover; fill.setAlpha(120); p.setPen(Qt::NoPen); p.setBrush(fill); p.drawRoundedRect(rr,10.0,10.0); }
         if (cur&&!sel) { QColor ring=c.accent; ring.setAlpha(170); p.setPen(QPen(ring,1.5)); p.setBrush(Qt::NoBrush); p.drawRoundedRect(rr,10.0,10.0); }
-        p.setPen(sel?QColor(Qt::white):c.text);
+        p.setPen(sel ? onAccentText(c) : c.text);
         p.drawText(rc, Qt::AlignCenter, calendarLocale.standaloneMonthName(i+1, QLocale::ShortFormat));
     }
     p.setFont(font());
@@ -774,7 +793,7 @@ void FluentCalendarPopup::paintYears(QPainter &p)
         if (sel) { QColor fill=c.accent; fill.setAlpha(210); p.setPen(Qt::NoPen); p.setBrush(fill); p.drawRoundedRect(rr,10.0,10.0); }
         else if (hov) { QColor fill=c.hover; fill.setAlpha(120); p.setPen(Qt::NoPen); p.setBrush(fill); p.drawRoundedRect(rr,10.0,10.0); }
         if (cur&&!sel) { QColor ring=c.accent; ring.setAlpha(170); p.setPen(QPen(ring,1.5)); p.setBrush(Qt::NoBrush); p.drawRoundedRect(rr,10.0,10.0); }
-        p.setPen(sel?QColor(Qt::white):c.text);
+        p.setPen(sel ? onAccentText(c) : c.text);
         p.drawText(rc, Qt::AlignCenter, QString::number(year));
     }
     p.setFont(font());
@@ -858,7 +877,8 @@ void FluentCalendarPopup::wheelEvent(QWheelEvent *event)
 #else
         const qreal px=event->posF().x();
 #endif
-        if (px<kRangePanelW) stepMonth(dir); else stepRightMonth(dir);
+        const QRect surface = PopupSurface::shadowContentRect(rect());
+        if (px < surface.left() + kRangePanelW) stepMonth(dir); else stepRightMonth(dir);
         event->accept(); return;
     }
     if (m_mode==ViewMode::Days) stepMonth(dir);
@@ -940,9 +960,15 @@ FluentCalendarPopup::HitPart FluentCalendarPopup::hitTest(const QPoint &pos, int
 {
     if (outIndex) *outIndex=-1;
     if (m_selectionMode==SelectionMode::Range) {
-        const bool rp=(pos.x()>=kRangePanelW);
-        const int panelX = rp ? kRangePanelW : 0;
-        const QRect content(panelX+kPadding, kPadding, kRangePanelW-2*kPadding, height()-2*kPadding);
+        const QRect surface = PopupSurface::shadowContentRect(rect());
+        const int leftPanelX = surface.left();
+        const int rightPanelX = surface.left() + kRangePanelW;
+        const bool rp = pos.x() >= rightPanelX;
+        const int panelX = rp ? rightPanelX : leftPanelX;
+        const QRect content(panelX + kPadding,
+                            surface.top() + kPadding,
+                            kRangePanelW - 2 * kPadding,
+                            surface.height() - 2 * kPadding);
         const QRect h(content.x(),content.y(),content.width(),kHeaderH);
         const QRect g(content.x(),content.y()+kHeaderH,content.width(),content.height()-kHeaderH);
         const QRect dayNames(g.x(),g.y(),g.width(),kDayNamesH);
@@ -989,23 +1015,10 @@ void FluentCalendarPopup::startModeTransition(ViewMode from, ViewMode to)
 void FluentCalendarPopup::positionPopupBelowOrAbove(int gap)
 {
     if (!m_anchor) return;
-    const QPoint gl=m_anchor->mapToGlobal(QPoint(0,0));
-    QScreen *screen=QApplication::screenAt(gl);
-    if (!screen) screen=QApplication::primaryScreen();
-    const QRect avail=screen?screen->availableGeometry():QRect();
-    const QSize s=size();
-    QRect r(m_anchor->mapToGlobal(QPoint(0, m_anchor->height()+gap)), s);
-    if (avail.isValid()&&r.bottom()>avail.bottom()) {
-        QRect r2(m_anchor->mapToGlobal(QPoint(0,-gap-s.height())), s);
-        if (!avail.isValid()||r2.top()>=avail.top()) r=r2;
-    }
-    if (avail.isValid()) {
-        if (r.left()<avail.left())   r.moveLeft(avail.left());
-        if (r.right()>avail.right()) r.moveRight(avail.right());
-        if (r.top()<avail.top())     r.moveTop(avail.top());
-        if (r.bottom()>avail.bottom()) r.moveBottom(avail.bottom());
-    }
-    setGeometry(r);
+    const Detail::PopupPlacementResult placed =
+        Detail::placePopupBelowOrAbove(m_anchor, size(), gap);
+    m_openSlideOffsetY = placed.slideOffsetY;
+    setGeometry(placed.geometry);
 }
 void FluentCalendarPopup::drawChevronLeft(QPainter &p, const QPointF &center, const QColor &color) const
 {

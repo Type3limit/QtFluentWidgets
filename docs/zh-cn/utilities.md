@@ -96,6 +96,49 @@ Demo：用于 Menu / Dialog / MessageBox / Toast / MainWindow 等。
 
 ---
 
+## FluentMotion
+
+include：`Fluent/FluentMotion.h`
+
+用途：统一控件动效的语义 token，让 hover、press、focus、popup open、selection、collapse 等动画不再散落硬编码时长和曲线。
+
+关键 API：
+
+- `FluentMotion::duration(FluentMotionRole)`：按语义读取时长；当 `ThemeManager::animationsEnabled()` 为 false 时返回 0。
+- `FluentMotion::configuredDuration(FluentMotionRole)`：读取用户配置的原始时长，不受全局动效开关影响。
+- `FluentMotion::easing(FluentMotionRole)`：按语义读取 easing。
+- `FluentMotion::configure(QVariantAnimation*, role)` / `configure(QPropertyAnimation*, role)`：给已有动画对象写入统一时长与曲线。
+- `FluentMotion::setDuration(role, ms)`：单独修改某个语义动画的时长。
+- `FluentMotion::setTokens(...)` / `resetTokens()`：整体替换或重置 motion token。
+- `FluentMotion::popupSlideOffset()` / `pressOffset()`：读取 popup 位移和 press 位移 token。
+- `ThemeManager::setAnimationsEnabled(bool)` / `animationsEnabled()`：全局动效开关。
+- `ThemeManager::setMotionTokens(...)` / `motionTokens()`：应用级 motion token 配置入口。
+
+当前已接入：
+
+- `FluentButton` / `FluentToolButton` / `FluentAnimatedButton` 的 hover 与 press；主题或全局动效开关变化后会重新同步 token。
+- `FluentLineEdit` 的 hover 与 focus；关闭全局动画后，下一次 hover/focus 会直接落到最终状态。
+- `FluentToggleSwitch` / `FluentCheckBox` / `FluentRadioButton` / `FluentSlider` 的 hover、focus 与选中/位置过渡。
+- `FluentProgressBar` / `FluentProgressRing` 的确定进度过渡；关闭全局动画时进度立即跳到目标值，`FluentProgressRing` 的 indeterminate 旋转会暂停。
+- `FluentComboBox` / `FluentAutoSuggestBox` / `FluentMenu` / `FluentMenuBar` / `FluentFlyout` / `FluentCalendarPopup` / `FluentDatePicker` / `FluentTimePicker` 的 popup 打开动画；ComboBox/AutoSuggestBox 的列表 hover/selection 也会随 token 更新。
+- `FluentCard` 的折叠动画，以及 wheel picker 的滚动吸附动画。
+- `FluentNavigationView` 的 pane 宽度、hover 和 selection indicator；`FluentTabWidget` 的 hover/selection；DataViews 的 hover/selection；`FluentScrollBar` 的 reveal/hover；`FluentDateRangePicker` 的 hover；`FluentTeachingTip` 的蒙版淡入淡出；`FluentToast` 的出现/消失和队列移动。
+- `FluentFlowLayout` 的几何重排动画；显式调用 `setAnimationDuration()` / `setAnimationEasing()` 仍会覆盖默认 token，但全局关闭动效时会即时落位。
+- Demo 主窗口页面切换使用 `FluentMotionRole::Page`，动态页可以直接观察 Page token 的效果。
+
+示例：
+
+```cpp
+auto *anim = new QVariantAnimation(this);
+Fluent::FluentMotion::configure(anim, Fluent::FluentMotionRole::PopupOpen);
+
+// 用户可按语义单独调节时长；已经迁移的控件会在 themeChanged 后同步。
+Fluent::FluentMotion::setDuration(Fluent::FluentMotionRole::PopupOpen, 220);
+Fluent::FluentMotion::setDuration(Fluent::FluentMotionRole::Selection, 120);
+```
+
+---
+
 ## FluentFramePainter
 
 include：`Fluent/FluentFramePainter.h`
@@ -186,23 +229,27 @@ include：`Fluent/FluentToolTip.h`
 
 include：`Fluent/FluentPopupSurface.h`
 
-用途：为日历/时间/颜色等弹出层提供一套共享的“圆角面板常量 + clip path + 面板绘制”工具。
+用途：为菜单、组合框、日历、时间等弹出层提供一套共享的“圆角面板常量 + 阴影外边距 + clip path + 面板绘制”工具。
 
 说明：`FluentPopupSurface` 不是一个 widget 类，而是 `namespace Fluent::PopupSurface` 下的一组内联 helper。
 
 关键内容：
 
-- `kRadius` / `kBorderWidth` / `kOpenDurationMs` / `kOpenSlideOffsetPx`
+- `kRadius` / `kBorderWidth` / `kShadowMargin*Px`
 - `panelRect(const QRect&)`
+- `withShadowMargins(const QSize&)` / `shadowContentRect(const QRect&)`
 - `contentClipPath(const QRect&)`
-- `paintPanel(QPainter&, const QRect&, const ThemeColors&, FluentBorderEffect*)`
+- `paintPanel(...)` / `paintPanelWithShadowMargins(...)`
 
 实现语义：
 
 - `panelRect()` 会先把输入矩形按半像素向内收缩，减少描边在 HiDPI / 半透明窗口上的边缘抖动。
+- `withShadowMargins()` 会把弹层内容尺寸扩展为“透明窗口尺寸”，给软件阴影留出绘制空间；内部实际内容区域通过 `shadowContentRect()` 取得。
 - `contentClipPath()` 返回与 popup 面板边框一致的圆角 path，适合在 `WA_TranslucentBackground` 下裁剪内部内容，避免内容把圆角“顶成方形”。
-- `paintPanel()` 内部会构造 `FluentFrameSpec`，并在传入 `FluentBorderEffect` 时自动注入 accent 描边 / trace 参数。
-- 该组 helper 主要被 `FluentCalendarPopup` 等弹出层复用，用来保证不同 popup 的半径、描边宽度与出现动画参数保持一致。
+- `paintPanelWithShadowMargins()` 会先绘制统一软阴影，再绘制 surface / border / trace；适合顶层透明 popup。
+- `paintPanel()` 仍可用于没有阴影外边距的嵌入式面板。两者都会构造 `FluentFrameSpec`，并在传入 `FluentBorderEffect` 时自动注入 accent 描边 / trace 参数。
+- popup 出现动画的时长、曲线和位移由 `FluentMotionRole::PopupOpen` / `FluentMotion::popupSlideOffset()` 统一管理；`FluentPopupSurface` 只负责 surface 形态与绘制。
+- 该组 helper 主要被 `FluentMenu`、`FluentComboBox`、`FluentCalendarPopup`、`FluentDatePicker` / `FluentTimePicker` 等弹出层复用，用来保证不同 popup 的半径、阴影和描边宽度保持一致。
 
 ---
 

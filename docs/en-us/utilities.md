@@ -92,6 +92,49 @@ Key APIs:
 
 ---
 
+## FluentMotion
+
+include: `Fluent/FluentMotion.h`
+
+Purpose: shared semantic motion tokens so hover, press, focus, popup open, selection, and collapse animations no longer hard-code separate durations and easing curves in every widget.
+
+Key APIs:
+
+- `FluentMotion::duration(FluentMotionRole)`: returns the semantic duration; returns 0 when `ThemeManager::animationsEnabled()` is false.
+- `FluentMotion::configuredDuration(FluentMotionRole)`: returns the configured duration and is not affected by the global animation switch.
+- `FluentMotion::easing(FluentMotionRole)`: returns the semantic easing curve.
+- `FluentMotion::configure(QVariantAnimation*, role)` / `configure(QPropertyAnimation*, role)`: applies duration and easing to an existing animation object.
+- `FluentMotion::setDuration(role, ms)`: changes a single semantic animation duration.
+- `FluentMotion::setTokens(...)` / `resetTokens()`: replace or reset all motion tokens.
+- `FluentMotion::popupSlideOffset()` / `pressOffset()`: shared popup and press offset tokens.
+- `ThemeManager::setAnimationsEnabled(bool)` / `animationsEnabled()`: global animation switch.
+- `ThemeManager::setMotionTokens(...)` / `motionTokens()`: application-level motion token configuration.
+
+Currently wired to:
+
+- hover / press on `FluentButton`, `FluentToolButton`, and `FluentAnimatedButton`; these controls resync tokens when the theme or global animation switch changes.
+- hover / focus on `FluentLineEdit`; when global animations are disabled, the next hover/focus transition jumps to its final state.
+- hover, focus, checked, and position transitions on `FluentToggleSwitch`, `FluentCheckBox`, `FluentRadioButton`, and `FluentSlider`.
+- determinate progress transitions on `FluentProgressBar` and `FluentProgressRing`; when global animations are disabled, progress jumps to the target value immediately and indeterminate ring rotation pauses.
+- popup opening for `FluentComboBox`, `FluentAutoSuggestBox`, `FluentMenu`, `FluentMenuBar`, `FluentFlyout`, `FluentCalendarPopup`, `FluentDatePicker`, and `FluentTimePicker`; ComboBox/AutoSuggestBox list hover and selection feedback also follow token updates.
+- `FluentCard` collapse motion and wheel-picker snap motion.
+- `FluentNavigationView` pane width, hover, and selection indicator; `FluentTabWidget` hover/selection; DataViews hover/selection; `FluentScrollBar` reveal/hover; `FluentDateRangePicker` hover; `FluentTeachingTip` mask fade-in/fade-out; `FluentToast` appear/disappear and queue movement.
+- `FluentFlowLayout` geometry reflow motion; explicit `setAnimationDuration()` / `setAnimationEasing()` still overrides the default token, while disabling global animations makes items snap into place.
+- The demo main window page transition uses `FluentMotionRole::Page`, so the Motion page can show the Page token in a real navigation flow.
+
+Example:
+
+```cpp
+auto *anim = new QVariantAnimation(this);
+Fluent::FluentMotion::configure(anim, Fluent::FluentMotionRole::PopupOpen);
+
+// Users can tune durations by semantic role; migrated widgets resync on themeChanged.
+Fluent::FluentMotion::setDuration(Fluent::FluentMotionRole::PopupOpen, 220);
+Fluent::FluentMotion::setDuration(Fluent::FluentMotionRole::Selection, 120);
+```
+
+---
+
 ## FluentFramePainter
 
 include: `Fluent/FluentFramePainter.h`
@@ -180,23 +223,27 @@ Typical use cases:
 
 include: `Fluent/FluentPopupSurface.h`
 
-Purpose: shared rounded-panel constants and helper functions for calendar/time/color popups and similar transient surfaces.
+Purpose: shared rounded-panel constants and helper functions for menus, combo boxes, calendar/time popups, and similar transient surfaces.
 
 Note: `FluentPopupSurface` is not a widget class; it is a set of inline helpers under `namespace Fluent::PopupSurface`.
 
 Key items:
 
-- `kRadius` / `kBorderWidth` / `kOpenDurationMs` / `kOpenSlideOffsetPx`
+- `kRadius` / `kBorderWidth` / `kShadowMargin*Px`
 - `panelRect(const QRect&)`
+- `withShadowMargins(const QSize&)` / `shadowContentRect(const QRect&)`
 - `contentClipPath(const QRect&)`
-- `paintPanel(QPainter&, const QRect&, const ThemeColors&, FluentBorderEffect*)`
+- `paintPanel(...)` / `paintPanelWithShadowMargins(...)`
 
 Implementation notes:
 
 - `panelRect()` slightly insets the rect before painting to reduce border jitter on HiDPI and translucent popup windows.
+- `withShadowMargins()` expands the logical content size into the top-level transparent-window size, leaving room for the software shadow. Use `shadowContentRect()` to recover the actual panel/content area.
 - `contentClipPath()` returns a rounded path matching the popup panel border, useful for clipping popup contents so they do not visually square off the corners.
-- `paintPanel()` builds a `FluentFrameSpec` internally and injects accent-border / trace parameters automatically when a `FluentBorderEffect` is provided.
-- These helpers are mainly reused by popup widgets such as `FluentCalendarPopup` to keep radius, border width, and open-animation tuning consistent.
+- `paintPanelWithShadowMargins()` paints the shared soft shadow first, then the surface / border / trace. It is the preferred helper for top-level translucent popups.
+- `paintPanel()` remains useful for embedded panels that do not need the extra shadow margins. Both helpers build a `FluentFrameSpec` internally and inject accent-border / trace parameters automatically when a `FluentBorderEffect` is provided.
+- Popup-open duration, easing, and displacement are now owned by `FluentMotionRole::PopupOpen` / `FluentMotion::popupSlideOffset()`; `FluentPopupSurface` only owns surface geometry and painting.
+- These helpers are reused by `FluentMenu`, `FluentComboBox`, `FluentCalendarPopup`, and the `FluentDatePicker` / `FluentTimePicker` wheel popup to keep radius, shadow, and border width consistent.
 
 ---
 

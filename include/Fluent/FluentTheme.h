@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QColor>
 #include <QElapsedTimer>
+#include <QEasingCurve>
 #include <QString>
 
 namespace Fluent {
@@ -89,6 +90,26 @@ struct FluentElevationTokens {
     int highYOffset = 12;
 };
 
+struct FluentMotionTokens {
+    int hoverDuration = 120;
+    int pressDuration = 90;
+    int focusDuration = 180;
+    int popupOpenDuration = 150;
+    int popupCloseDuration = 100;
+    int collapseDuration = 180;
+    int selectionDuration = 180;
+    int navigationDuration = 220;
+    int layoutDuration = 140;
+    int pageDuration = 300;
+    int toastDuration = 180;
+    int wheelSnapDuration = 120;
+    int popupSlideOffset = 8;
+    int pressOffset = 1;
+    QEasingCurve::Type easeOut = QEasingCurve::OutCubic;
+    QEasingCurve::Type easeIn = QEasingCurve::InCubic;
+    QEasingCurve::Type easeInOut = QEasingCurve::InOutCubic;
+};
+
 struct FluentThemeTokens {
     ThemeColors legacyColors;
     FluentAccentRamp accent;
@@ -98,6 +119,7 @@ struct FluentThemeTokens {
     FluentSpacingTokens spacing;
     FluentTypographyTokens typography;
     FluentElevationTokens elevation;
+    FluentMotionTokens motion;
     QColor onAccent;
     bool dark = false;
 };
@@ -159,6 +181,13 @@ public:
 
     bool accentBorderEnabled() const;
     void setAccentBorderEnabled(bool enabled);
+
+    bool animationsEnabled() const;
+    void setAnimationsEnabled(bool enabled);
+
+    const FluentMotionTokens &motionTokens() const;
+    void setMotionTokens(const FluentMotionTokens &tokens);
+    void resetMotionTokens();
     
     ThemeMode themeMode() const;
     void setThemeMode(ThemeMode mode);
@@ -176,10 +205,12 @@ private:
 
     ThemeColors m_colors;
     FluentThemeTokens m_tokens;
+    FluentMotionTokens m_motionTokens;
     QColor m_baseAccent;
     ThemeMode m_mode = ThemeMode::Light;
 
     bool m_accentBorderEnabled = true;
+    bool m_animationsEnabled = true;
     bool m_themeChangedPending = false;
     QElapsedTimer m_themeChangeTimer;
     QString m_themeChangeReason;

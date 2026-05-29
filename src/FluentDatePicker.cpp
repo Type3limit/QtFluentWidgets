@@ -1,5 +1,6 @@
 #include "Fluent/FluentDatePicker.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "datePicker/FluentWheelPickerSupport.h"
@@ -71,16 +72,14 @@ FluentDatePicker::FluentDatePicker(QWidget *parent)
     setLocale(defaultPickerLocale());
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
@@ -500,6 +499,9 @@ QSize FluentDatePicker::sizeHint() const
 
 void FluentDatePicker::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     if (m_popup) {
         m_popup->update();
     }

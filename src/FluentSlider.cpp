@@ -1,11 +1,11 @@
 #include "Fluent/FluentSlider.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentTheme.h"
 
 #include <QEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPropertyAnimation>
-#include <QEasingCurve>
 #include <QStyle>
 
 namespace Fluent {
@@ -18,12 +18,8 @@ FluentSlider::FluentSlider(Qt::Orientation orientation, QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
 
     m_positionAnim = new QPropertyAnimation(this, "handlePos", this);
-    m_positionAnim->setDuration(100);
-    m_positionAnim->setEasingCurve(QEasingCurve::OutCubic);
 
     m_hoverAnim = new QPropertyAnimation(this, "hoverLevel", this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutCubic);
 
     setHandlePos((value() - minimum()) * 1.0 / qMax(1, maximum() - minimum()));
 
@@ -43,9 +39,13 @@ FluentSlider::FluentSlider(Qt::Orientation orientation, QWidget *parent)
             return;
         }
         m_positionAnim->stop();
-        m_positionAnim->setStartValue(m_handlePos);
-        m_positionAnim->setEndValue(target);
-        m_positionAnim->start();
+        if (m_positionAnim->duration() <= 0) {
+            setHandlePos(target);
+        } else {
+            m_positionAnim->setStartValue(m_handlePos);
+            m_positionAnim->setEndValue(target);
+            m_positionAnim->start();
+        }
     });
 }
 
@@ -86,6 +86,8 @@ void FluentSlider::changeEvent(QEvent *event)
 
 void FluentSlider::applyTheme()
 {
+    FluentMotion::configure(m_positionAnim, FluentMotionRole::Selection);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     update();
 }
 
@@ -326,6 +328,10 @@ void FluentSlider::enterEvent(FluentEnterEvent *event)
 {
     QSlider::enterEvent(event);
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(1.0);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(1.0);
     m_hoverAnim->start();
@@ -335,6 +341,10 @@ void FluentSlider::leaveEvent(QEvent *event)
 {
     QSlider::leaveEvent(event);
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(0.0);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(0.0);
     m_hoverAnim->start();

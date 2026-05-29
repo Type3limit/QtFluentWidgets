@@ -1,10 +1,10 @@
 #include "Fluent/FluentProgressBar.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentTheme.h"
 
 #include <QEvent>
 #include <QPainter>
 #include <QPropertyAnimation>
-#include <QEasingCurve>
 
 namespace Fluent {
 
@@ -15,8 +15,6 @@ FluentProgressBar::FluentProgressBar(QWidget *parent)
     setMinimumHeight(22);
 
     m_valueAnim = new QPropertyAnimation(this, "displayValue", this);
-    m_valueAnim->setDuration(300); // Slightly slower for smooth progress
-    m_valueAnim->setEasingCurve(QEasingCurve::OutCubic);
 
     m_displayValue = value();
 
@@ -24,9 +22,14 @@ FluentProgressBar::FluentProgressBar(QWidget *parent)
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentProgressBar::applyTheme);
     connect(this, &QProgressBar::valueChanged, this, [this](int newValue) {
         m_valueAnim->stop();
-        m_valueAnim->setStartValue(m_displayValue);
-        m_valueAnim->setEndValue(static_cast<qreal>(newValue));
-        m_valueAnim->start();
+        const qreal target = static_cast<qreal>(newValue);
+        if (m_valueAnim->duration() <= 0) {
+            setDisplayValue(target);
+        } else {
+            m_valueAnim->setStartValue(m_displayValue);
+            m_valueAnim->setEndValue(target);
+            m_valueAnim->start();
+        }
     });
 }
 
@@ -77,6 +80,7 @@ void FluentProgressBar::changeEvent(QEvent *event)
 
 void FluentProgressBar::applyTheme()
 {
+    FluentMotion::configure(m_valueAnim, FluentMotionRole::Selection);
     update();
 }
 

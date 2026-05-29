@@ -1,5 +1,7 @@
 #include "Fluent/FluentFlowLayout.h"
 
+#include "Fluent/FluentMotion.h"
+
 #include <QStyle>
 #include <QElapsedTimer>
 #include <QPropertyAnimation>
@@ -27,6 +29,17 @@ FluentFlowLayout::FluentFlowLayout(QWidget *parent, int margin, int hSpacing, in
         }
         animateToItemGeometries(m_pendingGeometries);
         m_hasPendingGeometries = false;
+    });
+
+    QObject::connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        if (effectiveAnimationDuration() <= 0) {
+            for (auto it = m_animations.begin(); it != m_animations.end(); ++it) {
+                if (it.value()) {
+                    it.value()->stop();
+                }
+            }
+        }
+        invalidate();
     });
 }
 
@@ -283,25 +296,27 @@ bool FluentFlowLayout::animationEnabled() const
 void FluentFlowLayout::setAnimationDuration(int ms)
 {
     ms = qMax(0, ms);
-    if (m_animationDurationMs == ms) {
+    if (m_animationDurationExplicit && m_animationDurationMs == ms) {
         return;
     }
+    m_animationDurationExplicit = true;
     m_animationDurationMs = ms;
 }
 
 int FluentFlowLayout::animationDuration() const
 {
-    return m_animationDurationMs;
+    return m_animationDurationExplicit ? m_animationDurationMs : FluentMotion::configuredDuration(FluentMotionRole::Layout);
 }
 
 void FluentFlowLayout::setAnimationEasing(const QEasingCurve &curve)
 {
+    m_animationEasingExplicit = true;
     m_animationEasing = curve;
 }
 
 QEasingCurve FluentFlowLayout::animationEasing() const
 {
-    return m_animationEasing;
+    return m_animationEasingExplicit ? m_animationEasing : FluentMotion::easing(FluentMotionRole::Layout);
 }
 
 void FluentFlowLayout::setAnimationThrottle(int throttleMs)
@@ -500,6 +515,18 @@ void FluentFlowLayout::animateToItemGeometries(const QList<QRect> &geometries)
 {
     const int n = qMin(geometries.size(), m_items.size());
     const int nowMs = m_animClock ? static_cast<int>(m_animClock->elapsed()) : 0;
+    const int durationMs = effectiveAnimationDuration();
+    const QEasingCurve easing = effectiveAnimationEasing();
+
+    if (durationMs <= 0) {
+        for (auto it = m_animations.begin(); it != m_animations.end(); ++it) {
+            if (it.value()) {
+                it.value()->stop();
+            }
+        }
+        applyItemGeometries(geometries);
+        return;
+    }
 
     for (int i = 0; i < n; ++i) {
         auto *item = m_items.at(i);
@@ -534,8 +561,8 @@ void FluentFlowLayout::animateToItemGeometries(const QList<QRect> &geometries)
             });
         }
 
-        anim->setDuration(m_animationDurationMs);
-        anim->setEasingCurve(m_animationEasing);
+        anim->setDuration(durationMs);
+        anim->setEasingCurve(easing);
 
         // Throttle restarts during continuous resize to avoid stutter.
         const int lastStart = m_animLastRestartMs.value(w, -1000000);
@@ -555,6 +582,19 @@ void FluentFlowLayout::animateToItemGeometries(const QList<QRect> &geometries)
         anim->start();
         m_animLastRestartMs.insert(w, nowMs);
     }
+}
+
+int FluentFlowLayout::effectiveAnimationDuration() const
+{
+    if (!FluentMotion::animationsEnabled()) {
+        return 0;
+    }
+    return m_animationDurationExplicit ? qMax(0, m_animationDurationMs) : FluentMotion::duration(FluentMotionRole::Layout);
+}
+
+QEasingCurve FluentFlowLayout::effectiveAnimationEasing() const
+{
+    return m_animationEasingExplicit ? m_animationEasing : FluentMotion::easing(FluentMotionRole::Layout);
 }
 
 } // namespace Fluent

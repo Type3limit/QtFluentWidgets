@@ -1,5 +1,6 @@
 #include "Fluent/FluentKeySequenceEdit.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -158,16 +159,14 @@ void FluentKeySequenceEdit::initializeControl()
     setAttribute(Qt::WA_Hover, true);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
@@ -197,6 +196,9 @@ void FluentKeySequenceEdit::ensureEditor()
 
 void FluentKeySequenceEdit::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     ensureEditor();
 
     const auto &colors = ThemeManager::instance().colors();
@@ -215,16 +217,20 @@ void FluentKeySequenceEdit::applyTheme()
         const QString editorStyle = QString(
             "QLineEdit {"
             "  background: transparent;"
-            "  color: palette(window-text);"
+            "  color: %1;"
             "  border: none;"
-            "  padding: 0px %1px;"
-            "  selection-background-color: palette(highlight);"
-            "  selection-color: palette(highlighted-text);"
+            "  padding: 0px %2px;"
+            "  selection-background-color: %3;"
+            "  selection-color: %4;"
             "}"
             "QLineEdit:disabled {"
-            "  color: palette(mid);"
+            "  color: %5;"
             "}")
-            .arg(Style::metrics().paddingX);
+            .arg(textColor.name(QColor::HexArgb),
+                 QString::number(Style::metrics().paddingX),
+                 selectionBg.name(QColor::HexArgb),
+                 colors.text.name(QColor::HexArgb),
+                 colors.disabledText.name(QColor::HexArgb));
         if (m_editor->styleSheet() != editorStyle) {
             m_editor->setStyleSheet(editorStyle);
         }

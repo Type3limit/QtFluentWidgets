@@ -42,14 +42,15 @@ auto *body = card->contentLayout();
 	- 标题 `FluentLabel`（objectName: `FluentCardTitle`）
 	- 右侧 chevron `FluentToolButton`（objectName: `FluentCardChevron`，固定 28×28）
 	- header 自带 `PointingHandCursor`，并通过 `eventFilter` 监听鼠标左键按下以触发折叠/展开。
-- Content：`FluentCardContent`（一个 `QWidget`），内部 `QVBoxLayout` 采用 `spacing=8`。
+- Content：`FluentCardContentClip` 作为裁剪层，内部承载 `FluentCardContent`（一个 `QWidget`），`FluentCardContent` 的 `QVBoxLayout` 采用 `spacing=8`。
 
 如果你在调用 `setCollapsible(true)` 之前已经往 card 的布局里塞了控件/子布局，控件会被“搬家”到 `FluentCardContent` 里（因此你不需要为了折叠特性改写大量布局代码）。
 
 折叠动画：
 
-- 通过 `QPropertyAnimation` 动画 `contentWidget()->maximumHeight`（160ms，`OutCubic`）。
-- 折叠完成后会把内容区 `setVisible(false)` 并强制 `maximumHeight=0`，展开则恢复可见并把最大高度放开到 `QWIDGETSIZE_MAX`。
+- 通过 `QPropertyAnimation` 动画裁剪层 `FluentCardContentClip::maximumHeight`，时长与曲线来自 `FluentMotionRole::Collapse`。
+- 动画期间会临时锁定 `FluentCardContent` 的自然高度，只改变外层裁剪高度，因此标题与正文文本不会因为布局重算而跳动。
+- 折叠完成后会把裁剪层 `setVisible(false)` 并强制 `maximumHeight=0`，展开则恢复可见并把最大高度放开到 `QWIDGETSIZE_MAX`。
 
 关键 API：
 
@@ -62,7 +63,7 @@ auto *body = card->contentLayout();
 注意事项：
 
 - 折叠的触发区域包含 header 整行（不仅是 chevron 按钮），这是通过 header 上的事件过滤实现的。
-- 折叠动画本质是“最大高度”动画：如果你的内容内部有依赖 `maximumHeight` 的复杂尺寸策略（或你手动改了 content 的 maximumHeight），需要注意两者叠加效果。
+- 折叠动画本质是“裁剪层最大高度”动画：如果你的内容内部有依赖固定高度的复杂尺寸策略，建议把这些约束放在内容子控件上，而不是直接改 `contentWidget()` 的高度约束。
 
 Demo：几乎所有页面（Buttons/Inputs/Pickers/DataViews/Containers/Windows/Overview）。
 
@@ -123,7 +124,8 @@ flow->addWidget(title);
 
 启用 `setAnimationEnabled(true)` 后，布局会对每个子 widget 的 `geometry` 做 `QPropertyAnimation`：
 
-- 动画参数：默认 140ms，`OutCubic`。
+- 动画参数：默认使用 `FluentMotionRole::Layout`（当前 140ms，`OutCubic`）；显式调用 `setAnimationDuration()` / `setAnimationEasing()` 后会覆盖 token。
+- Reduced motion：关闭全局动效或把 `Layout` duration 设为 0 时，几何变化会直接落位，不再创建/播放 `geometry` 动画。
 - 持久化动画对象：按 widget 缓存 `QPropertyAnimation`，减少 resize 时频繁 new/delete。
 - 节流：当动画正在运行且目标频繁变化时，使用 `animationThrottle`（默认 50ms）限制“重启动画”的频率：
 	- 若未到可重启时间，则只更新 `endValue`（平滑 steer 到新目标）。
@@ -241,6 +243,7 @@ area->setContentLayout(layout);
 - Overlay 模式：
 	- `revealLevel` 控制 thumb 淡入淡出（低于约 0.01 时直接不画）。
 	- 通过 `eventFilter` 监听 viewport 的 Enter/MouseMove/Wheel 等交互来触发 reveal，并在 Leave 后用 700ms 定时器自动隐藏。
+	- hover/pressed 时 thumb 会在不改变布局厚度的前提下轻微加粗，避免空泛的“只变色”反馈。
 - 非 overlay 模式：如果它是 `QAbstractScrollArea` 的“真实滚动条”，会把自己占用的保留区域填充成 viewport 背景色，避免出现一条不跟随主题的底色。
 
 Demo：Inputs（展示滚动条）/ Overview（也用于多个页面的滚动容器）。
@@ -322,24 +325,31 @@ Demo：Containers / Overview。
 
 - `FluentTabWidget` 内部会把 `QTabBar` 替换成自定义的 `FluentTabBar`：
 	- `setDocumentMode(true)`、`setDrawBase(false)`、`setExpanding(false)`、右侧省略（`ElideRight`）、启用滚动按钮（`setUsesScrollButtons(true)`）。
-	- hover/press 由 tabbar 自己处理（mouse tracking + 记录 `hoverIndex/pressedIndex`），并自绘 hover/press 背景。
+	- hover/press 由 tabbar 自己处理（mouse tracking + 记录 `hoverIndex/pressedIndex`），并自绘 hover/press 反馈。
 	- 选中指示器是一个 `QVariantAnimation`（约 240ms，`InOutCubic`）驱动的 `indicatorRect` 插值：
-		- 横向 Tab：底部 3px accent underline（两侧 inset）。
+		- 横向 Tab 默认是 `TabDisplayMode::Underline`：底部 3px accent underline（两侧 inset），选中项不再绘制浅色圆角背景。
+		- 横向 Tab 也可以切换到 `TabDisplayMode::Document`：选中项绘制类似 Windows 资源管理器的顶部标签形态，适合“标签页 / 文档页”一类界面。这个模式不使用 Qt 原生 close button，而是在 tab 内部自绘与窗口关闭按钮一致的关闭 glyph，避免原生灰/红色小方块破坏观感。
 		- 纵向（West/East）导航：左/右侧 3px accent 指示条（跟随选中项平滑移动），并在选中项上绘制轻量背景块（更接近 Win11 Settings）。
 
 - frame overlay：控件会创建一个透明的 `FluentTabFrameOverlay` 盖在最上层（`WA_TransparentForMouseEvents`），用来：
 	- 画圆角边框（1px）
-	- 通过“OddEvenFill cut path”把圆角外的区域填成 background，从视觉上把子控件的直角裁掉（避免内容区把圆角“顶成方形”）。
+	- overlay 只画边框，不再填充圆角外侧区域，避免在复杂父背景上留下直角补色边。
 
 - 滚动按钮（当 tab 太多时出现）：tabbar 会在 `show/layout` 后查找内部 `QToolButton`，把箭头替换成自绘 chevron icon（颜色跟随 `colors.text`），并统一到约 26×26 的点击目标。
 
 关键 API：
 
 - 继承自 `QTabWidget`：使用 Qt 原生 API `addTab()` / `setTabPosition()` / `setCurrentIndex()`。
+- `setContentMargin(int)`：控制 pane 内容内边距，默认 5px；普通 Underline 模式和 Document 模式都会使用同一套内边距。
+- `setTabDisplayMode(FluentTabWidget::TabDisplayMode::Underline)`：默认横向样式，只用底部线标识当前项。
+- `setTabDisplayMode(FluentTabWidget::TabDisplayMode::Document)`：标签式样式。
+- `setTabsClosable(true)` / `tabCloseRequested(int)`：Document 模式会为关闭按钮预留空间，避免文字和关闭按钮重叠。
+- `setMovable(true)` 与 `setCornerWidget()`：可组合出类似文件资源管理器的“可拖动标签 + 加号入口”。在 Document 模式下，`Qt::TopRightCorner` 的 corner widget 会自动贴到最后一个标签右侧，不会停在整条 tab 区域最右端。
 
 注意事项：
 
 - 指示器矩形（`tabRect()`）在 Qt 内部可能是 lazy layout；实现里会在拿不到有效 rect 时 `singleShot(0, ...)` 重试一次，因此在 startup/首次 show 时指示器可能是“先 snap 再动画”。
+- Document 模式会把 tab header 和 pane 当成一个整体 surface 绘制：顶部 strip 画满宽度并带顶部圆角，内容区顶部为直角、底部为圆角，选中标签与内容区左边缘对齐并在视觉上连成一个容器。
 
 Demo：Containers / Overview。
 
@@ -347,8 +357,18 @@ Demo：Containers / Overview。
 #include "Fluent/FluentTabWidget.h"
 
 auto *tabs = new Fluent::FluentTabWidget();
-tabs->setTabPosition(QTabWidget::West);
 tabs->addTab(new QWidget(), QStringLiteral("页 1"));
+
+auto *documentTabs = new Fluent::FluentTabWidget();
+documentTabs->setTabDisplayMode(Fluent::FluentTabWidget::TabDisplayMode::Document);
+documentTabs->setTabsClosable(true);
+documentTabs->setMovable(true);
+documentTabs->addTab(new QWidget(), QStringLiteral("新建标签x1"));
+
+auto *addTabButton = new Fluent::FluentToolButton();
+addTabButton->setIcon(Fluent::FluentIcon::icon(Fluent::FluentIconType::Add));
+addTabButton->setFixedSize(34, 34);
+documentTabs->setCornerWidget(addTabButton, Qt::TopRightCorner);
 ```
 
 ---
@@ -359,11 +379,12 @@ tabs->addTab(new QWidget(), QStringLiteral("页 1"));
 
 实现语义：
 
-- 设置 `WA_StyledBackground` 让样式表能控制背景。
-- 默认 `setContentsMargins(12, 20, 12, 12)`（为标题留出顶部空间）。
+- 纯绘制型容器：使用 `FluentSurfaceSpec` 绘制 Card 表面、圆角与边框，不再依赖控件级 styleSheet。
+- 默认 `setContentsMargins(14, 38, 14, 14)`（为标题与可选 check 指示留出顶部空间）。
+- 标题由控件自绘，文本颜色跟随 Theme；`setCheckable(true)` 时保留 `QGroupBox` 的选中语义并绘制 checkbox indicator。
 - 主题联动：
-	- 构造时调用 `Theme::groupBoxStyle(colors)` 设置 styleSheet。
-	- `ThemeManager::themeChanged` 与 `EnabledChange` 时都会重新应用（但会做字符串比较避免重复 set）。
+	- `ThemeManager::themeChanged` 与 `EnabledChange` 时触发 repaint。
+	- 表面颜色、边框和禁用态均来自 Theme token，与 `FluentCard` / `FluentCommandBar` 的视觉层级保持一致。
 
 关键 API：
 

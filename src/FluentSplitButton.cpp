@@ -106,13 +106,14 @@ protected:
         QColor pressed;
         QColor border;
         QColor textColor;
+        const auto tokens = Theme::tokens(colors);
 
         if (isPrimary()) {
-            base = checked ? colors.accent.darker(125) : colors.accent;
-            hover = base.lighter(118);
-            pressed = base.darker(118);
-            border = base.darker(110);
-            textColor = QColor(QStringLiteral("#FFFFFF"));
+            base = checked ? tokens.accent.dark1 : tokens.accent.base;
+            hover = tokens.accent.light1;
+            pressed = tokens.accent.dark1;
+            border = Style::mix(tokens.accent.base, tokens.onAccent, 0.18);
+            textColor = tokens.onAccent;
         } else {
             const QColor accentTint = Style::mix(colors.surface, colors.accent, 0.12);
             base = checked ? accentTint : colors.surface;
@@ -121,7 +122,7 @@ protected:
             pressed = checked ? Style::mix(accentTint, colors.accent, 0.18)
                               : Style::mix(colors.surface, colors.pressed, 0.92);
             border = checked ? Style::mix(colors.border, colors.accent, 0.85) : colors.border;
-            textColor = checked ? Style::mix(colors.text, colors.accent, 0.82) : colors.text;
+            textColor = checked ? Theme::contrastColor(accentTint) : colors.text;
         }
 
         QColor fill = Style::mix(base, hover, hoverLevel());

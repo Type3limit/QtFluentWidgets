@@ -125,11 +125,17 @@ public slots:
     void finishGuide();
 
 protected:
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
+    QSize popupWindowSize() const override;
+    bool popupRevealEnabled() const override;
+    bool popupSlideEnabled() const override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void hideEvent(QHideEvent *event) override;
     void showEvent(QShowEvent *event) override;
 
 private:
+    QSize preferredPopupSize() const;
     void updateContent();
     void ensureMaskOverlay();
     void teardownMaskOverlay();

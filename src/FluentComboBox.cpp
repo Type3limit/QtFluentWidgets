@@ -1,11 +1,14 @@
 #include "Fluent/FluentComboBox.h"
 #include "Fluent/FluentBorderEffect.h"
 #include "Fluent/FluentFramePainter.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "FluentPaintSupport.h"
+#include "FluentPopupUtils.h"
+#include "FluentViewPaletteSupport.h"
 
 #include <QAbstractItemView>
 #include <QHideEvent>
@@ -31,7 +34,6 @@
 namespace Fluent {
 
 constexpr int kFluentComboPopupGap = 5;
-constexpr int kFluentComboPopupSlideOffset = PopupSurface::kOpenSlideOffsetPx;
 
 class FluentComboPopup final : public QWidget
 {
@@ -55,25 +57,16 @@ public:
         m_border.syncFromTheme();
 
         m_openAnim = new QVariantAnimation(this);
-        m_openAnim->setDuration(PopupSurface::kOpenDurationMs);
-        m_openAnim->setEasingCurve(QEasingCurve::OutCubic);
+        FluentMotion::configure(m_openAnim, FluentMotionRole::PopupOpen);
         connect(m_openAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-            const qreal t = qBound<qreal>(0.0, value.toReal(), 1.0);
-            setWindowOpacity(t);
-            if (m_targetGeom.isValid()) {
-                QRect g = m_targetGeom;
-                g.translate(0, static_cast<int>(std::lround((1.0 - t) * m_openSlideOffsetY)));
-                setGeometry(g);
-            }
+            Detail::applyPopupOpenProgress(this, m_targetGeom, m_openSlideOffsetY, value.toReal());
         });
         connect(m_openAnim, &QVariantAnimation::finished, this, [this]() {
-            setWindowOpacity(1.0);
-            if (m_targetGeom.isValid()) {
-                setGeometry(m_targetGeom);
-            }
+            Detail::finishPopupOpen(this, m_targetGeom);
         });
 
         connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+            FluentMotion::configure(m_openAnim, FluentMotionRole::PopupOpen);
             if (isVisible()) {
                 m_border.onThemeChanged();
                 syncFromCombo();
@@ -128,12 +121,7 @@ public:
         positionPopupBelowOrAbove();
 
         m_openAnim->stop();
-        setWindowOpacity(0.0);
-        if (m_targetGeom.isValid()) {
-            QRect startGeom = m_targetGeom;
-            startGeom.translate(0, m_openSlideOffsetY);
-            setGeometry(startGeom);
-        }
+        Detail::preparePopupOpen(this, m_targetGeom, m_openSlideOffsetY);
 
         show();
         raise();
@@ -153,7 +141,11 @@ public:
 
         m_openAnim->setStartValue(0.0);
         m_openAnim->setEndValue(1.0);
-        m_openAnim->start();
+        if (m_openAnim->duration() <= 0) {
+            Detail::finishPopupOpen(this, m_targetGeom);
+        } else {
+            m_openAnim->start();
+        }
     }
 
     void dismiss(bool returnFocusToCombo = true)
@@ -298,7 +290,7 @@ protected:
         if (m_openAnim) {
             m_openAnim->stop();
         }
-        setWindowOpacity(1.0);
+        Detail::resetPopupOpenState(this);
         m_border.resetInitial();
     }
 
@@ -328,7 +320,7 @@ protected:
         }
         painter.setRenderHint(QPainter::Antialiasing, true);
 
-        PopupSurface::paintPanel(painter, rect(), colors, &m_border);
+        PopupSurface::paintPanelWithShadowMargins(painter, rect(), colors, &m_border);
     }
 
 private:
@@ -393,7 +385,7 @@ private:
         int height = defaultRowHeight() + kBorderAllowance;
 
         if (!m_view) {
-            return QSize(width, height);
+            return PopupSurface::withShadowMargins(QSize(width, height));
         }
 
         const int rows = rowCount();
@@ -439,7 +431,7 @@ private:
         width = qMax(width, widest + viewportMargins.left() + viewportMargins.right() + kWidthPadding);
         height = qMax(defaultRowHeight() + kBorderAllowance, contentHeight + kBorderAllowance);
 
-        return QSize(width, height);
+        return PopupSurface::withShadowMargins(QSize(width, height));
     }
 
     void updateScrollPolicy()
@@ -547,7 +539,7 @@ private:
             return;
         }
 
-        m_view->setGeometry(rect().adjusted(1, 1, -1, -1));
+        m_view->setGeometry(PopupSurface::shadowContentRect(rect()).adjusted(1, 1, -1, -1));
     }
 
     void syncSelectionFromCombo()
@@ -654,45 +646,11 @@ private:
             return;
         }
 
-        const QSize popupSize = popupSizeHint();
-        const QPoint globalTopLeft = m_combo->mapToGlobal(QPoint(0, 0));
-        const int comboTopY = globalTopLeft.y();
-        const int comboBottomY = globalTopLeft.y() + m_combo->height();
-
-        QScreen *screen = QApplication::screenAt(globalTopLeft);
-        if (!screen) {
-            screen = QApplication::primaryScreen();
-        }
-        const QRect avail = screen ? screen->availableGeometry() : QRect();
-
-        QRect popupGeom(globalTopLeft, popupSize);
-
-        const int belowTop = comboBottomY + kFluentComboPopupGap;
-        const int aboveTop = comboTopY - kFluentComboPopupGap - popupSize.height();
-
-        const bool fitsBelow = !avail.isValid() || (belowTop + popupSize.height() <= avail.bottom() + 1);
-        const bool fitsAbove = !avail.isValid() || (aboveTop >= avail.top());
-
-        popupGeom.moveTop((fitsBelow || !fitsAbove) ? belowTop : aboveTop);
-        m_openSlideOffsetY = (fitsBelow || !fitsAbove) ? -kFluentComboPopupSlideOffset : kFluentComboPopupSlideOffset;
-
-        if (avail.isValid()) {
-            if (popupGeom.left() < avail.left()) {
-                popupGeom.moveLeft(avail.left());
-            }
-            if (popupGeom.right() > avail.right()) {
-                popupGeom.moveRight(avail.right());
-            }
-            if (popupGeom.top() < avail.top()) {
-                popupGeom.moveTop(avail.top());
-            }
-            if (popupGeom.bottom() > avail.bottom()) {
-                popupGeom.moveBottom(avail.bottom());
-            }
-        }
-
-        m_targetGeom = popupGeom;
-        setGeometry(popupGeom);
+        const Detail::PopupPlacementResult placed =
+            Detail::placePopupBelowOrAbove(m_combo, popupSizeHint(), kFluentComboPopupGap);
+        m_targetGeom = placed.geometry;
+        m_openSlideOffsetY = placed.slideOffsetY;
+        setGeometry(m_targetGeom);
     }
 
     QPointer<FluentComboBox> m_combo;
@@ -700,7 +658,7 @@ private:
     FluentBorderEffect m_border;
     QVariantAnimation *m_openAnim = nullptr;
     QRect m_targetGeom;
-    int m_openSlideOffsetY = -kFluentComboPopupSlideOffset;
+    int m_openSlideOffsetY = -FluentMotion::popupSlideOffset();
     bool m_appFilterInstalled = false;
     bool m_dismissing = false;
 };
@@ -728,7 +686,7 @@ public:
         setVerticalScrollBar(new FluentScrollBar(Qt::Vertical, this));
 
         m_hoverAnim = new QVariantAnimation(this);
-        m_hoverAnim->setDuration(120);
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
         connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
             m_hoverLevel = value.toReal();
             if (viewport()) {
@@ -737,8 +695,7 @@ public:
         });
 
         m_selAnim = new QVariantAnimation(this);
-        m_selAnim->setDuration(180);
-        m_selAnim->setEasingCurve(QEasingCurve::InOutCubic);
+        FluentMotion::configure(m_selAnim, FluentMotionRole::Selection);
         connect(m_selAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
             const qreal t = qBound<qreal>(0.0, value.toReal(), 1.0);
             m_selRect = QRectF(
@@ -752,15 +709,7 @@ public:
             }
         });
         connect(m_selAnim, &QVariantAnimation::finished, this, [this]() {
-            if (m_selTargetOpacity <= 0.0) {
-                m_selRect = QRectF();
-                m_selOpacity = 0.0;
-            } else {
-                m_selOpacity = 1.0;
-            }
-            if (viewport()) {
-                viewport()->update();
-            }
+            finishSelectionAnimation();
         });
 
         if (viewport()) {
@@ -773,6 +722,12 @@ public:
 
     QModelIndex hoverIndex() const { return m_hoverIndex; }
     qreal hoverLevel() const { return m_hoverLevel; }
+
+    void applyMotion()
+    {
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+        FluentMotion::configure(m_selAnim, FluentMotionRole::Selection);
+    }
 
     void setModel(QAbstractItemModel *model) override
     {
@@ -891,10 +846,7 @@ private:
             m_selTargetOpacity = 0.0;
             m_selRect = startRect;
             m_selOpacity = startOpacity;
-            m_selAnim->stop();
-            m_selAnim->setStartValue(0.0);
-            m_selAnim->setEndValue(1.0);
-            m_selAnim->start();
+            runSelectionAnimation();
             return;
         }
 
@@ -905,10 +857,7 @@ private:
             m_selTargetOpacity = 1.0;
             m_selRect = targetRect;
             m_selOpacity = 0.0;
-            m_selAnim->stop();
-            m_selAnim->setStartValue(0.0);
-            m_selAnim->setEndValue(1.0);
-            m_selAnim->start();
+            runSelectionAnimation();
             return;
         }
 
@@ -928,10 +877,7 @@ private:
         m_selRect = startRect;
         m_selOpacity = m_selStartOpacity;
 
-        m_selAnim->stop();
-        m_selAnim->setStartValue(0.0);
-        m_selAnim->setEndValue(1.0);
-        m_selAnim->start();
+        runSelectionAnimation();
     }
 
     void startHoverAnimation(qreal endValue)
@@ -940,9 +886,46 @@ private:
             return;
         }
         m_hoverAnim->stop();
+        if (m_hoverAnim->duration() <= 0) {
+            m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+            if (viewport()) {
+                viewport()->update();
+            }
+            return;
+        }
         m_hoverAnim->setStartValue(m_hoverLevel);
         m_hoverAnim->setEndValue(endValue);
         m_hoverAnim->start();
+    }
+
+    void runSelectionAnimation()
+    {
+        if (!m_selAnim) {
+            finishSelectionAnimation();
+            return;
+        }
+        m_selAnim->stop();
+        if (m_selAnim->duration() <= 0) {
+            finishSelectionAnimation();
+            return;
+        }
+        m_selAnim->setStartValue(0.0);
+        m_selAnim->setEndValue(1.0);
+        m_selAnim->start();
+    }
+
+    void finishSelectionAnimation()
+    {
+        if (m_selTargetOpacity <= 0.0 || !m_selTargetRect.isValid()) {
+            m_selRect = QRectF();
+            m_selOpacity = 0.0;
+        } else {
+            m_selRect = m_selTargetRect;
+            m_selOpacity = m_selTargetOpacity;
+        }
+        if (viewport()) {
+            viewport()->update();
+        }
     }
 
     QModelIndex m_hoverIndex;
@@ -1077,7 +1060,7 @@ FluentComboBox::FluentComboBox(QWidget *parent)
     setMinimumHeight(Style::metrics().height);
 
     m_hoverAnim = new QPropertyAnimation(this, "hoverLevel", this);
-    m_hoverAnim->setDuration(120);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
 
     m_popup = new FluentComboPopup(this);
 
@@ -1126,17 +1109,19 @@ void FluentComboBox::changeEvent(QEvent *event)
 
 void FluentComboBox::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+
     const auto &colors = ThemeManager::instance().colors();
     if (view()) {
-        QPalette viewPal = view()->palette();
-        viewPal.setColor(QPalette::Text, colors.text);
-        viewPal.setColor(QPalette::Mid, colors.border);
-        view()->setPalette(viewPal);
+        if (auto *popupView = dynamic_cast<FluentComboPopupView *>(view())) {
+            popupView->applyMotion();
+        }
+        Detail::applyFluentViewPalette(view(), view()->viewport(), colors);
 
         const QString viewNext = QStringLiteral(
             "QListView#FluentComboPopupView {"
             "  background: transparent;"
-            "  color: palette(text);"
+            "  color: %1;"
             "  border: none;"
             "  outline: 0;"
             "}"
@@ -1149,14 +1134,16 @@ void FluentComboBox::applyTheme()
             "  margin: 2px;"
             "}"
             "QScrollBar::handle:vertical {"
-            "  background-color: palette(mid);"
+            "  background-color: %2;"
             "  border: 1px solid transparent;"
             "  border-radius: 999px;"
             "  min-height: 24px;"
             "}"
             "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
             "  height: 0px;"
-            "}");
+            "}")
+                .arg(colors.text.name(QColor::HexArgb),
+                     colors.border.name(QColor::HexArgb));
 
         if (view()->styleSheet() != viewNext) {
             view()->setStyleSheet(viewNext);
@@ -1215,6 +1202,10 @@ void FluentComboBox::enterEvent(FluentEnterEvent *event)
 {
     QComboBox::enterEvent(event);
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(1.0);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(1.0);
     m_hoverAnim->start();
@@ -1224,6 +1215,10 @@ void FluentComboBox::leaveEvent(QEvent *event)
 {
     QComboBox::leaveEvent(event);
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(0.0);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(0.0);
     m_hoverAnim->start();

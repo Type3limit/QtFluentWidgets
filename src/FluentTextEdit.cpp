@@ -1,4 +1,5 @@
 #include "Fluent/FluentTextEdit.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -106,8 +107,7 @@ FluentTextEdit::FluentTextEdit(QWidget *parent)
     }
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = qBound<qreal>(0.0, value.toReal(), 1.0);
         update();
@@ -117,8 +117,7 @@ FluentTextEdit::FluentTextEdit(QWidget *parent)
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = qBound<qreal>(0.0, value.toReal(), 1.0);
         update();
@@ -173,6 +172,9 @@ void FluentTextEdit::changeEvent(QEvent *event)
 
 void FluentTextEdit::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     const auto &colors = ThemeManager::instance().colors();
     const QColor textColor = isEnabled() ? colors.text : colors.disabledText;
     const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
@@ -181,10 +183,14 @@ void FluentTextEdit::applyTheme()
     selectionBg.setAlphaF(dark ? 0.35 : 0.22);
 
     const QString next = QStringLiteral(
-        "QTextEdit { background: transparent; color: palette(window-text); border: none; "
-        "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
-        "QTextEdit QAbstractScrollArea::viewport { background: transparent; }"
-    );
+        "QTextEdit { background: transparent; color: %1; border: none; "
+        "selection-background-color: %2; selection-color: %3; }"
+        "QTextEdit:disabled { color: %4; }"
+        "QTextEdit QAbstractScrollArea::viewport { background: transparent; }")
+        .arg(textColor.name(QColor::HexArgb),
+             selectionBg.name(QColor::HexArgb),
+             colors.text.name(QColor::HexArgb),
+             colors.disabledText.name(QColor::HexArgb));
 
     if (styleSheet() != next) {
         setStyleSheet(next);
@@ -193,10 +199,10 @@ void FluentTextEdit::applyTheme()
     QPalette pal = palette();
     pal.setColor(QPalette::Base, QColor(Qt::transparent));
     pal.setColor(QPalette::Window, QColor(Qt::transparent));
-    // Keep caret accent like FluentLineEdit; text color is controlled via stylesheet.
     pal.setColor(QPalette::WindowText, textColor);
     pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
-    pal.setColor(QPalette::Text, colors.accent);
+    pal.setColor(QPalette::Text, textColor);
+    pal.setColor(QPalette::Disabled, QPalette::Text, colors.disabledText);
     pal.setColor(QPalette::Highlight, selectionBg);
     pal.setColor(QPalette::HighlightedText, colors.text);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)

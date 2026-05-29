@@ -1,4 +1,5 @@
 #include "Fluent/FluentProgressRing.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "FluentPaintSupport.h"
@@ -23,8 +24,6 @@ FluentProgressRing::FluentProgressRing(QWidget *parent)
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     m_valueAnim = new QPropertyAnimation(this, "displayValue", this);
-    m_valueAnim->setDuration(260);
-    m_valueAnim->setEasingCurve(QEasingCurve::OutCubic);
 
     connect(this, &QProgressBar::valueChanged, this, [this](int newValue) {
         if (isIndeterminate()) {
@@ -32,9 +31,14 @@ FluentProgressRing::FluentProgressRing(QWidget *parent)
             return;
         }
         m_valueAnim->stop();
-        m_valueAnim->setStartValue(m_displayValue);
-        m_valueAnim->setEndValue(static_cast<qreal>(newValue));
-        m_valueAnim->start();
+        const qreal target = static_cast<qreal>(newValue);
+        if (m_valueAnim->duration() <= 0) {
+            setDisplayValue(target);
+        } else {
+            m_valueAnim->setStartValue(m_displayValue);
+            m_valueAnim->setEndValue(target);
+            m_valueAnim->start();
+        }
     });
 
     applyTheme();
@@ -124,12 +128,17 @@ void FluentProgressRing::timerEvent(QTimerEvent *event)
 
 void FluentProgressRing::applyTheme()
 {
+    FluentMotion::configure(m_valueAnim, FluentMotionRole::Selection);
+    syncSpinTimer();
     update();
 }
 
 void FluentProgressRing::syncSpinTimer()
 {
-    const bool shouldSpin = isVisible() && isEnabled() && isIndeterminate();
+    const bool shouldSpin = isVisible()
+        && isEnabled()
+        && isIndeterminate()
+        && ThemeManager::instance().animationsEnabled();
     if (shouldSpin && !m_spinTimer.isActive()) {
         m_spinTimer.start(16, this);
     } else if (!shouldSpin && m_spinTimer.isActive()) {

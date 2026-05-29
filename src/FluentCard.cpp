@@ -1,8 +1,10 @@
 #include "Fluent/FluentCard.h"
 
 #include "Fluent/FluentAnimatedIcon.h"
+#include "Fluent/FluentFramePainter.h"
 #include "Fluent/FluentIcon.h"
 #include "Fluent/FluentLabel.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "Fluent/FluentToolButton.h"
@@ -12,14 +14,131 @@
 #include <QHBoxLayout>
 #include <QMouseEvent>
 #include <QPainter>
-#include <QPropertyAnimation>
+#include <QTimer>
+#include <QVariantAnimation>
 #include <QVBoxLayout>
 
 namespace Fluent {
 
-namespace {
-
 static constexpr const char *kFlowDisableAnimationProperty = "fluentFlowDisableAnimation";
+
+class FluentCardContentClip final : public QWidget
+{
+public:
+    explicit FluentCardContentClip(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setObjectName("FluentCardContentClip");
+        setAttribute(Qt::WA_NoSystemBackground, true);
+        setAttribute(Qt::WA_StyledBackground, false);
+        setAutoFillBackground(false);
+        setContentsMargins(0, 0, 0, 0);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    }
+
+    void setContent(QWidget *content)
+    {
+        if (m_content == content) {
+            return;
+        }
+        m_content = content;
+        if (m_content && m_content->parentWidget() != this) {
+            m_content->setParent(this);
+        }
+        updateContentGeometry();
+    }
+
+    int contentNaturalHeight() const
+    {
+        if (!m_content) {
+            return 0;
+        }
+        const int availableWidth = qMax(0, width());
+        if (m_content->layout()) {
+            auto *layout = m_content->layout();
+            if (layout->hasHeightForWidth()) {
+                return qMax(0, layout->heightForWidth(availableWidth));
+            }
+            return qMax(0, layout->sizeHint().height());
+        }
+        if (m_content->hasHeightForWidth()) {
+            return qMax(0, m_content->heightForWidth(availableWidth));
+        }
+        return qMax(0, m_content->sizeHint().height());
+    }
+
+    int revealHeight() const
+    {
+        return m_revealHeight;
+    }
+
+    void setRevealHeight(int height)
+    {
+        const int next = qMax(0, height);
+        m_revealHeight = next;
+        setMinimumHeight(next);
+        setMaximumHeight(next);
+        if (next > 0 && !isVisible()) {
+            setVisible(true);
+        }
+        updateContentGeometry();
+        updateGeometry();
+    }
+
+    void releaseRevealHeight()
+    {
+        m_revealHeight = -1;
+        setMinimumHeight(0);
+        setMaximumHeight(QWIDGETSIZE_MAX);
+        setVisible(true);
+        refreshContentGeometry();
+    }
+
+    void refreshContentGeometry()
+    {
+        updateContentGeometry();
+        if (m_content) {
+            m_content->updateGeometry();
+        }
+        updateGeometry();
+    }
+
+    QSize sizeHint() const override
+    {
+        const QSize contentSize = m_content ? m_content->sizeHint() : QSize();
+        const int height = (m_revealHeight >= 0) ? m_revealHeight : contentNaturalHeight();
+        return QSize(contentSize.width(), height);
+    }
+
+    QSize minimumSizeHint() const override
+    {
+        const int height = (m_revealHeight >= 0) ? m_revealHeight : contentNaturalHeight();
+        return QSize(0, qMax(0, height));
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QWidget::resizeEvent(event);
+        updateContentGeometry();
+    }
+
+private:
+    void updateContentGeometry()
+    {
+        if (!m_content) {
+            return;
+        }
+        if (auto *layout = m_content->layout()) {
+            layout->activate();
+        }
+        m_content->setVisible(true);
+        m_content->setGeometry(0, 0, width(), contentNaturalHeight());
+    }
+
+    QWidget *m_content = nullptr;
+    int m_revealHeight = -1;
+};
 
 static QIcon makeChevronIcon(bool collapsed, const QColor &color)
 {
@@ -28,13 +147,19 @@ static QIcon makeChevronIcon(bool collapsed, const QColor &color)
     return FluentIcon::icon(collapsed ? FluentIconType::ChevronRight : FluentIconType::ChevronDown, options);
 }
 
-} // namespace
-
 FluentCard::FluentCard(QWidget *parent)
     : QWidget(parent)
 {
     setObjectName("FluentCard");
-    setAttribute(Qt::WA_StyledBackground, true);
+    setAttribute(Qt::WA_StyledBackground, false);
+    setAutoFillBackground(false);
+
+    m_hoverAnim = new QVariantAnimation(this);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        m_hoverLevel = qBound<qreal>(0.0, value.toReal(), 1.0);
+        update();
+    });
 
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentCard::applyTheme);
@@ -49,6 +174,11 @@ void FluentCard::setCollapsible(bool on)
     m_collapsible = on;
     if (m_collapsible) {
         ensureCollapsibleUi();
+        if (m_header) {
+            m_header->removeEventFilter(this);
+            m_header->installEventFilter(this);
+            m_header->show();
+        }
         applyCollapsedState(false);
         updateHeaderUi();
         updateCollapseIndicatorState(false);
@@ -59,8 +189,13 @@ void FluentCard::setCollapsible(bool on)
             m_header->removeEventFilter(this);
         }
         if (m_content) {
+            releaseContentHeightLock();
             m_content->setVisible(true);
             m_content->setMaximumHeight(QWIDGETSIZE_MAX);
+        }
+        if (m_contentClip) {
+            m_contentClip->setVisible(true);
+            m_contentClip->setMaximumHeight(QWIDGETSIZE_MAX);
         }
         updateGeometry();
     }
@@ -170,7 +305,23 @@ QWidget *FluentCard::contentWidget() const
 
 QVBoxLayout *FluentCard::contentLayout() const
 {
+    auto *self = const_cast<FluentCard *>(this);
+    self->scheduleContentClipGeometryRefresh();
     return m_contentLayout;
+}
+
+bool FluentCard::event(QEvent *event)
+{
+    const bool shouldRefresh = event->type() == QEvent::LayoutRequest
+        || event->type() == QEvent::ChildAdded
+        || event->type() == QEvent::ChildRemoved
+        || event->type() == QEvent::Resize
+        || event->type() == QEvent::Show;
+    if (shouldRefresh) {
+        scheduleContentClipGeometryRefresh();
+    }
+
+    return QWidget::event(event);
 }
 
 void FluentCard::changeEvent(QEvent *event)
@@ -182,8 +333,35 @@ void FluentCard::changeEvent(QEvent *event)
     }
 }
 
+void FluentCard::enterEvent(FluentEnterEvent *event)
+{
+    QWidget::enterEvent(event);
+    if (!m_hovered) {
+        m_hovered = true;
+        startHoverAnimation(1.0);
+    }
+}
+
+void FluentCard::leaveEvent(QEvent *event)
+{
+    QWidget::leaveEvent(event);
+    if (m_hovered) {
+        m_hovered = false;
+        startHoverAnimation(0.0);
+    }
+}
+
 bool FluentCard::eventFilter(QObject *watched, QEvent *event)
 {
+    if ((watched == m_content || watched == m_contentLayout)
+        && (event->type() == QEvent::LayoutRequest
+            || event->type() == QEvent::ChildAdded
+            || event->type() == QEvent::ChildRemoved
+            || event->type() == QEvent::Show
+            || event->type() == QEvent::Resize)) {
+        scheduleContentClipGeometryRefresh();
+    }
+
     if (watched == m_header && m_collapsible && event->type() == QEvent::MouseButtonPress) {
         auto *me = static_cast<QMouseEvent *>(event);
         if (me->button() == Qt::LeftButton) {
@@ -196,11 +374,31 @@ bool FluentCard::eventFilter(QObject *watched, QEvent *event)
 
 void FluentCard::applyTheme()
 {
-    const QString next = Theme::cardStyle(ThemeManager::instance().colors());
-    if (styleSheet() != next) {
-        setStyleSheet(next);
-    }
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    update();
     updateHeaderUi();
+}
+
+void FluentCard::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event)
+
+    QPainter p(this);
+    if (!p.isActive()) {
+        return;
+    }
+
+    FluentSurfaceSpec surface;
+    surface.level = FluentSurfaceLevel::Card;
+    surface.elevation = FluentElevationLevel::None;
+    surface.radius = ThemeManager::instance().tokens().radius.card;
+    surface.enabled = isEnabled();
+    surface.hovered = (m_hoverLevel > 0.001) && isEnabled();
+    surface.hoverLevel = m_hoverLevel;
+    surface.borderWidth = 1.0;
+    surface.borderInset = 0.5;
+
+    paintFluentSurface(p, QRectF(rect()), ThemeManager::instance().colors(), surface);
 }
 
 void FluentCard::ensureCollapsibleUi()
@@ -217,14 +415,20 @@ void FluentCard::ensureCollapsibleUi()
         setLayout(root);
     }
 
+    if (!m_contentClip) {
+        m_contentClip = new FluentCardContentClip(this);
+    }
+
     // If the user already placed widgets/layouts on this card, move them into the collapsible content container.
     if (!m_content && root->count() > 0) {
-        m_content = new QWidget(this);
+        m_content = new QWidget(m_contentClip);
         m_content->setObjectName("FluentCardContent");
+        m_content->installEventFilter(this);
 
         m_contentLayout = new QVBoxLayout(m_content);
         m_contentLayout->setContentsMargins(0, 0, 0, 0);
         m_contentLayout->setSpacing(8);
+        m_contentLayout->installEventFilter(this);
 
         QList<QLayoutItem *> items;
         items.reserve(root->count());
@@ -289,33 +493,49 @@ void FluentCard::ensureCollapsibleUi()
     }
 
     if (!m_content) {
-        m_content = new QWidget(this);
+        m_content = new QWidget(m_contentClip);
         m_content->setObjectName("FluentCardContent");
+        m_content->installEventFilter(this);
 
         m_contentLayout = new QVBoxLayout(m_content);
         m_contentLayout->setContentsMargins(0, 0, 0, 0);
         m_contentLayout->setSpacing(8);
-
-        root->addWidget(m_content, 1);
-    } else if (root->indexOf(m_content) < 0) {
-        root->addWidget(m_content, 1);
+        m_contentLayout->installEventFilter(this);
     }
 
+    if (m_content && m_contentClip && m_content->parentWidget() != m_contentClip) {
+        m_content->setParent(m_contentClip);
+    }
+    if (m_contentClip && m_content) {
+        m_contentClip->setContent(m_content);
+    }
+
+    if (m_contentClip && root->indexOf(m_contentClip) < 0) {
+        root->addWidget(m_contentClip);
+    }
+
+    refreshContentClipGeometry();
+
     if (!m_collapseAnim) {
-        m_collapseAnim = new QPropertyAnimation(m_content, "maximumHeight", this);
-        m_collapseAnim->setDuration(160);
-        m_collapseAnim->setEasingCurve(QEasingCurve::OutCubic);
-        connect(m_collapseAnim, &QPropertyAnimation::finished, this, [this] {
-            if (!m_content) {
+        m_collapseAnim = new QVariantAnimation(this);
+        FluentMotion::configure(m_collapseAnim, FluentMotionRole::Collapse);
+        connect(m_collapseAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+            if (m_contentClip) {
+                m_contentClip->setRevealHeight(value.toInt());
+            }
+        });
+        connect(m_collapseAnim, &QVariantAnimation::finished, this, [this] {
+            if (!m_content || !m_contentClip) {
                 return;
             }
             setProperty(kFlowDisableAnimationProperty, false);
+            releaseContentHeightLock();
             if (m_collapsed) {
-                m_content->setVisible(false);
-                m_content->setMaximumHeight(0);
+                m_contentClip->setRevealHeight(0);
+                m_contentClip->setVisible(false);
             } else {
+                m_contentClip->releaseRevealHeight();
                 m_content->setVisible(true);
-                m_content->setMaximumHeight(QWIDGETSIZE_MAX);
             }
             updateGeometry();
         });
@@ -422,38 +642,107 @@ void FluentCard::applyCollapsedState(bool animated)
         return;
     }
     ensureCollapsibleUi();
-    if (!m_content) {
+    if (!m_content || !m_contentClip) {
         return;
     }
 
-    if (!animated || !m_collapseAnim) {
+    if (!animated || !m_collapseAnim || m_collapseAnim->duration() <= 0) {
         setProperty(kFlowDisableAnimationProperty, false);
         if (m_collapseAnim) {
             m_collapseAnim->stop();
         }
+        releaseContentHeightLock();
         if (m_collapsed) {
-            m_content->setVisible(false);
-            m_content->setMaximumHeight(0);
+            m_contentClip->setRevealHeight(0);
+            m_contentClip->setVisible(false);
         } else {
+            m_contentClip->releaseRevealHeight();
             m_content->setVisible(true);
-            m_content->setMaximumHeight(QWIDGETSIZE_MAX);
         }
         updateGeometry();
         return;
     }
 
     m_collapseAnim->stop();
+    const int naturalHeight = m_contentClip->contentNaturalHeight();
+    lockContentHeightForAnimation(naturalHeight);
+    m_contentClip->setVisible(true);
     m_content->setVisible(true);
     setProperty(kFlowDisableAnimationProperty, true);
 
-    const int start = (m_content->maximumHeight() == QWIDGETSIZE_MAX) ? m_content->height() : m_content->maximumHeight();
-    const int end = m_collapsed
-        ? 0
-        : qMax(0, m_content->layout() ? m_content->layout()->sizeHint().height() : m_content->sizeHint().height());
+    const int start = m_contentClip->isVisible()
+        ? (m_contentClip->revealHeight() >= 0 ? m_contentClip->revealHeight() : m_contentClip->height())
+        : 0;
+    const int end = m_collapsed ? 0 : naturalHeight;
 
     m_collapseAnim->setStartValue(start);
     m_collapseAnim->setEndValue(end);
     m_collapseAnim->start();
+}
+
+void FluentCard::startHoverAnimation(qreal endValue)
+{
+    if (!m_hoverAnim) {
+        m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+        update();
+        return;
+    }
+
+    m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+        update();
+        return;
+    }
+    m_hoverAnim->setStartValue(m_hoverLevel);
+    m_hoverAnim->setEndValue(qBound<qreal>(0.0, endValue, 1.0));
+    m_hoverAnim->start();
+}
+
+void FluentCard::lockContentHeightForAnimation(int height)
+{
+    if (!m_content) {
+        return;
+    }
+    const int clamped = qMax(0, height);
+    m_content->setMinimumHeight(clamped);
+    m_content->setMaximumHeight(clamped);
+}
+
+void FluentCard::releaseContentHeightLock()
+{
+    if (!m_content) {
+        return;
+    }
+    m_content->setMinimumHeight(0);
+    m_content->setMaximumHeight(QWIDGETSIZE_MAX);
+}
+
+void FluentCard::scheduleContentClipGeometryRefresh()
+{
+    if (!m_collapsible || !m_contentClip || !m_content || m_contentRefreshPending) {
+        return;
+    }
+
+    m_contentRefreshPending = true;
+    QTimer::singleShot(0, this, [this] {
+        m_contentRefreshPending = false;
+        refreshContentClipGeometry();
+    });
+}
+
+void FluentCard::refreshContentClipGeometry()
+{
+    if (!m_contentClip || !m_content) {
+        return;
+    }
+
+    if (!m_collapsed && (!m_collapseAnim || m_collapseAnim->state() != QAbstractAnimation::Running)) {
+        releaseContentHeightLock();
+        m_contentClip->releaseRevealHeight();
+    } else {
+        m_contentClip->refreshContentGeometry();
+    }
 }
 
 } // namespace Fluent

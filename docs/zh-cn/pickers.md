@@ -84,7 +84,7 @@ picker->setVisibleParts(Fluent::FluentDatePicker::MonthPart
 外观 / 交互要点：
 
 - 关闭状态下使用分段字段展示 `month / day / year`，空状态保留占位文案。
-- 弹层使用 `Qt::Popup` + Fluent popup surface，风格与组合框 / 菜单弹层一致。
+- 弹层使用 `Qt::Popup` + Fluent popup surface，带统一软阴影、圆角裁剪和打开动效，风格与组合框 / 菜单弹层一致。
 - 每一列都支持鼠标滚轮、拖动滚动和键盘上下键；滚轮切换带缓动动画，结束后会自动吸附到中心选中位。
 - 底部操作栏分为确认 / 取消两个区域，行为更接近 WinUI Gallery 的 DatePicker。
 - 默认 locale 为中文（中国），月份/日期/年份格式化文本走控件自身 `locale()`。
@@ -134,6 +134,7 @@ picker->setEndPrefix(QStringLiteral("结束："));
 - 第一次点击日期选开始，第二次点击选结束；悬停时会实时预览范围。
 - 开始/结束日期之间的区间使用连续 accent 带填充，中间不留竖线缝隙。
 - `Esc`：若当前正在选结束日期，则取消本次范围选择；再次按下关闭弹窗。
+- 输入框 hover 使用 `FluentMotionRole::Hover`；关闭全局动画或把 Hover 时长设为 0 时，hover 背景会即时完成。
 
 文本配置 API：
 
@@ -170,11 +171,12 @@ Demo：Pickers。
 
 弹层行为（Popup 语义）：
 
-- Window flags：`Qt::Popup + Frameless + NoDropShadow`，并避免 translucent background（Windows 上浅色模式容易黑底）。
+- Window flags：`Qt::Popup + Frameless + NoDropShadow`，窗口本身为透明背景，内部通过 `FluentPopupSurface` 绘制带阴影外边距的圆角 panel。
 - 自动关闭：
 	- 窗口失去激活（`WindowDeactivate` / `ApplicationDeactivate`）时关闭。
 	- 通过安装 `qApp` 事件过滤器检测“点击 popup 外部”并关闭；若点击的是 anchor，则会吞掉该次点击，避免“先关闭又立刻被 anchor 打开”的抖动。
-- 定位：`popup()` 时会尝试把弹层放在 anchor 下方（或空间不足时放上方），并加一个 gap；内部也会对圆角进行 mask 裁剪。
+- 定位：`popup()` 时会尝试把弹层放在 anchor 下方（或空间不足时放上方），并加一个 gap；内容绘制会使用 `shadowContentRect()`，确保阴影外边距不影响命中测试和内部布局。
+- 选中态文本会使用 `Theme::contrastColor(accent)`，避免用户把 accent 改成浅绿色、黄色等亮色时出现白字低对比度。
 - 动画：打开时会做淡入 + 轻微上滑；视图模式切换（天/月份/年份）也有过渡动画。
 
 视图模式与交互：
@@ -238,7 +240,7 @@ tp->setTime(QTime::currentTime());
 外观/交互要点：
 
 - 关闭状态下展示占位文案；默认是中文的“时 / 分 / 上午”，如果已有值则显示当前时间。
-- 弹层使用与 `FluentDatePicker` 相同的 wheel picker popup，所有列支持滚动吸附。
+- 弹层使用与 `FluentDatePicker` 相同的 wheel picker popup，所有列支持滚动吸附，并复用统一软阴影 popup surface。
 - 滚轮切换带缓动动画，快速切换时仍会稳定吸附到中心选中位。
 - 保留右侧 chevron 区域，外观上仍然是表单输入控件，而不是单独的按钮。
 - 支持空状态、`minuteIncrement` 和 24 小时制切换。

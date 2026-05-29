@@ -1,6 +1,7 @@
 #include "Fluent/FluentCodeEditor.h"
 
 #include "Fluent/FluentCppHighlighter.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -241,8 +242,7 @@ FluentCodeEditor::FluentCodeEditor(QWidget *parent)
     m_clangFormatPath = findDefaultClangFormat();
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_hoverLevel = qBound<qreal>(0.0, v.toReal(), 1.0);
         update();
@@ -255,8 +255,7 @@ FluentCodeEditor::FluentCodeEditor(QWidget *parent)
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_focusLevel = qBound<qreal>(0.0, v.toReal(), 1.0);
         update();
@@ -344,6 +343,9 @@ void FluentCodeEditor::changeEvent(QEvent *event)
 
 void FluentCodeEditor::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     const auto &colors = ThemeManager::instance().colors();
     const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
     const QColor textColor = isEnabled() ? colors.text : colors.disabledText;
@@ -353,10 +355,14 @@ void FluentCodeEditor::applyTheme()
 
     // Let paintEvent draw the Fluent surface/border; keep viewport transparent.
     const QString next = QStringLiteral(
-        "QPlainTextEdit { background: transparent; color: palette(window-text); border: none; "
-        "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
+        "QPlainTextEdit { background: transparent; color: %1; border: none; "
+        "selection-background-color: %2; selection-color: %3; }"
+        "QPlainTextEdit:disabled { color: %4; }"
         "QPlainTextEdit QAbstractScrollArea::viewport { background: transparent; }")
-    ;
+        .arg(textColor.name(QColor::HexArgb),
+             selectionBg.name(QColor::HexArgb),
+             colors.text.name(QColor::HexArgb),
+             colors.disabledText.name(QColor::HexArgb));
 
     if (styleSheet() != next) {
         setStyleSheet(next);
@@ -365,10 +371,10 @@ void FluentCodeEditor::applyTheme()
     QPalette pal = palette();
     pal.setColor(QPalette::Base, QColor(Qt::transparent));
     pal.setColor(QPalette::Window, QColor(Qt::transparent));
-    // Keep caret accent like other Fluent inputs; text color itself is controlled by stylesheet.
     pal.setColor(QPalette::WindowText, textColor);
     pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
-    pal.setColor(QPalette::Text, colors.accent);
+    pal.setColor(QPalette::Text, textColor);
+    pal.setColor(QPalette::Disabled, QPalette::Text, colors.disabledText);
     pal.setColor(QPalette::Highlight, selectionBg);
     pal.setColor(QPalette::HighlightedText, colors.text);
     setPalette(pal);

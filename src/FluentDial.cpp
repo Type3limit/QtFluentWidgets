@@ -1,4 +1,5 @@
 #include "Fluent/FluentDial.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -35,18 +36,22 @@ FluentDial::FluentDial(QWidget *parent)
     setToolTip(tr("拖拽旋转调整角度"));
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(120);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(160);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
+        update();
+    });
+
+    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+        FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
         update();
     });
 }

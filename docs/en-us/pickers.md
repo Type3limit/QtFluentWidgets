@@ -82,7 +82,7 @@ Inheritance & construction:
 Visual / interaction notes:
 
 - The closed control renders segmented fields for `month / day / year`, and keeps placeholder text when no date is set.
-- The popup uses the same Fluent popup surface treatment as combo boxes and menus.
+- The popup uses the same Fluent popup surface treatment as combo boxes and menus, including the shared soft shadow, rounded clipping, and open animation.
 - Each column supports mouse wheel, drag scrolling, and keyboard up/down navigation. Wheel changes now animate before snapping into the centered slot.
 - The bottom action bar is split into Accept / Cancel regions, matching the gallery-style picker flow more closely.
 - The default locale is Chinese (China), and date formatting text is resolved through the widget's own `locale()`.
@@ -132,6 +132,7 @@ Visual / interaction notes:
 - First click selects the start date, second click selects the end date; hover previews the pending range.
 - The in-range area uses a continuous accent band without visible vertical gaps.
 - `Esc`: cancels the current range-in-progress first; pressing again closes the popup.
+- Input hover uses `FluentMotionRole::Hover`; disabling global animations or setting the Hover duration to 0 makes the hover surface complete immediately.
 
 Text customization APIs:
 
@@ -169,13 +170,14 @@ Inheritance & construction:
 
 Popup behavior ("popup" semantics):
 
-- Window flags: `Qt::Popup` + frameless + no drop shadow. It avoids translucent backgrounds to reduce Windows light-mode black background artifacts.
+- Window flags: `Qt::Popup` + frameless + no drop shadow. The top-level window is transparent; `FluentPopupSurface` paints the rounded panel with shadow margins.
 - Auto close:
 	- closes on `WindowDeactivate` / `ApplicationDeactivate`
 	- installs a `qApp` event filter to detect clicks outside and dismiss
 	- if the click target is the anchor, it consumes that click to avoid a close→reopen flicker
 - Positioning: `popup()` tries to place the widget below the anchor (or above if space is insufficient), with a small gap, and clamps to the available screen.
-- Rounded clipping: uses a mask for corners.
+- Layout / clipping: internal painting uses `shadowContentRect()` so the software-shadow margin does not shift hit testing or content layout.
+- Selected text uses `Theme::contrastColor(accent)`, so bright user accents such as green or yellow still keep readable selected day / month / year labels.
 - Animations: fade-in + slight slide on show; switching view modes (days/months/years) also has a transition.
 
 View modes & interaction:
@@ -244,7 +246,7 @@ Inheritance & construction:
 Visual / interaction notes:
 
 - The closed control shows placeholder text until a value is chosen. By default those labels are Chinese (`时 / 分 / 上午`).
-- The popup uses the same wheel picker surface as `FluentDatePicker`, with snapping columns and a bottom accept / cancel bar.
+- The popup uses the same wheel picker surface as `FluentDatePicker`, with snapping columns, a bottom accept / cancel bar, and the shared soft-shadow popup surface.
 - Wheel switching is animated before the column snaps back to the centered selection slot.
 - The right-side chevron region is preserved so the control still reads like a form field.
 - Supports empty state, minute stepping, and switching between 12-hour and 24-hour layouts.

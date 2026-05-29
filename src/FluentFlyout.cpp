@@ -1,30 +1,34 @@
 #include "Fluent/FluentFlyout.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentTheme.h"
+#include "FluentPopupUtils.h"
 
 #include <QApplication>
 #include <QCursor>
 #include <QHideEvent>
 #include <QPainter>
-#include <QPropertyAnimation>
 #include <QScreen>
 #include <QShowEvent>
+#include <QVariantAnimation>
 #include <QVBoxLayout>
 
 namespace Fluent {
 
 FluentFlyout::FluentFlyout(QWidget *parent)
     : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
+    , m_contentMargins(12, 12, 12, 12)
     , m_border(this, this)
 {
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     m_layout = new QVBoxLayout(this);
-    m_layout->setContentsMargins(12, 12, 12, 12);
     m_layout->setSpacing(8);
+    updateLayoutMargins();
 
     m_border.setRequestUpdate([this]() { update(); });
     m_border.syncFromTheme();
@@ -66,18 +70,20 @@ void FluentFlyout::setContentWidget(QWidget *widget)
 
 QMargins FluentFlyout::contentMargins() const
 {
-    return m_layout->contentsMargins();
+    return m_contentMargins;
 }
 
 void FluentFlyout::setContentMargins(const QMargins &margins)
 {
-    m_layout->setContentsMargins(margins);
+    m_contentMargins = margins;
+    updateLayoutMargins();
 }
 
 void FluentFlyout::showAt(const QPoint &globalPos)
 {
     adjustSize();
-    startOpenAnimation(globalPos);
+    resize(popupWindowSize());
+    startOpenAnimation(PopupSurface::topLeftForContentTopLeft(globalPos), -FluentMotion::popupSlideOffset());
 }
 
 void FluentFlyout::showFor(QWidget *target, Placement placement)
@@ -88,14 +94,24 @@ void FluentFlyout::showFor(QWidget *target, Placement placement)
     }
 
     adjustSize();
+    const QSize popupSize = popupWindowSize();
+    resize(popupSize);
     const QRect anchor(target->mapToGlobal(QPoint(0, 0)), target->size());
-    startOpenAnimation(placedPosition(anchor, sizeHint(), placement));
+    const int slideOffsetY = placement == Placement::Top
+        ? FluentMotion::popupSlideOffset()
+        : (placement == Placement::Bottom ? -FluentMotion::popupSlideOffset() : 0);
+    startOpenAnimation(placedPosition(anchor, popupSize, placement), slideOffsetY);
 }
 
 void FluentFlyout::hideEvent(QHideEvent *event)
 {
     QWidget::hideEvent(event);
-    setWindowOpacity(1.0);
+    if (m_openAnim) {
+        m_openAnim->stop();
+        m_openAnim->deleteLater();
+        m_openAnim = nullptr;
+    }
+    Detail::resetPopupOpenState(this);
     m_border.resetInitial();
 }
 
@@ -118,7 +134,7 @@ void FluentFlyout::paintEvent(QPaintEvent *event)
         return;
     }
     p.setRenderHint(QPainter::Antialiasing, true);
-    PopupSurface::paintPanel(p, rect(), colors, &m_border);
+    PopupSurface::paintPanelWithShadowMargins(p, rect(), colors, &m_border);
 }
 
 void FluentFlyout::showEvent(QShowEvent *event)
@@ -130,22 +146,25 @@ void FluentFlyout::showEvent(QShowEvent *event)
 QPoint FluentFlyout::placedPosition(const QRect &anchor, const QSize &popupSize, Placement placement) const
 {
     constexpr int gap = 8;
-    QPoint pos;
+    const QSize contentSize = PopupSurface::contentSizeFromShadowSize(popupSize);
+    QPoint contentPos;
     switch (placement) {
     case Placement::Top:
-        pos = QPoint(anchor.center().x() - popupSize.width() / 2, anchor.top() - popupSize.height() - gap);
+        contentPos = QPoint(anchor.center().x() - contentSize.width() / 2, anchor.top() - contentSize.height() - gap);
         break;
     case Placement::Right:
-        pos = QPoint(anchor.right() + gap, anchor.center().y() - popupSize.height() / 2);
+        contentPos = QPoint(anchor.right() + gap, anchor.center().y() - contentSize.height() / 2);
         break;
     case Placement::Left:
-        pos = QPoint(anchor.left() - popupSize.width() - gap, anchor.center().y() - popupSize.height() / 2);
+        contentPos = QPoint(anchor.left() - contentSize.width() - gap, anchor.center().y() - contentSize.height() / 2);
         break;
     case Placement::Bottom:
     default:
-        pos = QPoint(anchor.center().x() - popupSize.width() / 2, anchor.bottom() + gap);
+        contentPos = QPoint(anchor.center().x() - contentSize.width() / 2, anchor.bottom() + gap);
         break;
     }
+
+    QPoint pos = PopupSurface::topLeftForContentTopLeft(contentPos);
 
     QScreen *screen = QApplication::screenAt(anchor.center());
     if (!screen) {
@@ -159,44 +178,75 @@ QPoint FluentFlyout::placedPosition(const QRect &anchor, const QSize &popupSize,
     return pos;
 }
 
-void FluentFlyout::startOpenAnimation(const QPoint &finalPos)
+QSize FluentFlyout::popupWindowSize() const
 {
-    if (m_fadeAnim) {
-        m_fadeAnim->stop();
-        m_fadeAnim->deleteLater();
+    QSize preferred = size()
+                          .expandedTo(sizeHint())
+                          .expandedTo(minimumSizeHint())
+                          .expandedTo(minimumSize());
+    if (!preferred.isValid()) {
+        preferred = size();
     }
-    if (m_slideAnim) {
-        m_slideAnim->stop();
-        m_slideAnim->deleteLater();
+    if (maximumSize().isValid()) {
+        preferred = preferred.boundedTo(maximumSize());
+    }
+    return preferred;
+}
+
+bool FluentFlyout::popupRevealEnabled() const
+{
+    return true;
+}
+
+bool FluentFlyout::popupSlideEnabled() const
+{
+    return true;
+}
+
+void FluentFlyout::updateLayoutMargins()
+{
+    if (!m_layout) {
+        return;
     }
 
-    move(finalPos + QPoint(0, PopupSurface::kOpenSlideOffsetPx));
-    setWindowOpacity(0.0);
+    const QMargins shadow = PopupSurface::shadowMargins();
+    m_layout->setContentsMargins(shadow.left() + m_contentMargins.left(),
+                                 shadow.top() + m_contentMargins.top(),
+                                 shadow.right() + m_contentMargins.right(),
+                                 shadow.bottom() + m_contentMargins.bottom());
+}
+
+void FluentFlyout::startOpenAnimation(const QPoint &finalPos, int slideOffsetY)
+{
+    if (m_openAnim) {
+        m_openAnim->stop();
+        m_openAnim->deleteLater();
+        m_openAnim = nullptr;
+    }
+
+    QRect targetGeometry(finalPos, size());
+    const bool revealEnabled = popupRevealEnabled();
+    const bool slideEnabled = popupSlideEnabled();
+    const int effectiveSlideOffsetY = slideEnabled ? slideOffsetY : 0;
+    if (!slideEnabled && isVisible()) {
+        Detail::finishPopupOpen(this, targetGeometry);
+        raise();
+        return;
+    }
+
+    Detail::preparePopupOpen(this, targetGeometry, effectiveSlideOffsetY, revealEnabled);
     show();
+    raise();
 
-    m_fadeAnim = new QPropertyAnimation(this, "windowOpacity", this);
-    m_fadeAnim->setDuration(PopupSurface::kOpenDurationMs);
-    m_fadeAnim->setEasingCurve(QEasingCurve::OutCubic);
-    m_fadeAnim->setStartValue(0.0);
-    m_fadeAnim->setEndValue(1.0);
+    const QSize shownSize = size();
+    if (shownSize.isValid() && shownSize != targetGeometry.size()) {
+        targetGeometry.setSize(shownSize);
+        Detail::preparePopupOpen(this, targetGeometry, effectiveSlideOffsetY, revealEnabled);
+    }
 
-    m_slideAnim = new QPropertyAnimation(this, "pos", this);
-    m_slideAnim->setDuration(PopupSurface::kOpenDurationMs);
-    m_slideAnim->setEasingCurve(QEasingCurve::OutCubic);
-    m_slideAnim->setStartValue(pos());
-    m_slideAnim->setEndValue(finalPos);
-
-    connect(m_fadeAnim, &QPropertyAnimation::finished, this, [this]() {
-        m_fadeAnim->deleteLater();
-        m_fadeAnim = nullptr;
+    m_openAnim = Detail::startPopupOpenAnimation(this, targetGeometry, effectiveSlideOffsetY, revealEnabled, [this]() {
+        m_openAnim = nullptr;
     });
-    connect(m_slideAnim, &QPropertyAnimation::finished, this, [this]() {
-        m_slideAnim->deleteLater();
-        m_slideAnim = nullptr;
-    });
-
-    m_fadeAnim->start();
-    m_slideAnim->start();
 }
 
 } // namespace Fluent

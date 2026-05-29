@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Fluent/FluentBorderEffect.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 
 #include <QListWidget>
@@ -140,7 +141,7 @@ private:
     FluentBorderEffect m_border;
     QVariantAnimation *m_openAnim = nullptr;
     QRect m_targetGeom;
-    int m_openSlideOffsetY = -PopupSurface::kOpenSlideOffsetPx;
+    int m_openSlideOffsetY = -FluentMotion::popupSlideOffset();
     bool m_appFilterInstalled = false;
     bool m_dismissing = false;
     ActionButton m_hoverAction = ActionButton::None;

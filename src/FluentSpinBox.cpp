@@ -1,4 +1,5 @@
 #include "Fluent/FluentSpinBox.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -92,24 +93,21 @@ FluentSpinBox::FluentSpinBox(QWidget *parent)
     });
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
     });
 
     m_stepperAnim = new QVariantAnimation(this);
-    m_stepperAnim->setDuration(110);
-    m_stepperAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_stepperAnim, FluentMotionRole::Press);
     connect(m_stepperAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_stepperLevel = value.toReal();
         update();
@@ -167,6 +165,10 @@ void FluentSpinBox::changeEvent(QEvent *event)
 
 void FluentSpinBox::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+    FluentMotion::configure(m_stepperAnim, FluentMotionRole::Press);
+
     const auto &colors = ThemeManager::instance().colors();
     ensureEditor();
     if (m_editor) {
@@ -177,9 +179,13 @@ void FluentSpinBox::applyTheme()
         selectionBg.setAlphaF(dark ? 0.35 : 0.22);
 
         const QString next = QStringLiteral(
-            "QLineEdit { background: transparent; color: palette(window-text); border: none; "
-            "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
-            "QLineEdit:disabled { color: palette(mid); }");
+            "QLineEdit { background: transparent; color: %1; border: none; "
+            "selection-background-color: %2; selection-color: %3; }"
+            "QLineEdit:disabled { color: %4; }")
+            .arg(textColor.name(QColor::HexArgb),
+                 selectionBg.name(QColor::HexArgb),
+                 colors.text.name(QColor::HexArgb),
+                 colors.disabledText.name(QColor::HexArgb));
         if (m_editor->styleSheet() != next) {
             m_editor->setStyleSheet(next);
         }
@@ -515,24 +521,21 @@ FluentDoubleSpinBox::FluentDoubleSpinBox(QWidget *parent)
     });
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
     });
 
     m_stepperAnim = new QVariantAnimation(this);
-    m_stepperAnim->setDuration(110);
-    m_stepperAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_stepperAnim, FluentMotionRole::Press);
     connect(m_stepperAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_stepperLevel = value.toReal();
         update();
@@ -587,6 +590,10 @@ void FluentDoubleSpinBox::changeEvent(QEvent *event)
 
 void FluentDoubleSpinBox::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+    FluentMotion::configure(m_stepperAnim, FluentMotionRole::Press);
+
     const auto &colors = ThemeManager::instance().colors();
     ensureEditor();
     if (m_editor) {
@@ -597,9 +604,13 @@ void FluentDoubleSpinBox::applyTheme()
             selectionBg.setAlphaF(dark ? 0.35 : 0.22);
 
             const QString next = QStringLiteral(
-                "QLineEdit { background: transparent; color: palette(window-text); border: none; "
-                "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
-                "QLineEdit:disabled { color: palette(mid); }");
+                "QLineEdit { background: transparent; color: %1; border: none; "
+                "selection-background-color: %2; selection-color: %3; }"
+                "QLineEdit:disabled { color: %4; }")
+                .arg(textColor.name(QColor::HexArgb),
+                     selectionBg.name(QColor::HexArgb),
+                     colors.text.name(QColor::HexArgb),
+                     colors.disabledText.name(QColor::HexArgb));
             if (m_editor->styleSheet() != next) {
                 m_editor->setStyleSheet(next);
             }

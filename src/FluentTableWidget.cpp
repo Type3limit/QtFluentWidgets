@@ -1,8 +1,11 @@
 #include "Fluent/FluentTableWidget.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentScrollBar.h"
 #include "Fluent/FluentTheme.h"
+#include "FluentItemViewPaintSupport.h"
 #include "FluentPaintSupport.h"
 #include "FluentTableSupport.h"
+#include "FluentViewPaletteSupport.h"
 
 #include <QAbstractItemModel>
 #include <QEvent>
@@ -12,7 +15,6 @@
 #include <QPainter>
 #include <QTimer>
 #include <QVariantAnimation>
-#include <cmath>
 
 namespace Fluent {
 
@@ -52,15 +54,14 @@ void FluentTableWidget::initFluent()
     setHorizontalScrollBar(new FluentScrollBar(Qt::Horizontal, this));
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(120);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         viewport()->update();
     });
 
     m_selAnim = new QVariantAnimation(this);
-    m_selAnim->setDuration(180);
-    m_selAnim->setEasingCurve(QEasingCurve::InOutCubic);
+    FluentMotion::configure(m_selAnim, FluentMotionRole::Selection);
     connect(m_selAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         const qreal t = value.toReal();
         const qreal tt = qBound<qreal>(0.0, t, 1.0);
@@ -119,18 +120,11 @@ void FluentTableWidget::paintEvent(QPaintEvent *event)
                 QPainter p(viewport());
                 p.setRenderHint(QPainter::Antialiasing, true);
 
-                QColor fill = colors.accent;
-                fill.setAlpha(qBound(0, int(std::lround(40.0 * opacity)), 40));
                 p.setPen(Qt::NoPen);
-                p.setBrush(fill);
+                p.setBrush(Detail::fluentItemSelectionFill(colors, opacity));
                 p.drawRoundedRect(r, 4.0, 4.0);
 
-                QColor indicator = colors.accent;
-                indicator.setAlpha(qBound(0, int(std::lround(255.0 * opacity)), 255));
-                p.setBrush(indicator);
-                const qreal indicatorHeight = 16.0;
-                QRectF indRect(r.left() + 3.0, r.center().y() - indicatorHeight / 2.0, 3.0, indicatorHeight);
-                p.drawRoundedRect(indRect, 1.5, 1.5);
+                Detail::paintFluentItemSelectionIndicator(p, r, colors, opacity, 3.0);
             }
         }
     }
@@ -157,10 +151,16 @@ void FluentTableWidget::leaveEvent(QEvent *event)
 
 void FluentTableWidget::applyTheme()
 {
-    const QString next = Theme::tableViewStyle(ThemeManager::instance().colors());
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_selAnim, FluentMotionRole::Selection);
+
+    const auto &colors = ThemeManager::instance().colors();
+    const QString next = Theme::tableViewStyle(colors);
     if (styleSheet() != next) {
         setStyleSheet(next);
     }
+    Detail::applyFluentViewPalette(this, viewport(), colors);
+    Detail::applyFluentViewPalette(horizontalHeader(), horizontalHeader() ? horizontalHeader()->viewport() : nullptr, colors);
 }
 
 void FluentTableWidget::hookSelectionModel()
@@ -282,6 +282,11 @@ void FluentTableWidget::startSelectionAnimation(const QModelIndex &from, const Q
 void FluentTableWidget::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        m_hoverLevel = qBound<qreal>(0.0, endValue, 1.0);
+        viewport()->update();
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();

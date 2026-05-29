@@ -1,11 +1,11 @@
 #include "Fluent/FluentCheckBox.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
 #include <QEvent>
 #include <QPainter>
 #include <QVariantAnimation>
-#include <QEasingCurve>
 #include <QPainterPath>
 namespace Fluent {
 
@@ -17,33 +17,33 @@ FluentCheckBox::FluentCheckBox(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
     });
 
     m_checkAnim = new QVariantAnimation(this);
-    m_checkAnim->setDuration(200);
-    m_checkAnim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_checkAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_checkLevel = value.toReal();
         update();
     });
     connect(this, &QCheckBox::stateChanged, this, [this](int state) {
         m_checkAnim->stop();
-        m_checkAnim->setStartValue(m_checkLevel);
-        m_checkAnim->setEndValue(state == Qt::Checked ? 1.0 : 0.0);
-        m_checkAnim->start();
+        const qreal target = state == Qt::Checked ? 1.0 : 0.0;
+        if (m_checkAnim->duration() <= 0) {
+            m_checkLevel = target;
+            update();
+        } else {
+            m_checkAnim->setStartValue(m_checkLevel);
+            m_checkAnim->setEndValue(target);
+            m_checkAnim->start();
+        }
     });
     m_checkLevel = isChecked() ? 1.0 : 0.0;
 
@@ -59,33 +59,33 @@ FluentCheckBox::FluentCheckBox(const QString &text, QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
     });
 
     m_checkAnim = new QVariantAnimation(this);
-    m_checkAnim->setDuration(200);
-    m_checkAnim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_checkAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_checkLevel = value.toReal();
         update();
     });
     connect(this, &QCheckBox::stateChanged, this, [this](int state) {
         m_checkAnim->stop();
-        m_checkAnim->setStartValue(m_checkLevel);
-        m_checkAnim->setEndValue(state == Qt::Checked ? 1.0 : 0.0);
-        m_checkAnim->start();
+        const qreal target = state == Qt::Checked ? 1.0 : 0.0;
+        if (m_checkAnim->duration() <= 0) {
+            m_checkLevel = target;
+            update();
+        } else {
+            m_checkAnim->setStartValue(m_checkLevel);
+            m_checkAnim->setEndValue(target);
+            m_checkAnim->start();
+        }
     });
     m_checkLevel = isChecked() ? 1.0 : 0.0;
 
@@ -142,6 +142,9 @@ void FluentCheckBox::changeEvent(QEvent *event)
 
 void FluentCheckBox::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+    FluentMotion::configure(m_checkAnim, FluentMotionRole::Selection);
     update();
 }
 
@@ -218,7 +221,7 @@ void FluentCheckBox::paintEvent(QPaintEvent *event)
         painter.setPen(Qt::NoPen);
         painter.setBrush(Qt::NoBrush);
         
-        QColor checkColor = Qt::white;
+        QColor checkColor = Theme::contrastColor(colors.accent);
         checkColor.setAlphaF(m_checkLevel);
         painter.setPen(QPen(checkColor, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         
@@ -273,6 +276,10 @@ void FluentCheckBox::focusOutEvent(QFocusEvent *event)
 void FluentCheckBox::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(endValue);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();
@@ -281,6 +288,10 @@ void FluentCheckBox::startHoverAnimation(qreal endValue)
 void FluentCheckBox::startFocusAnimation(qreal endValue)
 {
     m_focusAnim->stop();
+    if (m_focusAnim->duration() <= 0) {
+        setFocusLevel(endValue);
+        return;
+    }
     m_focusAnim->setStartValue(m_focusLevel);
     m_focusAnim->setEndValue(endValue);
     m_focusAnim->start();

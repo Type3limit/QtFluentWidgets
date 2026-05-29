@@ -1,6 +1,7 @@
 #include "Fluent/FluentToast.h"
 
 #include "Fluent/FluentFramePainter.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -76,18 +77,22 @@ static QPoint enterOffsetFor(FluentToast::Position p)
 
 static int moveDurationFor(FluentToast::Position p)
 {
+    const int base = FluentMotion::duration(FluentMotionRole::Toast);
+    if (base <= 0) {
+        return 0;
+    }
     switch (p) {
     case FluentToast::Position::TopCenter:
     case FluentToast::Position::BottomCenter:
-        return 180;
+        return base;
     case FluentToast::Position::TopLeft:
     case FluentToast::Position::TopRight:
-        return 170;
+        return qMax(0, base - 10);
     case FluentToast::Position::BottomLeft:
     case FluentToast::Position::BottomRight:
-        return 150;
+        return qMax(0, base - 30);
     }
-    return 160;
+    return base;
 }
 
 class ToastOverlay final : public QWidget
@@ -597,14 +602,18 @@ void FluentToast::start(int durationMs)
     setGraphicsEffect(effect);
 
     auto *opAnim = new QPropertyAnimation(effect, "opacity", this);
-    opAnim->setDuration(180);
+    FluentMotion::configure(opAnim, FluentMotionRole::Toast);
     opAnim->setStartValue(0.0);
     opAnim->setEndValue(1.0);
-    opAnim->setEasingCurve(QEasingCurve::OutCubic);
 
-    auto *group = new QParallelAnimationGroup(this);
-    group->addAnimation(opAnim);
-    group->start(QAbstractAnimation::DeleteWhenStopped);
+    if (opAnim->duration() <= 0) {
+        effect->setOpacity(1.0);
+        opAnim->deleteLater();
+    } else {
+        auto *group = new QParallelAnimationGroup(this);
+        group->addAnimation(opAnim);
+        group->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 
     auto *progress = new QVariantAnimation(this);
     progress->setDuration(durationMs);
@@ -643,10 +652,16 @@ void FluentToast::dismiss(bool animated)
     }
 
     auto *opAnim = new QPropertyAnimation(effect, "opacity", this);
-    opAnim->setDuration(160);
+    FluentMotion::configure(opAnim, FluentMotionRole::Toast);
     opAnim->setStartValue(effect->opacity());
     opAnim->setEndValue(0.0);
-    opAnim->setEasingCurve(QEasingCurve::InCubic);
+
+    if (opAnim->duration() <= 0) {
+        opAnim->deleteLater();
+        emit dismissed();
+        deleteLater();
+        return;
+    }
 
     auto *group = new QParallelAnimationGroup(this);
     group->addAnimation(opAnim);

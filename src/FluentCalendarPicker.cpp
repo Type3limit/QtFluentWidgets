@@ -1,4 +1,5 @@
 #include "Fluent/FluentCalendarPicker.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/datePicker/FluentCalendarPopup.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -41,16 +42,14 @@ FluentCalendarPicker::FluentCalendarPicker(QWidget *parent)
     setLocale(defaultCalendarLocale());
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
@@ -133,8 +132,16 @@ void FluentCalendarPicker::changeEvent(QEvent *event)
 
 void FluentCalendarPicker::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     {
-        const QString next = QStringLiteral("QDateEdit { background: transparent; color: palette(window-text); }");
+        const auto &colors = ThemeManager::instance().colors();
+        const QColor textColor = isEnabled() ? colors.text : colors.disabledText;
+        const QString next = QStringLiteral("QDateEdit { background: transparent; color: %1; }"
+                                            "QDateEdit:disabled { color: %2; }")
+            .arg(textColor.name(QColor::HexArgb),
+                 colors.disabledText.name(QColor::HexArgb));
         if (styleSheet() != next) {
             setStyleSheet(next);
         }
@@ -151,18 +158,22 @@ void FluentCalendarPicker::applyTheme()
         selectionBg.setAlphaF(dark ? 0.35 : 0.22);
 
         const QString next = QStringLiteral(
-            "QLineEdit { background: transparent; color: palette(window-text); border: none; "
-            "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
-            "QLineEdit:disabled { color: palette(mid); }");
+            "QLineEdit { background: transparent; color: %1; border: none; "
+            "selection-background-color: %2; selection-color: %3; }"
+            "QLineEdit:disabled { color: %4; }")
+            .arg(textColor.name(QColor::HexArgb),
+                 selectionBg.name(QColor::HexArgb),
+                 colors.text.name(QColor::HexArgb),
+                 colors.disabledText.name(QColor::HexArgb));
         if (lineEdit->styleSheet() != next) {
             lineEdit->setStyleSheet(next);
         }
 
-        // Keep caret accent while selection/text colors come from stylesheet.
         QPalette pal = lineEdit->palette();
         pal.setColor(QPalette::WindowText, textColor);
         pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
-        pal.setColor(QPalette::Text, colors.accent);
+        pal.setColor(QPalette::Text, textColor);
+        pal.setColor(QPalette::Disabled, QPalette::Text, colors.disabledText);
         pal.setColor(QPalette::Highlight, selectionBg);
         pal.setColor(QPalette::HighlightedText, colors.text);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)

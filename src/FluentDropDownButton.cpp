@@ -25,6 +25,12 @@ QSize logicalPixmapSize(const QPixmap &pixmap)
     return QSize(qRound(pixmap.width() / dpr), qRound(pixmap.height() / dpr));
 }
 
+QColor transparentVersion(QColor color)
+{
+    color.setAlpha(0);
+    return color;
+}
+
 } // namespace
 
 FluentDropDownButton::FluentDropDownButton(QWidget *parent)
@@ -104,30 +110,37 @@ void FluentDropDownButton::paintEvent(QPaintEvent *event)
     QColor pressed;
     QColor border;
     QColor textColor;
+    const auto tokens = Theme::tokens(colors);
+    const bool subtleCommandButton = property("fluentCommandBarButton").toBool();
+    QColor commandHover = colors.hover;
+    commandHover.setAlphaF(tokens.dark ? 0.95 : 0.90);
+    QColor commandPressed = colors.pressed;
+    commandPressed.setAlphaF(tokens.dark ? 0.98 : 0.94);
 
     if (isPrimary()) {
-        base = checked ? colors.accent.darker(125) : colors.accent;
-        hover = base.lighter(118);
-        pressed = base.darker(118);
-        border = base.darker(110);
-        textColor = QColor(QStringLiteral("#FFFFFF"));
+        base = checked ? tokens.accent.dark1 : tokens.accent.base;
+        hover = tokens.accent.light1;
+        pressed = tokens.accent.dark1;
+        border = Style::mix(tokens.accent.base, tokens.onAccent, 0.18);
+        textColor = tokens.onAccent;
     } else {
         const QColor accentTint = Style::mix(colors.surface, colors.accent, 0.12);
-        base = checked ? accentTint : colors.surface;
+        base = checked ? accentTint : (subtleCommandButton ? transparentVersion(commandHover) : colors.surface);
         hover = checked ? Style::mix(accentTint, colors.accent, 0.10)
-                        : Style::mix(colors.surface, colors.hover, 0.88);
+                        : (subtleCommandButton ? commandHover : Style::mix(colors.surface, colors.hover, 0.88));
         pressed = checked ? Style::mix(accentTint, colors.accent, 0.18)
-                          : Style::mix(colors.surface, colors.pressed, 0.92);
-        border = checked ? Style::mix(colors.border, colors.accent, 0.85) : colors.border;
-        textColor = checked ? Style::mix(colors.text, colors.accent, 0.82) : colors.text;
+                          : (subtleCommandButton ? commandPressed : Style::mix(colors.surface, colors.pressed, 0.92));
+        border = checked ? Style::mix(colors.border, colors.accent, 0.85)
+                         : (subtleCommandButton ? QColor(0, 0, 0, 0) : colors.border);
+        textColor = checked ? Theme::contrastColor(accentTint) : colors.text;
     }
 
     QColor fill = Style::mix(base, hover, hoverLevel());
     fill = Style::mix(fill, pressed, pressLevel());
 
     if (!isEnabled()) {
-        fill = Style::mix(colors.surface, colors.hover, 0.45);
-        border = Style::mix(colors.border, colors.disabledText, 0.25);
+        fill = subtleCommandButton ? QColor(0, 0, 0, 0) : Style::mix(colors.surface, colors.hover, 0.45);
+        border = subtleCommandButton ? QColor(0, 0, 0, 0) : Style::mix(colors.border, colors.disabledText, 0.25);
         textColor = colors.disabledText;
     }
 
@@ -142,12 +155,16 @@ void FluentDropDownButton::paintEvent(QPaintEvent *event)
     const QRectF buttonRect = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     const qreal radius = metrics.radius;
 
-    p.setPen(QPen(border, 1.0));
+    p.setPen(border.alpha() > 0 ? QPen(border, 1.0) : Qt::NoPen);
     p.setBrush(fill);
-    p.drawRoundedRect(buttonRect, radius, radius);
+    if (fill.alpha() > 0 || border.alpha() > 0) {
+        p.drawRoundedRect(buttonRect, radius, radius);
+    }
 
     if (checked && isPrimary() && isEnabled()) {
-        p.setPen(QPen(QColor(255, 255, 255, 115), 1.0));
+        QColor inner = tokens.onAccent;
+        inner.setAlpha(115);
+        p.setPen(QPen(inner, 1.0));
         p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(buttonRect.adjusted(1.0, 1.0, -1.0, -1.0), radius - 1, radius - 1);
     }

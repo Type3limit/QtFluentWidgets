@@ -1,9 +1,11 @@
 #include "FluentWheelPickerSupport.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "../FluentPaintSupport.h"
+#include "../FluentPopupUtils.h"
 
 #include <QApplication>
 #include <QCursor>
@@ -140,8 +142,7 @@ FluentWheelPickerColumn::FluentWheelPickerColumn(QWidget *parent)
     }
 
     m_scrollAnim = new QVariantAnimation(this);
-    m_scrollAnim->setDuration(120);
-    m_scrollAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_scrollAnim, FluentMotionRole::WheelSnap);
     connect(m_scrollAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         if (!verticalScrollBar()) {
             return;
@@ -577,10 +578,21 @@ void FluentWheelPickerColumn::scrollToRowCentered(int row, bool animated)
     if (m_scrollAnim) {
         m_scrollAnim->stop();
         const int distance = qAbs(target - verticalScrollBar()->value());
-        m_scrollAnim->setDuration(qBound(120, 120 + distance / 3, 220));
+        const int baseDuration = FluentMotion::duration(FluentMotionRole::WheelSnap);
+        m_scrollAnim->setDuration(baseDuration <= 0 ? 0 : qBound(baseDuration, baseDuration + distance / 3, 220));
         m_scrollAnim->setStartValue(verticalScrollBar()->value());
         m_scrollAnim->setEndValue(target);
-        m_scrollAnim->start();
+        if (m_scrollAnim->duration() <= 0) {
+            m_syncingFromScroll = true;
+            verticalScrollBar()->setValue(target);
+            m_syncingFromScroll = false;
+            syncCurrentFromScroll();
+            if (viewport()) {
+                viewport()->update();
+            }
+        } else {
+            m_scrollAnim->start();
+        }
     }
 }
 
@@ -589,6 +601,7 @@ FluentWheelPickerPopup::FluentWheelPickerPopup(QWidget *anchor)
     , m_anchor(anchor)
     , m_border(this, this)
 {
+    setObjectName(QStringLiteral("FluentWheelPickerPopup"));
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);
@@ -599,22 +612,12 @@ FluentWheelPickerPopup::FluentWheelPickerPopup(QWidget *anchor)
     m_border.syncFromTheme();
 
     m_openAnim = new QVariantAnimation(this);
-    m_openAnim->setDuration(PopupSurface::kOpenDurationMs);
-    m_openAnim->setEasingCurve(QEasingCurve::OutCubic);
+    FluentMotion::configure(m_openAnim, FluentMotionRole::PopupOpen);
     connect(m_openAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-        const qreal progress = qBound<qreal>(0.0, value.toReal(), 1.0);
-        setWindowOpacity(progress);
-        if (m_targetGeom.isValid()) {
-            QRect geom = m_targetGeom;
-            geom.translate(0, int((1.0 - progress) * m_openSlideOffsetY));
-            setGeometry(geom);
-        }
+        applyPopupOpenProgress(this, m_targetGeom, m_openSlideOffsetY, value.toReal());
     });
     connect(m_openAnim, &QVariantAnimation::finished, this, [this]() {
-        setWindowOpacity(1.0);
-        if (m_targetGeom.isValid()) {
-            setGeometry(m_targetGeom);
-        }
+        finishPopupOpen(this, m_targetGeom);
     });
 
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
@@ -700,12 +703,7 @@ void FluentWheelPickerPopup::popup()
     positionPopupBelowOrAbove();
 
     m_openAnim->stop();
-    setWindowOpacity(0.0);
-    if (m_targetGeom.isValid()) {
-        QRect startGeom = m_targetGeom;
-        startGeom.translate(0, m_openSlideOffsetY);
-        setGeometry(startGeom);
-    }
+    preparePopupOpen(this, m_targetGeom, m_openSlideOffsetY);
 
     show();
     raise();
@@ -722,7 +720,11 @@ void FluentWheelPickerPopup::popup()
 
     m_openAnim->setStartValue(0.0);
     m_openAnim->setEndValue(1.0);
-    m_openAnim->start();
+    if (m_openAnim->duration() <= 0) {
+        finishPopupOpen(this, m_targetGeom);
+    } else {
+        m_openAnim->start();
+    }
 }
 
 void FluentWheelPickerPopup::dismiss(bool accepted, bool returnFocus)
@@ -868,7 +870,7 @@ void FluentWheelPickerPopup::hideEvent(QHideEvent *event)
     if (m_openAnim) {
         m_openAnim->stop();
     }
-    setWindowOpacity(1.0);
+    resetPopupOpenState(this);
     m_border.resetInitial();
 }
 
@@ -898,10 +900,10 @@ void FluentWheelPickerPopup::paintEvent(QPaintEvent *event)
     }
     painter.setRenderHint(QPainter::Antialiasing, true);
 
-    PopupSurface::paintPanel(painter, rect(), colors, &m_border);
+    PopupSurface::paintPanelWithShadowMargins(painter, rect(), colors, &m_border);
 
     painter.save();
-    painter.setClipPath(PopupSurface::contentClipPath(rect()));
+    painter.setClipPath(PopupSurface::shadowContentClipPath(rect()));
 
     const QRect columnsRect = columnAreaRect();
     QColor divider = colors.border;
@@ -916,7 +918,8 @@ void FluentWheelPickerPopup::paintEvent(QPaintEvent *event)
 
     const QRect actions = actionBarRect();
     painter.drawLine(QPointF(actions.left() + 1, actions.top() + 0.5), QPointF(actions.right() - 1, actions.top() + 0.5));
-    painter.drawLine(QPointF(width() / 2.0, actions.top() + 8), QPointF(width() / 2.0, actions.bottom() - 8));
+    painter.drawLine(QPointF(actions.left() + actions.width() / 2.0, actions.top() + 8),
+                     QPointF(actions.left() + actions.width() / 2.0, actions.bottom() - 8));
 
     auto paintAction = [&](const QRect &actionRect, ActionButton button) {
         if (button == ActionButton::None) {
@@ -1029,7 +1032,7 @@ QSize FluentWheelPickerPopup::popupSizeHint() const
     }
     width += qMax(0, columnCount() - 1);
 
-    return QSize(width, topPadding + columnsHeight + bottomPadding + actionHeight);
+    return PopupSurface::withShadowMargins(QSize(width, topPadding + columnsHeight + bottomPadding + actionHeight));
 }
 
 QRect FluentWheelPickerPopup::columnAreaRect() const
@@ -1037,12 +1040,17 @@ QRect FluentWheelPickerPopup::columnAreaRect() const
     const int topPadding = 14;
     const int actionHeight = 52;
     const int bottomPadding = 12;
-    return QRect(16, topPadding, qMax(0, width() - 32), qMax(0, height() - topPadding - bottomPadding - actionHeight));
+    const QRect content = PopupSurface::shadowContentRect(rect());
+    return QRect(content.left() + 16,
+                 content.top() + topPadding,
+                 qMax(0, content.width() - 32),
+                 qMax(0, content.height() - topPadding - bottomPadding - actionHeight));
 }
 
 QRect FluentWheelPickerPopup::actionBarRect() const
 {
-    return QRect(0, qMax(0, height() - 52), width(), 52);
+    const QRect content = PopupSurface::shadowContentRect(rect());
+    return QRect(content.left(), content.bottom() - 51, content.width(), 52);
 }
 
 QRect FluentWheelPickerPopup::acceptRect() const
@@ -1074,7 +1082,12 @@ FluentWheelPickerPopup::ActionButton FluentWheelPickerPopup::hitTestAction(const
 void FluentWheelPickerPopup::ensureColumns(int count)
 {
     while (m_columns.size() < count) {
+        const int index = m_columns.size();
         auto *column = new FluentWheelPickerColumn(this);
+        column->setObjectName(QStringLiteral("FluentWheelPickerColumn%1").arg(index));
+        if (column->viewport()) {
+            column->viewport()->setObjectName(QStringLiteral("FluentWheelPickerColumnViewport%1").arg(index));
+        }
         column->installEventFilter(this);
         if (column->viewport()) {
             column->viewport()->installEventFilter(this);
@@ -1105,47 +1118,10 @@ void FluentWheelPickerPopup::positionPopupBelowOrAbove()
         return;
     }
 
-    const QSize popupSize = popupSizeHint();
-    const QPoint globalTopLeft = m_anchor->mapToGlobal(QPoint(0, 0));
-    const int anchorTopY = globalTopLeft.y();
-    const int anchorBottomY = globalTopLeft.y() + m_anchor->height();
-
-    QScreen *screen = QApplication::screenAt(globalTopLeft);
-    if (!screen) {
-        screen = QApplication::primaryScreen();
-    }
-    const QRect available = screen ? screen->availableGeometry() : QRect();
-
-    QRect popupGeom(globalTopLeft, popupSize);
-
-    const int gap = 6;
-    const int belowTop = anchorBottomY + gap;
-    const int aboveTop = anchorTopY - gap - popupSize.height();
-
-    const bool fitsBelow = !available.isValid() || (belowTop + popupSize.height() <= available.bottom() + 1);
-    const bool fitsAbove = !available.isValid() || (aboveTop >= available.top());
-    const bool placeBelow = fitsBelow || !fitsAbove;
-
-    popupGeom.moveTop(placeBelow ? belowTop : aboveTop);
-    m_openSlideOffsetY = placeBelow ? -PopupSurface::kOpenSlideOffsetPx : PopupSurface::kOpenSlideOffsetPx;
-
-    if (available.isValid()) {
-        if (popupGeom.left() < available.left()) {
-            popupGeom.moveLeft(available.left());
-        }
-        if (popupGeom.right() > available.right()) {
-            popupGeom.moveRight(available.right());
-        }
-        if (popupGeom.top() < available.top()) {
-            popupGeom.moveTop(available.top());
-        }
-        if (popupGeom.bottom() > available.bottom()) {
-            popupGeom.moveBottom(available.bottom());
-        }
-    }
-
-    m_targetGeom = popupGeom;
-    setGeometry(popupGeom);
+    const PopupPlacementResult placed = placePopupBelowOrAbove(m_anchor.data(), popupSizeHint(), 6);
+    m_targetGeom = placed.geometry;
+    m_openSlideOffsetY = placed.slideOffsetY;
+    setGeometry(m_targetGeom);
     relayoutColumns();
 }
 

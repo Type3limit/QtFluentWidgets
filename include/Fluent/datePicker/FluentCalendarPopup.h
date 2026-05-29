@@ -136,6 +136,7 @@ private:
 	QVariantAnimation *m_openAnim = nullptr;
 	QVariantAnimation *m_modeAnim = nullptr;
 	QRect  m_targetGeom;
+	int    m_openSlideOffsetY = -8;
 	qreal  m_openProgress = 1.0;
 
 	ViewMode m_prevMode     = ViewMode::Days;

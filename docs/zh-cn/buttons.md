@@ -207,7 +207,7 @@ Demo：Buttons / Overview（也用于若干容器控件内部）。
 - `FluentDropDownButton::setMenu(QMenu*)` / `addAction()`：按钮点击时展开菜单。
 - `FluentSplitButton::setDefaultAction(QAction*)`：左侧执行主动作。
 - `FluentSplitButton::setMenu(QMenu*)`：右侧箭头展开更多动作。
-- `FluentCommandBar::addAction()` / `addCommand(QAction*)` / `addSeparator()` / `addWidget()`：组织命令按钮、菜单命令、分隔线和自定义控件。
+- `FluentCommandBar::addAction()` / `addCommand(QAction*)` / `addSeparator()` / `addWidget()`：组织命令按钮、菜单命令、分隔线和自定义控件；宽度不足时尾部命令会自动收进右侧 overflow FluentMenu。
 
 示例：
 
@@ -248,7 +248,7 @@ editAction->setEnabled(false); // CommandBar 内对应按钮会同步禁用。
 
 - `FluentCommandBar` 是轻量命令容器，不替代 `QToolBar`；需要主窗口工具栏语义时继续使用 `FluentToolBar`。
 - `FluentSplitButton` 左右两块分别响应，适合“默认动作 + 更多选项”；如果只有菜单，使用 `FluentDropDownButton` 更清楚。
-- `FluentCommandBar` 的价值在于集中管理一组命令，而不是简单替代 `QHBoxLayout + Button`。
+- `FluentCommandBar` 的价值在于集中管理一组命令，而不是简单替代 `QHBoxLayout + Button`；overflow 菜单仍复用原始 `QAction`，因此 enabled、text、icon、menu 状态会继续同步。
 
 Demo：Buttons / Overview。
 

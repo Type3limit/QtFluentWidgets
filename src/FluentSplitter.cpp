@@ -1,5 +1,6 @@
 #include "Fluent/FluentSplitter.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentTheme.h"
 #include "Fluent/FluentQtCompat.h"
 
@@ -23,10 +24,13 @@ public:
         setCursor(orientation == Qt::Horizontal ? Qt::SplitHCursor : Qt::SplitVCursor);
 
         m_hoverAnim = new QVariantAnimation(this);
-        m_hoverAnim->setDuration(120);
-        m_hoverAnim->setEasingCurve(QEasingCurve::OutCubic);
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
         connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
             m_hoverLevel = v.toReal();
+            update();
+        });
+        connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+            FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
             update();
         });
     }

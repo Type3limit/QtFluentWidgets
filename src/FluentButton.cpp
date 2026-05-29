@@ -1,4 +1,5 @@
 #include "Fluent/FluentButton.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -6,7 +7,6 @@
 #include <QPainter>
 #include <QStyleOptionButton>
 #include <QVariantAnimation>
-#include <QEasingCurve>
 
 namespace Fluent {
 
@@ -33,16 +33,14 @@ FluentButton::FluentButton(QWidget *parent)
     setMinimumHeight(Style::metrics().height);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_pressAnim = new QVariantAnimation(this);
-    m_pressAnim->setDuration(100);
-    m_pressAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_pressAnim, FluentMotionRole::Press);
     connect(m_pressAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_pressLevel = value.toReal();
         update();
@@ -62,16 +60,14 @@ FluentButton::FluentButton(const QString &text, QWidget *parent)
     setMinimumHeight(Style::metrics().height);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_pressAnim = new QVariantAnimation(this);
-    m_pressAnim->setDuration(100);
-    m_pressAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_pressAnim, FluentMotionRole::Press);
     connect(m_pressAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_pressLevel = value.toReal();
         update();
@@ -130,6 +126,8 @@ void FluentButton::changeEvent(QEvent *event)
 
 void FluentButton::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_pressAnim, FluentMotionRole::Press);
     update();
 }
 
@@ -145,14 +143,15 @@ void FluentButton::paintEvent(QPaintEvent *event)
     QColor pressed;
     QColor border;
     QColor textColor;
+    const auto tokens = Theme::tokens(colors);
 
     if (m_primary) {
         // Primary buttons: accent-filled. In checked state, stay accent but appear "selected".
-        base = checked ? colors.accent.darker(125) : colors.accent;
-        hover = base.lighter(118);
-        pressed = base.darker(118);
-        border = base.darker(110);
-        textColor = QColor("#FFFFFF");
+        base = checked ? tokens.accent.dark1 : tokens.accent.base;
+        hover = tokens.accent.light1;
+        pressed = tokens.accent.dark1;
+        border = Style::mix(tokens.accent.base, tokens.onAccent, 0.18);
+        textColor = tokens.onAccent;
     } else {
         // Secondary buttons: neutral surface. In checked state, use a subtle accent tint and accent border.
         const QColor accentTint = Style::mix(colors.surface, colors.accent, 0.12);
@@ -164,8 +163,7 @@ void FluentButton::paintEvent(QPaintEvent *event)
                       ? Style::mix(accentTint, colors.accent, 0.18)
                       : Style::mix(colors.surface, colors.pressed, 0.92);
         border = checked ? Style::mix(colors.border, colors.accent, 0.85) : colors.border;
-        // Fluent-like toggle detail: checked secondary button uses accent-tinted text.
-        textColor = checked ? Style::mix(colors.text, colors.accent, 0.82) : colors.text;
+        textColor = checked ? Theme::contrastColor(accentTint) : colors.text;
     }
 
     QColor fill = Style::mix(base, hover, m_hoverLevel);
@@ -195,7 +193,8 @@ void FluentButton::paintEvent(QPaintEvent *event)
     // Fluent-like checked detail (without indicator bar): add a subtle inner highlight so
     // the selected state is still obvious on accent-filled primary buttons.
     if (checked && m_primary && isEnabled()) {
-        QColor inner = QColor(255, 255, 255, 115);
+        QColor inner = tokens.onAccent;
+        inner.setAlpha(115);
         painter.setPen(QPen(inner, 1.0));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(rect.adjusted(1.0, 1.0, -1.0, -1.0), radius - 1, radius - 1);
@@ -290,6 +289,10 @@ void FluentButton::mouseReleaseEvent(QMouseEvent *event)
 void FluentButton::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(endValue);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();
@@ -298,6 +301,10 @@ void FluentButton::startHoverAnimation(qreal endValue)
 void FluentButton::startPressAnimation(qreal endValue)
 {
     m_pressAnim->stop();
+    if (m_pressAnim->duration() <= 0) {
+        setPressLevel(endValue);
+        return;
+    }
     m_pressAnim->setStartValue(m_pressLevel);
     m_pressAnim->setEndValue(endValue);
     m_pressAnim->start();

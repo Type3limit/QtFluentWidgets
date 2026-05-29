@@ -108,6 +108,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentGroupBox.h
     include/Fluent/FluentMenuBar.h
     include/Fluent/FluentMenu.h
+    include/Fluent/FluentMotion.h
     include/Fluent/FluentPopupSurface.h
     include/Fluent/FluentToolBar.h
     include/Fluent/FluentStatusBar.h
@@ -176,6 +177,7 @@ add_library(QtFluentWidgets
     src/FluentGroupBox.cpp
     src/FluentMenuBar.cpp
     src/FluentMenu.cpp
+    src/FluentMenuPopupHost.cpp
     src/FluentToolBar.cpp
     src/FluentStatusBar.cpp
     src/FluentDialog.cpp
@@ -299,6 +301,48 @@ if(FLUENT_BUILD_TESTS)
         else()
             set_tests_properties(QtFluentWidgetsDesignerCompatTest PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+            )
+        endif()
+    endif()
+
+    add_executable(QtFluentWidgetsVisualSmokeTest
+        tests/QtFluentWidgetsVisualSmokeTest.cpp
+    )
+    target_link_libraries(QtFluentWidgetsVisualSmokeTest PRIVATE QtFluentWidgets ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Test)
+    if(MSVC)
+        target_compile_options(QtFluentWidgetsVisualSmokeTest PRIVATE /utf-8)
+    endif()
+    add_test(NAME QtFluentWidgetsVisualSmokeTest COMMAND QtFluentWidgetsVisualSmokeTest)
+    add_custom_target(run-QtFluentWidgetsVisualSmokeTest
+        COMMAND ${CMAKE_COMMAND} -E env
+            "PATH=$<TARGET_FILE_DIR:QtFluentWidgetsVisualSmokeTest>$<SEMICOLON>${FLUENT_QT_BIN_DIR}$<SEMICOLON>$ENV{PATH}"
+            QTFLUENT_VISUAL_SMOKE_VISIBLE=1
+            QTFLUENT_VISUAL_SMOKE_VISIBLE_MS=0
+            QTFLUENT_VISUAL_SMOKE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/visual-smoke-output
+            $<TARGET_FILE:QtFluentWidgetsVisualSmokeTest>
+        DEPENDS QtFluentWidgetsVisualSmokeTest
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        VERBATIM
+    )
+
+    if(WIN32)
+        add_custom_command(TARGET QtFluentWidgetsVisualSmokeTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:rlottie> $<TARGET_FILE_DIR:QtFluentWidgetsVisualSmokeTest>
+            VERBATIM
+        )
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
+            set(_fluent_visual_smoke_test_environment
+                "PATH=path_list_prepend:$<TARGET_FILE_DIR:QtFluentWidgetsVisualSmokeTest>"
+                "PATH=path_list_prepend:${FLUENT_QT_BIN_DIR}"
+                "QT_QPA_PLATFORM=set:offscreen"
+                "QTFLUENT_VISUAL_SMOKE_OUTPUT_DIR=set:${CMAKE_CURRENT_BINARY_DIR}/visual-smoke-output"
+            )
+            set_tests_properties(QtFluentWidgetsVisualSmokeTest PROPERTIES
+                ENVIRONMENT_MODIFICATION "${_fluent_visual_smoke_test_environment}"
+            )
+        else()
+            set_tests_properties(QtFluentWidgetsVisualSmokeTest PROPERTIES
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTFLUENT_VISUAL_SMOKE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/visual-smoke-output"
             )
         endif()
     endif()

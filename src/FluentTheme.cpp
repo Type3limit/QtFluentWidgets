@@ -8,9 +8,35 @@
 #include <QDebug>
 #include <QTimer>
 #include <QWidget>
+#include <QtMath>
 #include <QtGlobal>
 
 namespace Fluent {
+
+namespace {
+
+qreal linearColorChannel(qreal value)
+{
+  return value <= 0.03928 ? value / 12.92 : qPow((value + 0.055) / 1.055, 2.4);
+}
+
+qreal relativeLuminance(const QColor &color)
+{
+  return 0.2126 * linearColorChannel(color.redF())
+       + 0.7152 * linearColorChannel(color.greenF())
+       + 0.0722 * linearColorChannel(color.blueF());
+}
+
+qreal contrastRatio(const QColor &a, const QColor &b)
+{
+  const qreal la = relativeLuminance(a);
+  const qreal lb = relativeLuminance(b);
+  const qreal lighter = qMax(la, lb);
+  const qreal darker = qMin(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+} // namespace
 
 ThemeColors Theme::light() {
   ThemeColors colors;
@@ -53,11 +79,9 @@ bool Theme::isDark(const ThemeColors &colors)
 
 QColor Theme::contrastColor(const QColor &background)
 {
-  const qreal r = background.redF();
-  const qreal g = background.greenF();
-  const qreal b = background.blueF();
-  const qreal luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.52 ? QColor("#000000") : QColor("#FFFFFF");
+  const QColor black("#000000");
+  const QColor white("#FFFFFF");
+  return contrastRatio(background, black) >= contrastRatio(background, white) ? black : white;
 }
 
 QColor Theme::accentForMode(const QColor &accent, bool dark)
@@ -246,12 +270,17 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
 }
 
 QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {
-  Q_UNUSED(colors);
-  const QString background = primary ? QStringLiteral("palette(highlight)") : QStringLiteral("palette(button)");
-  const QString textColor = primary ? QStringLiteral("palette(highlighted-text)") : QStringLiteral("palette(button-text)");
-  const QString borderColor = primary ? QStringLiteral("palette(highlight)") : QStringLiteral("palette(mid)");
-  const QString hover = primary ? QStringLiteral("palette(shadow)") : QStringLiteral("palette(light)");
-  const QString pressed = primary ? QStringLiteral("palette(midlight)") : QStringLiteral("palette(dark)");
+  const auto themeTokens = tokens(colors);
+  const QString background = primary ? themeTokens.accent.base.name(QColor::HexArgb)
+                                     : colors.surface.name(QColor::HexArgb);
+  const QString textColor = primary ? themeTokens.onAccent.name(QColor::HexArgb)
+                                    : colors.text.name(QColor::HexArgb);
+  const QString borderColor = primary ? Style::mix(themeTokens.accent.base, themeTokens.onAccent, 0.18).name(QColor::HexArgb)
+                                      : colors.border.name(QColor::HexArgb);
+  const QString hover = primary ? themeTokens.accent.light1.name(QColor::HexArgb)
+                                : Style::mix(colors.surface, colors.hover, 0.88).name(QColor::HexArgb);
+  const QString pressed = primary ? themeTokens.accent.dark1.name(QColor::HexArgb)
+                                  : Style::mix(colors.surface, colors.pressed, 0.92).name(QColor::HexArgb);
   return QString("QPushButton {"
                  "  background: %1;"
                  "  color: %2;"
@@ -275,9 +304,9 @@ QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {
       .arg(borderColor)
       .arg(hover)
       .arg(pressed)
-      .arg(QStringLiteral("palette(light)"))
-      .arg(QStringLiteral("palette(mid)"))
-      .arg(QStringLiteral("palette(mid)"));
+      .arg(Style::mix(colors.surface, colors.hover, 0.45).name(QColor::HexArgb))
+      .arg(colors.disabledText.name(QColor::HexArgb))
+      .arg(Style::mix(colors.border, colors.disabledText, 0.25).name(QColor::HexArgb));
 }
 
 QString Theme::labelStyle(const ThemeColors &colors) {
@@ -529,16 +558,15 @@ QString Theme::toggleSwitchStyle(const ThemeColors &colors) {
 }
 
 QString Theme::comboBoxStyle(const ThemeColors &colors) {
-  Q_UNUSED(colors);
   return QString("QComboBox {"
-                 "  background: palette(base);"
-                 "  color: palette(text);"
-                 "  border: 1px solid palette(mid);"
+                 "  background: %1;"
+                 "  color: %2;"
+                 "  border: 1px solid %3;"
                  "  border-radius: 6px;"
                  "  padding: 6px 30px 6px 10px;"
                  "}"
                  "QComboBox:hover {"
-                 "  border-color: palette(highlight);"
+                 "  border-color: %4;"
                  "}"
                  "QComboBox::drop-down {"
                  "  subcontrol-origin: padding;"
@@ -549,10 +577,11 @@ QString Theme::comboBoxStyle(const ThemeColors &colors) {
                  "  border-bottom-right-radius: 6px;"
                  "}"
                  "QComboBox QAbstractItemView {"
-                 "  background: palette(base);"
-                 "  border: 1px solid palette(mid);"
+                 "  background: %1;"
+                 "  color: %2;"
+                 "  border: 1px solid %3;"
                  "  border-radius: 6px;"
-                 "  selection-background-color: palette(light);"
+                 "  selection-background-color: %5;"
                  "  outline: none;"
                  "  padding: 4px;"
                  "}"
@@ -561,8 +590,13 @@ QString Theme::comboBoxStyle(const ThemeColors &colors) {
                  "  border-radius: 4px;"
                  "}"
                  "QComboBox QAbstractItemView::item:hover {"
-                 "  background: palette(light);"
-                 "}");
+                 "  background: %5;"
+                 "}")
+      .arg(colors.surface.name(QColor::HexArgb),
+           colors.text.name(QColor::HexArgb),
+           colors.border.name(QColor::HexArgb),
+           colors.accent.name(QColor::HexArgb),
+           colors.hover.name(QColor::HexArgb));
 }
 
 QString Theme::sliderStyle(const ThemeColors &colors) {
@@ -651,12 +685,21 @@ QString Theme::tabWidgetStyle(const ThemeColors &colors) {
 }
 
 QString Theme::listViewStyle(const ThemeColors &colors) {
-  Q_UNUSED(colors);
+  const auto themeTokens = tokens(colors);
   return QString("QListView {"
-                 "  background: palette(base);"
-                 "  border: 1px solid palette(mid);"
-                 "  border-radius: 6px;"
+                 "  background: %1;"
+                 "  color: %2;"
+                 "  border: 1px solid %3;"
+                 "  border-radius: 8px;"
                  "  outline: none;"
+                 "}"
+                 "QListView:focus {"
+                 "  border-color: %4;"
+                 "}"
+                 "QListView:disabled {"
+                 "  background: %5;"
+                 "  color: %6;"
+                 "  border-color: %7;"
                  "}"
                  "QListView::item {"
                  "  padding: 6px 10px;"
@@ -668,45 +711,84 @@ QString Theme::listViewStyle(const ThemeColors &colors) {
                  "}"
                  "QListView::item:selected {"
                  "  background: transparent;"
-                 "}");
+                 "}")
+      .arg(colors.surface.name(QColor::HexArgb),
+           colors.text.name(QColor::HexArgb),
+           themeTokens.neutral.strokeSubtle.name(QColor::HexArgb),
+           colors.accent.name(QColor::HexArgb),
+           Style::mix(themeTokens.neutral.card, themeTokens.neutral.fillSecondary, themeTokens.dark ? 0.30 : 0.46).name(QColor::HexArgb),
+           colors.disabledText.name(QColor::HexArgb),
+           Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.18 : 0.12).name(QColor::HexArgb));
 }
 
 QString Theme::tableViewStyle(const ThemeColors &colors) {
-  Q_UNUSED(colors);
-  return QString("QTableView {"
-                 "  background: palette(base);"
-                 "  border: 1px solid palette(mid);"
-                 "  gridline-color: palette(mid);"
-                 "  border-radius: 6px;"
+  const auto themeTokens = tokens(colors);
+  return QString("QTableView, QTableWidget {"
+                 "  background: %1;"
+                 "  color: %2;"
+                 "  border: 1px solid %3;"
+                 "  gridline-color: %3;"
+                 "  border-radius: 8px;"
                  "  outline: none;"
                  "}"
-                 "QTableView::item {"
+                 "QTableView:focus, QTableWidget:focus {"
+                 "  border-color: %5;"
+                 "}"
+                 "QTableView:disabled, QTableWidget:disabled {"
+                 "  background: %6;"
+                 "  color: %7;"
+                 "  border-color: %8;"
+                 "  gridline-color: %8;"
+                 "}"
+                 "QTableView::item, QTableWidget::item {"
                  "  padding: 4px 8px;"
                  "  background: transparent;"
                  "}"
-                 "QTableView::item:hover {"
+                 "QTableView::item:hover, QTableWidget::item:hover {"
                  "  background: transparent;"
                  "}"
                  "QHeaderView::section {"
-                 "  background: palette(light);"
-                 "  color: palette(text);"
+                 "  background: %4;"
+                 "  color: %2;"
                  "  border: none;"
-                 "  border-bottom: 1px solid palette(mid);"
+                 "  border-bottom: 1px solid %3;"
                  "  padding: 6px 8px;"
                  "  font-weight: 600;"
                  "}"
-                 "QTableView::item:selected {"
+                 "QHeaderView::section:disabled {"
+                 "  color: %7;"
+                 "  background: %6;"
+                 "  border-bottom-color: %8;"
+                 "}"
+                 "QTableView::item:selected, QTableWidget::item:selected {"
                  "  background: transparent;"
-                 "}");
+                 "}")
+      .arg(colors.surface.name(QColor::HexArgb),
+           colors.text.name(QColor::HexArgb),
+           themeTokens.neutral.strokeSubtle.name(QColor::HexArgb),
+           themeTokens.neutral.layer.name(QColor::HexArgb),
+           colors.accent.name(QColor::HexArgb),
+           Style::mix(themeTokens.neutral.card, themeTokens.neutral.fillSecondary, themeTokens.dark ? 0.30 : 0.46).name(QColor::HexArgb),
+           colors.disabledText.name(QColor::HexArgb),
+           Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.18 : 0.12).name(QColor::HexArgb));
 }
 
 QString Theme::treeViewStyle(const ThemeColors &colors) {
-  Q_UNUSED(colors);
+  const auto themeTokens = tokens(colors);
   return QString("QTreeView {"
-                 "  background: palette(base);"
-                 "  border: 1px solid palette(mid);"
-                 "  border-radius: 6px;"
+                 "  background: %1;"
+                 "  color: %2;"
+                 "  border: 1px solid %3;"
+                 "  border-radius: 8px;"
                  "  outline: none;"
+                 "}"
+                 "QTreeView:focus {"
+                 "  border-color: %5;"
+                 "}"
+                 "QTreeView:disabled {"
+                 "  background: %6;"
+                 "  color: %7;"
+                 "  border-color: %8;"
                  "}"
                  "QTreeView::item {"
                  "  padding: 6px 8px;"
@@ -731,13 +813,21 @@ QString Theme::treeViewStyle(const ThemeColors &colors) {
                  "  image: none;"
                  "}"
                  "QHeaderView::section {"
-                 "  background: palette(light);"
-                 "  color: palette(text);"
+                 "  background: %4;"
+                 "  color: %2;"
                  "  border: none;"
-                 "  border-bottom: 1px solid palette(mid);"
+                 "  border-bottom: 1px solid %3;"
                  "  padding: 6px 8px;"
                  "  font-weight: 600;"
-                 "}");
+                 "}")
+      .arg(colors.surface.name(QColor::HexArgb),
+           colors.text.name(QColor::HexArgb),
+           themeTokens.neutral.strokeSubtle.name(QColor::HexArgb),
+           themeTokens.neutral.layer.name(QColor::HexArgb),
+           colors.accent.name(QColor::HexArgb),
+           Style::mix(themeTokens.neutral.card, themeTokens.neutral.fillSecondary, themeTokens.dark ? 0.30 : 0.46).name(QColor::HexArgb),
+           colors.disabledText.name(QColor::HexArgb),
+           Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.18 : 0.12).name(QColor::HexArgb));
 }
 
 QString Theme::groupBoxStyle(const ThemeColors &colors) {
@@ -858,6 +948,7 @@ ThemeManager &ThemeManager::instance() {
 ThemeManager::ThemeManager()
     : m_colors(Theme::light())
     , m_tokens(Theme::tokens(m_colors))
+    , m_motionTokens(m_tokens.motion)
     , m_baseAccent(m_colors.accent)
 {
   if (Diagnostics::knownQtWarningSuppressionEnabled() || !Diagnostics::qtWarningOutputEnabled()) {
@@ -873,6 +964,10 @@ const ThemeColors &ThemeManager::colors() const { return m_colors; }
 const FluentThemeTokens &ThemeManager::tokens() const { return m_tokens; }
 
 bool ThemeManager::accentBorderEnabled() const { return m_accentBorderEnabled; }
+
+bool ThemeManager::animationsEnabled() const { return m_animationsEnabled; }
+
+const FluentMotionTokens &ThemeManager::motionTokens() const { return m_motionTokens; }
 
 namespace {
 
@@ -908,6 +1003,46 @@ struct UpdatesBlocker {
     }
   }
 };
+
+bool motionTokensEqual(const FluentMotionTokens &a, const FluentMotionTokens &b)
+{
+  return a.hoverDuration == b.hoverDuration &&
+         a.pressDuration == b.pressDuration &&
+         a.focusDuration == b.focusDuration &&
+         a.popupOpenDuration == b.popupOpenDuration &&
+         a.popupCloseDuration == b.popupCloseDuration &&
+         a.collapseDuration == b.collapseDuration &&
+         a.selectionDuration == b.selectionDuration &&
+         a.navigationDuration == b.navigationDuration &&
+         a.layoutDuration == b.layoutDuration &&
+         a.pageDuration == b.pageDuration &&
+         a.toastDuration == b.toastDuration &&
+         a.wheelSnapDuration == b.wheelSnapDuration &&
+         a.popupSlideOffset == b.popupSlideOffset &&
+         a.pressOffset == b.pressOffset &&
+         a.easeOut == b.easeOut &&
+         a.easeIn == b.easeIn &&
+         a.easeInOut == b.easeInOut;
+}
+
+FluentMotionTokens normalizedMotionTokens(FluentMotionTokens tokens)
+{
+  tokens.hoverDuration = qMax(0, tokens.hoverDuration);
+  tokens.pressDuration = qMax(0, tokens.pressDuration);
+  tokens.focusDuration = qMax(0, tokens.focusDuration);
+  tokens.popupOpenDuration = qMax(0, tokens.popupOpenDuration);
+  tokens.popupCloseDuration = qMax(0, tokens.popupCloseDuration);
+  tokens.collapseDuration = qMax(0, tokens.collapseDuration);
+  tokens.selectionDuration = qMax(0, tokens.selectionDuration);
+  tokens.navigationDuration = qMax(0, tokens.navigationDuration);
+  tokens.layoutDuration = qMax(0, tokens.layoutDuration);
+  tokens.pageDuration = qMax(0, tokens.pageDuration);
+  tokens.toastDuration = qMax(0, tokens.toastDuration);
+  tokens.wheelSnapDuration = qMax(0, tokens.wheelSnapDuration);
+  tokens.popupSlideOffset = qMax(0, tokens.popupSlideOffset);
+  tokens.pressOffset = qMax(0, tokens.pressOffset);
+  return tokens;
+}
 
 } // namespace
 
@@ -974,6 +1109,31 @@ void ThemeManager::setAccentBorderEnabled(bool enabled)
   scheduleThemeChanged(QStringLiteral("setAccentBorderEnabled"));
 }
 
+void ThemeManager::setAnimationsEnabled(bool enabled)
+{
+  if (m_animationsEnabled == enabled) {
+    return;
+  }
+  m_animationsEnabled = enabled;
+  scheduleThemeChanged(QStringLiteral("setAnimationsEnabled"));
+}
+
+void ThemeManager::setMotionTokens(const FluentMotionTokens &tokens)
+{
+  const FluentMotionTokens next = normalizedMotionTokens(tokens);
+  if (motionTokensEqual(m_motionTokens, next)) {
+    return;
+  }
+  m_motionTokens = next;
+  m_tokens.motion = m_motionTokens;
+  scheduleThemeChanged(QStringLiteral("setMotionTokens"));
+}
+
+void ThemeManager::resetMotionTokens()
+{
+  setMotionTokens(FluentMotionTokens{});
+}
+
 void ThemeManager::setColors(const ThemeColors &colors) {
   setColorsInternal(colors, true, QStringLiteral("setColors"));
 }
@@ -1013,6 +1173,7 @@ void ThemeManager::setColorsInternal(const ThemeColors &colors, bool updateBaseA
 
   m_colors = colors;
   m_tokens = Theme::tokens(m_colors);
+  m_tokens.motion = m_motionTokens;
   scheduleThemeChanged(reason.isEmpty() ? QStringLiteral("setColorsInternal") : reason);
 }
 

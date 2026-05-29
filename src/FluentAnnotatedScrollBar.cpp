@@ -440,7 +440,7 @@ void FluentAnnotatedScrollBar::paintEvent(QPaintEvent *event)
             painter.drawRoundedRect(rect, 8.0, 8.0);
         }
 
-        QColor textColor = active ? QColor(Qt::white) : colors.subText;
+        QColor textColor = active ? Theme::contrastColor(colors.accent) : colors.subText;
         if (hovered && !active) {
             textColor = colors.text;
         }

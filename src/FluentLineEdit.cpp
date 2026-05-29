@@ -1,4 +1,5 @@
 #include "Fluent/FluentLineEdit.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentQtCompat.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -20,16 +21,14 @@ FluentLineEdit::FluentLineEdit(QWidget *parent)
     setAttribute(Qt::WA_Hover, true);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
@@ -50,16 +49,14 @@ FluentLineEdit::FluentLineEdit(const QString &text, QWidget *parent)
     setAttribute(Qt::WA_Hover, true);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_focusAnim = new QVariantAnimation(this);
-    m_focusAnim->setDuration(200);
-    m_focusAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
     connect(m_focusAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_focusLevel = value.toReal();
         update();
@@ -102,6 +99,9 @@ void FluentLineEdit::changeEvent(QEvent *event)
 
 void FluentLineEdit::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_focusAnim, FluentMotionRole::Focus);
+
     const auto &colors = ThemeManager::instance().colors();
     const QColor textColor = isEnabled() ? colors.text : colors.disabledText;
 
@@ -110,9 +110,13 @@ void FluentLineEdit::applyTheme()
     selectionBg.setAlphaF(dark ? 0.35 : 0.22);
 
     const QString next = QStringLiteral(
-        "QLineEdit { background: transparent; color: palette(window-text); border: none; "
-        "selection-background-color: palette(highlight); selection-color: palette(highlighted-text); }"
-        "QLineEdit:disabled { color: palette(mid); }");
+        "QLineEdit { background: transparent; color: %1; border: none; "
+        "selection-background-color: %2; selection-color: %3; }"
+        "QLineEdit:disabled { color: %4; }")
+        .arg(textColor.name(QColor::HexArgb),
+             selectionBg.name(QColor::HexArgb),
+             colors.text.name(QColor::HexArgb),
+             colors.disabledText.name(QColor::HexArgb));
     if (styleSheet() != next) {
         setStyleSheet(next);
     }
@@ -120,8 +124,9 @@ void FluentLineEdit::applyTheme()
     // Try to make caret follow accent while keeping text color from stylesheet.
     QPalette pal = palette();
     pal.setColor(QPalette::WindowText, textColor);
+    pal.setColor(QPalette::Text, textColor);
     pal.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
-    pal.setColor(QPalette::Text, colors.accent);
+    pal.setColor(QPalette::Disabled, QPalette::Text, colors.disabledText);
     pal.setColor(QPalette::Highlight, selectionBg);
     pal.setColor(QPalette::HighlightedText, colors.text);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
@@ -186,6 +191,10 @@ void FluentLineEdit::focusOutEvent(QFocusEvent *event)
 void FluentLineEdit::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(endValue);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();
@@ -194,6 +203,10 @@ void FluentLineEdit::startHoverAnimation(qreal endValue)
 void FluentLineEdit::startFocusAnimation(qreal endValue)
 {
     m_focusAnim->stop();
+    if (m_focusAnim->duration() <= 0) {
+        setFocusLevel(endValue);
+        return;
+    }
     m_focusAnim->setStartValue(m_focusLevel);
     m_focusAnim->setEndValue(endValue);
     m_focusAnim->start();

@@ -94,6 +94,8 @@ private:
     QList<QRect> computeItemGeometries(const QRect &rect, int *outUsedHeight = nullptr) const;
     void applyItemGeometries(const QList<QRect> &geometries) const;
     void animateToItemGeometries(const QList<QRect> &geometries);
+    int effectiveAnimationDuration() const;
+    QEasingCurve effectiveAnimationEasing() const;
 
     QList<QLayoutItem *> m_items;
     int m_hSpace = 12;
@@ -108,6 +110,8 @@ private:
     bool m_animationEnabled = false;
     int m_animationDurationMs = 140;
     QEasingCurve m_animationEasing = QEasingCurve(QEasingCurve::OutCubic);
+    bool m_animationDurationExplicit = false;
+    bool m_animationEasingExplicit = false;
 
     int m_animationThrottleMs = 50;
 

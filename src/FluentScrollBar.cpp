@@ -1,5 +1,6 @@
 #include "Fluent/FluentScrollBar.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -53,18 +54,22 @@ FluentScrollBar::FluentScrollBar(Qt::Orientation orientation, QWidget *parent)
     }
 
     m_revealAnim = new QVariantAnimation(this);
-    m_revealAnim->setDuration(160);
-    m_revealAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_revealAnim, FluentMotionRole::Hover);
     connect(m_revealAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_revealLevel = v.toReal();
         update();
     });
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(120);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         m_hoverLevel = v.toReal();
+        update();
+    });
+
+    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        FluentMotion::configure(m_revealAnim, FluentMotionRole::Hover);
+        FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
         update();
     });
 
@@ -177,8 +182,10 @@ void FluentScrollBar::paintEvent(QPaintEvent *event)
         c.setAlphaF(c.alphaF() * qBound<qreal>(0.0, m_revealLevel, 1.0));
     }
 
-    // Inset so the pill has breathing room.
-    const int inset = 2;
+    // Win11-like overlay behavior: keep the idle thumb slim, then let it gain visual weight on
+    // hover/press without changing the reserved layout thickness.
+    const qreal interaction = qBound<qreal>(0.0, m_pressed ? 1.0 : m_hoverLevel, 1.0);
+    const qreal inset = m_overlayMode ? (3.0 - 1.25 * interaction) : (2.0 - 0.55 * interaction);
     QRectF r = QRectF(handle).adjusted(inset, inset, -inset, -inset);
     if (r.width() < 2.0 || r.height() < 2.0) {
         r = QRectF(handle);

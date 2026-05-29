@@ -1,9 +1,9 @@
 #include "Fluent/FluentAnimatedButton.h"
 
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
-#include <QEasingCurve>
 #include <QEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -41,13 +41,14 @@ QSize boundedIconSize(const QSize &size)
 ButtonColors resolveButtonColors(const ThemeColors &colors, bool primary, bool checked, bool enabled)
 {
     ButtonColors resolved;
+    const auto tokens = Theme::tokens(colors);
 
     if (primary) {
-        resolved.base = checked ? colors.accent.darker(125) : colors.accent;
-        resolved.hover = resolved.base.lighter(118);
-        resolved.pressed = resolved.base.darker(118);
-        resolved.border = resolved.base.darker(110);
-        resolved.text = QColor("#FFFFFF");
+        resolved.base = checked ? tokens.accent.dark1 : tokens.accent.base;
+        resolved.hover = tokens.accent.light1;
+        resolved.pressed = tokens.accent.dark1;
+        resolved.border = Style::mix(tokens.accent.base, tokens.onAccent, 0.18);
+        resolved.text = tokens.onAccent;
     } else {
         const QColor accentTint = Style::mix(colors.surface, colors.accent, 0.12);
         resolved.base = checked ? accentTint : colors.surface;
@@ -58,7 +59,7 @@ ButtonColors resolveButtonColors(const ThemeColors &colors, bool primary, bool c
                                ? Style::mix(accentTint, colors.accent, 0.18)
                                : Style::mix(colors.surface, colors.pressed, 0.92);
         resolved.border = checked ? Style::mix(colors.border, colors.accent, 0.85) : colors.border;
-        resolved.text = checked ? Style::mix(colors.text, colors.accent, 0.82) : colors.text;
+        resolved.text = checked ? Theme::contrastColor(accentTint) : colors.text;
     }
 
     if (!enabled) {
@@ -243,7 +244,8 @@ void FluentAnimatedButton::paintEvent(QPaintEvent *event)
     painter.drawRoundedRect(rect, radius, radius);
 
     if (checked && m_primary && isEnabled()) {
-        QColor inner = QColor(255, 255, 255, 115);
+        QColor inner = buttonColors.text;
+        inner.setAlpha(115);
         painter.setPen(QPen(inner, 1.0));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(rect.adjusted(1.0, 1.0, -1.0, -1.0), radius - 1, radius - 1);
@@ -335,16 +337,14 @@ void FluentAnimatedButton::initialize()
     m_animatedIcon->setFixedSize(m_animatedIconSize);
 
     m_hoverAnim = new QVariantAnimation(this);
-    m_hoverAnim->setDuration(150);
-    m_hoverAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
     connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_hoverLevel = value.toReal();
         update();
     });
 
     m_pressAnim = new QVariantAnimation(this);
-    m_pressAnim->setDuration(100);
-    m_pressAnim->setEasingCurve(QEasingCurve::OutQuad);
+    FluentMotion::configure(m_pressAnim, FluentMotionRole::Press);
     connect(m_pressAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_pressLevel = value.toReal();
         update();
@@ -361,6 +361,8 @@ void FluentAnimatedButton::initialize()
 
 void FluentAnimatedButton::applyTheme()
 {
+    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
+    FluentMotion::configure(m_pressAnim, FluentMotionRole::Press);
     updateAnimatedIconTint();
     update();
 }
@@ -368,6 +370,10 @@ void FluentAnimatedButton::applyTheme()
 void FluentAnimatedButton::startHoverAnimation(qreal endValue)
 {
     m_hoverAnim->stop();
+    if (m_hoverAnim->duration() <= 0) {
+        setHoverLevel(endValue);
+        return;
+    }
     m_hoverAnim->setStartValue(m_hoverLevel);
     m_hoverAnim->setEndValue(endValue);
     m_hoverAnim->start();
@@ -376,6 +382,10 @@ void FluentAnimatedButton::startHoverAnimation(qreal endValue)
 void FluentAnimatedButton::startPressAnimation(qreal endValue)
 {
     m_pressAnim->stop();
+    if (m_pressAnim->duration() <= 0) {
+        setPressLevel(endValue);
+        return;
+    }
     m_pressAnim->setStartValue(m_pressLevel);
     m_pressAnim->setEndValue(endValue);
     m_pressAnim->start();

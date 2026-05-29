@@ -2,10 +2,11 @@
 
 #include "Fluent/FluentBorderEffect.h"
 
+#include <QMargins>
 #include <QPointer>
 #include <QWidget>
 
-class QPropertyAnimation;
+class QVariantAnimation;
 class QVBoxLayout;
 
 namespace Fluent {
@@ -36,18 +37,22 @@ public slots:
     void showFor(QWidget *target, Placement placement = Placement::Bottom);
 
 protected:
+    virtual QSize popupWindowSize() const;
+    virtual bool popupRevealEnabled() const;
+    virtual bool popupSlideEnabled() const;
     void hideEvent(QHideEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void showEvent(QShowEvent *event) override;
 
 private:
     QPoint placedPosition(const QRect &anchor, const QSize &popupSize, Placement placement) const;
-    void startOpenAnimation(const QPoint &finalPos);
+    void startOpenAnimation(const QPoint &finalPos, int slideOffsetY);
+    void updateLayoutMargins();
 
     QVBoxLayout *m_layout = nullptr;
+    QMargins m_contentMargins;
     QPointer<QWidget> m_content;
-    QPropertyAnimation *m_fadeAnim = nullptr;
-    QPropertyAnimation *m_slideAnim = nullptr;
+    QVariantAnimation *m_openAnim = nullptr;
     FluentBorderEffect m_border;
 };
 

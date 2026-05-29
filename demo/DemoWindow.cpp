@@ -23,8 +23,11 @@
 #include <QCursor>
 #include <QDebug>
 #include <QElapsedTimer>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
+#include <QParallelAnimationGroup>
 #include <QPointer>
+#include <QPropertyAnimation>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -51,6 +54,7 @@
 #include "Fluent/FluentMenu.h"
 #include "Fluent/FluentMenuBar.h"
 #include "Fluent/FluentMessageBox.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentNavigationView.h"
 #include "Fluent/FluentProgressBar.h"
 #include "Fluent/FluentRadioButton.h"
@@ -129,6 +133,63 @@ private:
     qint64 m_lastMark = 0;
 };
 
+void animateStackPageTransition(QStackedWidget *stack, QWidget *page, int previousIndex, int nextIndex)
+{
+    if (!stack || !page || previousIndex == nextIndex || !stack->isVisible()) {
+        return;
+    }
+
+    const int duration = FluentMotion::duration(FluentMotionRole::Page);
+    if (duration <= 0) {
+        page->move(QPoint(0, 0));
+        return;
+    }
+
+    if (QGraphicsEffect *oldEffect = page->graphicsEffect()) {
+        if (!oldEffect->property("_demoPageTransitionEffect").toBool()) {
+            return;
+        }
+        page->setGraphicsEffect(nullptr);
+        oldEffect->deleteLater();
+    }
+
+    const QPoint finalPos = page->pos();
+    const int slide = qMax(12, FluentMotion::popupSlideOffset() * 2);
+    const int direction = nextIndex > previousIndex ? 1 : -1;
+    const QPoint startPos = finalPos + QPoint(0, direction * slide);
+
+    auto *effect = new QGraphicsOpacityEffect(page);
+    effect->setProperty("_demoPageTransitionEffect", true);
+    effect->setOpacity(0.0);
+    page->setGraphicsEffect(effect);
+    page->move(startPos);
+
+    auto *group = new QParallelAnimationGroup(page);
+    auto *opacity = new QPropertyAnimation(effect, "opacity", group);
+    opacity->setDuration(duration);
+    opacity->setEasingCurve(FluentMotion::easing(FluentMotionRole::Page));
+    opacity->setStartValue(0.0);
+    opacity->setEndValue(1.0);
+
+    auto *position = new QPropertyAnimation(page, "pos", group);
+    position->setDuration(duration);
+    position->setEasingCurve(FluentMotion::easing(FluentMotionRole::Page));
+    position->setStartValue(startPos);
+    position->setEndValue(finalPos);
+
+    group->addAnimation(opacity);
+    group->addAnimation(position);
+    QObject::connect(group, &QParallelAnimationGroup::finished, page, [page, effect, finalPos, group]() {
+        page->move(finalPos);
+        if (page->graphicsEffect() == effect) {
+            page->setGraphicsEffect(nullptr);
+        }
+        effect->deleteLater();
+        group->deleteLater();
+    });
+    group->start();
+}
+
 } // namespace
 
 DemoWindow::DemoWindow(QWidget *parent,
@@ -200,12 +261,15 @@ void DemoWindow::buildUi()
 
     auto *fileMenu = menuBar->addFluentMenu(DEMO_TEXT("文件", "File"));
     QAction *exitAction = fileMenu->addAction(DEMO_TEXT("退出", "Exit"));
+    exitAction->setIcon(FluentIcon::icon(FluentIconType::Close));
     QObject::connect(exitAction, &QAction::triggered, this, &QWidget::close);
     trace.mark(QStringLiteral("file menu"));
 
     auto *viewMenu = menuBar->addFluentMenu(DEMO_TEXT("视图", "View"));
     QAction *lightAction = viewMenu->addAction(DEMO_TEXT("浅色", "Light"));
     QAction *darkAction = viewMenu->addAction(DEMO_TEXT("深色", "Dark"));
+    lightAction->setIcon(FluentIcon::icon(FluentIconType::Eye));
+    darkAction->setIcon(FluentIcon::icon(FluentIconType::Settings));
     auto *themeGroup = new QActionGroup(viewMenu);
     themeGroup->setExclusive(true);
     themeGroup->addAction(lightAction);
@@ -231,6 +295,9 @@ void DemoWindow::buildUi()
     QAction *msgInfo = demoMenu->addAction(DEMO_TEXT("消息框", "Message box"));
     QAction *dlgAction = demoMenu->addAction(DEMO_TEXT("对话框", "Dialog"));
     QAction *toastAction = demoMenu->addAction(DEMO_TEXT("Toast 通知", "Toast notification"));
+    msgInfo->setIcon(FluentIcon::icon(FluentIconType::Info));
+    dlgAction->setIcon(FluentIcon::icon(FluentIconType::Dialog));
+    toastAction->setIcon(FluentIcon::icon(FluentIconType::Bell));
 
     // TitleBar custom slots demo
     {
@@ -628,8 +695,10 @@ void DemoWindow::buildUi()
         };
         auto it = keyMap.find(key);
         if (it != keyMap.end()) {
+            const int previousIndex = stack->currentIndex();
             ensurePage(it.value());
             stack->setCurrentIndex(it.value());
+            animateStackPageTransition(stack, stack->widget(it.value()), previousIndex, it.value());
         }
     });
 

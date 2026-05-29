@@ -2,6 +2,7 @@
 
 #include "Fluent/FluentTheme.h"
 #include "FluentItemEditorSupport.h"
+#include "FluentItemViewPaintSupport.h"
 #include "FluentPaintSupport.h"
 
 #include <QAbstractItemModel>
@@ -133,16 +134,11 @@ public:
         const qreal hoverLvl = m_hoverLevelGetter ? m_hoverLevelGetter() : 0.0;
 
         if (selected && !isCurrentRow) {
-            bgColor = colors.accent;
-            bgColor.setAlpha(40);
+            bgColor = fluentItemSelectionFill(colors, 0.86);
         } else if (isRowSelection && hoverIdx.isValid() && index.row() == hoverIdx.row()) {
-            QColor hover = colors.hover;
-            hover.setAlphaF(0.3 * hoverLvl);
-            bgColor = hover;
+            bgColor = fluentItemHoverFill(colors, hoverLvl);
         } else if (!isRowSelection && index == hoverIdx) {
-            QColor hover = colors.hover;
-            hover.setAlphaF(0.3 * hoverLvl);
-            bgColor = hover;
+            bgColor = fluentItemHoverFill(colors, hoverLvl);
         }
 
         if (bgColor.alpha() > 0) {

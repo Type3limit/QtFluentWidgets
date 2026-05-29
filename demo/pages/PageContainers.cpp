@@ -27,6 +27,7 @@
 #include "Fluent/FluentScrollArea.h"
 #include "Fluent/FluentTabWidget.h"
 #include "Fluent/FluentTextEdit.h"
+#include "Fluent/FluentToolButton.h"
 #include "Fluent/FluentToggleSwitch.h"
 #include "Fluent/FluentWidget.h"
 
@@ -256,11 +257,27 @@ QWidget *createContainersPage(FluentMainWindow *window)
     X(auto *tabs = new FluentTabWidget();) \
     X(auto *tab1 = new QWidget();) \
     X(auto *tab2 = new QWidget();) \
+    X(auto *documentTabs = new FluentTabWidget();) \
+    X(auto *addDocumentTab = new FluentToolButton();) \
+    X(tabs->setContentMargin(5);) \
     X({ auto *l = new QVBoxLayout(tab1); l->setContentsMargins(0, 0, 0, 0); l->setSpacing(10); l->addWidget(new FluentLabel(DEMO_TEXT("Tab 1：演示控件复用", "Tab 1: control reuse demo"))); l->addWidget(new FluentProgressBar()); }) \
     X({ auto *l = new QVBoxLayout(tab2); l->setContentsMargins(0, 0, 0, 0); l->setSpacing(10); l->addWidget(new FluentLabel(DEMO_TEXT("Tab 2：滚动区域", "Tab 2: scrolling area"))); auto *big = new FluentTextEdit(); big->setText(DEMO_TEXT("这里是一个 TextEdit，用来制造滚动内容。\n\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n", "This TextEdit is here to create scrollable content.\n\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n")); big->setFixedHeight(160); l->addWidget(big); }) \
     X(tabs->addTab(tab1, QStringLiteral("Tab 1"));) \
     X(tabs->addTab(tab2, QStringLiteral("Tab 2"));) \
-    X(body->addWidget(tabs);)
+    X(documentTabs->setTabDisplayMode(FluentTabWidget::TabDisplayMode::Document);) \
+    X(documentTabs->setContentMargin(5);) \
+    X(documentTabs->setTabsClosable(true);) \
+    X(documentTabs->setMovable(true);) \
+    X(documentTabs->setFixedHeight(118);) \
+    X(documentTabs->addTab(new FluentLabel(DEMO_TEXT("标签页 x1", "Document tab x1")), FluentIcon::icon(FluentIconType::Folder), DEMO_TEXT("桌面", "Desktop"));) \
+    X(documentTabs->addTab(new FluentLabel(DEMO_TEXT("标签页 x2", "Document tab x2")), FluentIcon::icon(FluentIconType::Document), DEMO_TEXT("文档", "Documents"));) \
+    X(addDocumentTab->setIcon(FluentIcon::icon(FluentIconType::Add));) \
+    X(addDocumentTab->setFixedSize(34, 34);) \
+    X(documentTabs->setCornerWidget(addDocumentTab, Qt::TopRightCorner);) \
+    X(QObject::connect(documentTabs, &QTabWidget::tabCloseRequested, documentTabs, [=](int index) { if (documentTabs->count() <= 1) return; QWidget *page = documentTabs->widget(index); documentTabs->removeTab(index); if (page) page->deleteLater(); });) \
+    X(QObject::connect(addDocumentTab, &QToolButton::clicked, documentTabs, [=]() { const int n = documentTabs->count() + 1; auto *page = new FluentLabel(DEMO_TEXT("新标签内容", "New tab content")); const int index = documentTabs->addTab(page, FluentIcon::icon(FluentIconType::Folder), DEMO_TEXT("新建标签%1", "New tab %1").arg(n)); documentTabs->setCurrentIndex(index); });) \
+    X(body->addWidget(tabs);) \
+    X(body->addWidget(documentTabs);)
 
 #define X(line) code += QStringLiteral(#line "\n");
             CONTAINERS_TABS(X)
@@ -271,10 +288,16 @@ QWidget *createContainersPage(FluentMainWindow *window)
                 DEMO_TEXT("标签页容器（切换动画/主题联动）", "Tab container with switch animation and theme linkage"),
                 DEMO_TEXT("要点：\n"
                           "-addTab(widget, title) 添加页面\n"
-                          "-可用于设置页/多视图切换",
+                          "-默认是底部线标识的轻量模式\n"
+                          "-setContentMargin(5) 控制 pane 内边距，默认 5px\n"
+                          "-setTabDisplayMode(Document) 可切换为标签式模式\n"
+                          "-Document 模式支持 setTabsClosable(true)、setMovable(true) 与贴在最后一个标签右侧的 cornerWidget 加号入口",
                           "Highlights:\n"
                           "-Use addTab(widget, title) to add pages\n"
-                          "-Useful for settings pages and multi-view switching"),
+                          "-The default mode uses a lightweight underline indicator\n"
+                          "-Use setContentMargin(5) to control pane padding; the default is 5px\n"
+                          "-Use setTabDisplayMode(Document) for document-like tabs\n"
+                          "-Document mode supports setTabsClosable(true), setMovable(true), and a cornerWidget add button positioned beside the last tab"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -282,7 +305,7 @@ QWidget *createContainersPage(FluentMainWindow *window)
 #undef X
                 },
                 true,
-                250));
+                275));
 
 #undef CONTAINERS_TABS
         }

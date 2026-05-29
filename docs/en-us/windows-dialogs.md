@@ -104,6 +104,7 @@ Notes:
 - The first guide step hides the back action; later steps show `Back` by default, or use `GuideStyle::previousActionText` for custom text.
 - TeachingTip's mask overlay is attached to the target's top-level window. It dims the background, blocks background mouse input, and leaves a highlighted cutout around the current `target`.
 - TeachingTip uses a rectangular mask cutout and does not draw an extra highlight ring, avoiding both jagged `QRegion` rounded clipping and visual ambiguity from a separate stroke layer. The target remains visible, while the background area is still blocked by the mask.
+- TeachingTip mask fade-in/fade-out uses `FluentMotionRole::PopupOpen` / `PopupClose`; with global animations disabled the mask appears or is removed immediately, and the TeachingTip popup itself always stays above the overlay.
 
 Demo: Windows / Overview.
 
@@ -234,8 +235,8 @@ Demo: Windows / Overview.
 - **Neutral menu border**: menu popups use the normal popup border instead of the window accent border, so a one-item menu does not read as a second button/menu strip.
 - **Disable native overflow button**: hides/disables `qt_menubar_ext_button` and clears its menu to avoid the native-styled overflow UI.
 - **Highlight animations**:
-    - hoverLevel: 120ms linear;
-    - highlightRect: 160ms `OutCubic` sliding;
+    - hoverLevel uses `FluentMotionRole::Hover`;
+    - highlightRect uses `FluentMotionRole::Selection`;
     - custom rounded highlight (radius=6) and a bottom divider (alpha ~70).
 - **Stable width**: `sizeHint()` / `minimumSizeHint()` compute a conservative “enough width” from action texts to reduce overflow probability.
 
@@ -243,7 +244,7 @@ Demo: Windows / Overview.
 
 - Uses a `QProxyStyle` override: submenu delay is 120ms and sloppy submenu behavior is disabled.
 - On `aboutToShow`, ensures all submenus are converted to `FluentMenu` recursively.
-- **Popup animation**: on show, starts at `opacity=0` and Y offset +6px, then runs a 140ms `OutCubic` fade+slide to the final geometry.
+- **Popup animation**: on show, starts at `opacity=0` with a small `FluentMotion::popupSlideOffset()` displacement, then uses `FluentMotionRole::PopupOpen` for fade+slide to the final geometry.
 - **Painting**:
     - panel radius=10; clears to transparent first, then uses `paintFluentPanel()`.
     - hover highlight radius=6, based on `colors.hover` and hoverLevel.
@@ -368,12 +369,12 @@ Implementation notes:
 - Toasts live in an internal `ToastOverlay` attached to the target window (object name `FluentToastOverlay`), and use a **mask region** so the overlay only intercepts input around the toast area:
     - when toasts exist, the overlay blocks input only over toast regions; the rest of the window remains interactive.
     - when no toasts exist, the overlay becomes fully mouse-transparent (`WA_TransparentForMouseEvents=true`).
-- Layout: each position (TopLeft/TopCenter/...) has its own queue; new toasts are inserted at the head. Existing toasts are moved smoothly via `QPropertyAnimation(pos)` (150~180ms, `OutCubic`).
+- Layout: each position (TopLeft/TopCenter/...) has its own queue; new toasts are inserted at the head. Existing toasts are moved smoothly via `QPropertyAnimation(pos)` using `FluentMotionRole::Toast`.
 - Size stabilization: to avoid word-wrapped `QLabel` “one extra line jump” during fast creation, the overlay fixes the wrap width, calls `adjustSize()`, and stabilizes again on the next event loop turn.
 - Appear/disappear:
-    - appear opacity: 180ms `OutCubic` from 0→1;
+    - appear and close opacity use `FluentMotionRole::Toast`;
     - auto-dismiss uses a linear progress animation with minimum duration `max(800, durationMs)`;
-    - close opacity: 160ms `InCubic` to 0 (or immediate destroy without animation).
+    - disabling global animations or setting the Toast duration to 0 makes appear immediate and close destroy the toast directly.
 - Progress bar expands/shrinks symmetrically from the center of the label area.
 
 ---

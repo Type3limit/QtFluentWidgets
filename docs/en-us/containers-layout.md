@@ -36,20 +36,21 @@ When `setCollapsible(true)` is enabled, `FluentCard` ensures this internal struc
 	- Title `FluentLabel` (`objectName: FluentCardTitle`)
 	- Right chevron `FluentToolButton` (`objectName: FluentCardChevron`, fixed ~28×28)
 	- Header uses `PointingHandCursor` and toggles collapse/expand via an event filter on left-click.
-- Content: a `FluentCardContent` widget with an internal `QVBoxLayout` (`spacing=8`).
+- Content: a `FluentCardContentClip` clipping wrapper that hosts `FluentCardContent`, which owns the internal `QVBoxLayout` (`spacing=8`).
 
 Content relocation: if you add widgets/layouts to the card before enabling collapsible mode, those items are moved into `FluentCardContent` automatically.
 
 Collapse animation:
 
-- Uses `QPropertyAnimation` on `contentWidget()->maximumHeight` (~160ms, `OutCubic`).
-- On collapse end: sets the content area invisible and forces `maximumHeight=0`.
+- Uses `QPropertyAnimation` on the clipping wrapper's `maximumHeight`; duration and easing come from `FluentMotionRole::Collapse`.
+- During the animation, `FluentCardContent` is temporarily locked to its natural height while only the wrapper height changes. This keeps title/body text from reflowing or jumping.
+- On collapse end: sets the clipping wrapper invisible and forces `maximumHeight=0`.
 - On expand: restores visibility and releases the max height back to `QWIDGETSIZE_MAX`.
 
 Caveats:
 
 - The whole header row is clickable (not only the chevron button).
-- The animation is a "maximumHeight" animation. If your content uses its own `maximumHeight` constraints, be aware of combined effects.
+- The animation changes the clipping wrapper's `maximumHeight`. If your content needs fixed-height constraints, prefer setting them on child widgets rather than directly changing `contentWidget()` constraints.
 
 Key APIs:
 
@@ -122,7 +123,9 @@ flow->addWidget(title);
 Geometry animations (implementation semantics):
 
 - When `animationEnabled` is true, it animates each child widget's `geometry` using `QPropertyAnimation`.
-- Default animation: ~140ms, `OutCubic`.
+- Default animation: `FluentMotionRole::Layout` (currently ~140ms, `OutCubic`).
+- Explicit `setAnimationDuration()` / `setAnimationEasing()` overrides the token.
+- Reduced motion: disabling global animations or setting the `Layout` duration to 0 makes geometry changes snap into place instead of creating/running `geometry` animations.
 - Animations are cached per widget (persistent `QPropertyAnimation` instances) to reduce churn during resize.
 - Throttling (`animationThrottle`, default ~50ms):
 	- if an animation is already running and we are within the throttle window, it only updates `endValue` (smoothly steers toward the new target)
@@ -210,6 +213,7 @@ FluentScrollBar: painting & interaction (implementation semantics)
 - Overlay mode:
 	- `revealLevel` fades in/out; below a small threshold it simply doesn't paint.
 	- Reveal is driven by viewport interactions (Enter/MouseMove/Wheel) and the same ~700ms hide timer.
+	- Hover/pressed slightly thickens the thumb without changing the reserved layout thickness, so the feedback is more tactile than a pure color fade.
 - Non-overlay mode: if used as the real scrollbar of a `QAbstractScrollArea`, it fills the reserved track area to match the themed viewport background (avoids a mismatched strip).
 
 ---
@@ -287,14 +291,15 @@ Implementation notes (key behavior):
 
 - Internally replaces the `QTabBar` with a custom `FluentTabBar`:
 	- `setDocumentMode(true)`, `setDrawBase(false)`, `setExpanding(false)`, `ElideRight`, enables scroll buttons, and uses mouse tracking.
-	- Handles hover/press states itself and custom-paints backgrounds.
+	- Handles hover/press states itself and custom-paints feedback.
 	- The selection indicator is a `QVariantAnimation` (~240ms, `InOutCubic`) that interpolates an `indicatorRect`:
-		- Horizontal tabs: a 3px accent underline at the bottom (with side inset).
+		- Horizontal tabs default to `TabDisplayMode::Underline`: a 3px accent underline at the bottom (with side inset), without a rounded selected background.
+		- Horizontal tabs can switch to `TabDisplayMode::Document`: selected tabs are painted like Windows File Explorer tabs, useful for document/tabbed workflows. This mode does not use Qt's native close buttons; it paints a close glyph that matches the window close button so the native square close button does not leak into the Fluent surface.
 		- Vertical navigation (West/East): a 3px accent indicator bar on the left/right that smoothly slides with the current tab, plus a subtle selected background block (Win11 Settings feel).
 
 - Frame overlay: creates a transparent `FluentTabFrameOverlay` on top (`WA_TransparentForMouseEvents`) to:
 	- paint a 1px rounded border
-	- "clip" the corners visually by filling the outside-of-rounded-rect area with background (OddEvenFill cut path), so child widgets don't square-off the corners.
+	- paint only the border; it does not fill the outside corners, avoiding square patch edges on complex parent backgrounds.
 
 - Scroll buttons: when tabs overflow, it finds internal `QToolButton`s after show/layout and replaces arrow types with custom chevron icons (colored with `colors.text`) and normalizes the hit target (~26×26).
 
@@ -303,6 +308,13 @@ Caveat: `tabRect()` can be lazy during startup; if a tab rect isn't valid yet, t
 Key APIs:
 
 - Inherits `QTabWidget` (use `addTab()` / `setTabPosition()` / `setCurrentIndex()` etc.)
+- `setContentMargin(int)`: controls the pane content padding. The default is 5px, and the same padding is used by both Underline and Document modes.
+- `setTabDisplayMode(FluentTabWidget::TabDisplayMode::Underline)`: default horizontal mode with an underline indicator.
+- `setTabDisplayMode(FluentTabWidget::TabDisplayMode::Document)`: document-style tabs.
+- `setTabsClosable(true)` / `tabCloseRequested(int)`: Document mode reserves room for close buttons so text and buttons do not overlap.
+- `setMovable(true)` and `setCornerWidget()`: combine them for a File Explorer-like draggable tab strip with an add button. In Document mode, a `Qt::TopRightCorner` corner widget is automatically positioned beside the last tab instead of staying at the far right edge of the tab area.
+
+Document mode paints the tab header and page pane as one surface: the top strip fills the available width with rounded top corners, the page pane uses square top corners and rounded bottom corners, and the selected tab aligns with the pane edge so the two parts read as one container.
 
 Demo: Containers / Overview.
 
@@ -314,11 +326,12 @@ Purpose: Fluent-styled group box.
 
 Implementation notes:
 
-- Sets `WA_StyledBackground` so the stylesheet can control background/border.
-- Default `setContentsMargins(12, 20, 12, 12)` to reserve space for the title.
+- Paint-only container: uses `FluentSurfaceSpec` for the Card surface, radius and border instead of a widget-level stylesheet.
+- Default `setContentsMargins(14, 38, 14, 14)` to reserve room for the title and optional check indicator.
+- The title is painted by the control and follows Theme colors; `setCheckable(true)` keeps the native `QGroupBox` checked semantics and paints the checkbox indicator.
 - Theme coupling:
-	- Applies `Theme::groupBoxStyle(colors)` as a stylesheet.
-	- Re-applies on `ThemeManager::themeChanged` and `EnabledChange` (with a string compare guard to avoid redundant sets).
+	- `ThemeManager::themeChanged` and `EnabledChange` trigger repaint.
+	- Surface, border and disabled colors come from Theme tokens, matching `FluentCard` / `FluentCommandBar` visual layers.
 
 Key APIs:
 

@@ -66,7 +66,7 @@ private:
     bool m_closable = true;
 
     QHBoxLayout *m_layout = nullptr;
-    FluentLabel *m_icon = nullptr;
+    QWidget *m_icon = nullptr;
     FluentLabel *m_titleLabel = nullptr;
     FluentLabel *m_messageLabel = nullptr;
     FluentButton *m_actionButton = nullptr;

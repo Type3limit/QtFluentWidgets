@@ -81,6 +81,115 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
     overviewLayout->setSpacing(14);
 
     {
+        auto *hero = new FluentCard();
+        hero->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        auto *heroLayout = new QHBoxLayout(hero);
+        heroLayout->setContentsMargins(24, 22, 24, 22);
+        heroLayout->setSpacing(24);
+
+        auto *copy = new FluentWidget();
+        copy->setBackgroundRole(FluentWidget::BackgroundRole::Transparent);
+        auto *copyLayout = new QVBoxLayout(copy);
+        copyLayout->setContentsMargins(0, 0, 0, 0);
+        copyLayout->setSpacing(10);
+
+        auto *eyebrow = new FluentLabel(DEMO_TEXT("Qt Widgets Fluent Design 组件库", "Qt Widgets Fluent Design component library"));
+        eyebrow->setStyleSheet("font-size: 12px; font-weight: 600; opacity: 0.82;");
+        auto *title = new FluentLabel(QStringLiteral("Qt Fluent"));
+        title->setStyleSheet("font-size: 28px; font-weight: 700;");
+        auto *subtitle = new FluentLabel(DEMO_TEXT("统一的主题 token、图标、动效、弹层和控件状态，组成一套可直接落地的桌面 UI 组件库。",
+                                                   "A desktop UI component library with unified theme tokens, icons, motion, popups, and control states."));
+        subtitle->setWordWrap(true);
+        subtitle->setStyleSheet("font-size: 13px; opacity: 0.88;");
+
+        auto *quickRow = new QHBoxLayout();
+        quickRow->setContentsMargins(0, 4, 0, 0);
+        quickRow->setSpacing(8);
+        auto *openBasic = new FluentButton(DEMO_TEXT("控件画廊", "Control gallery"));
+        openBasic->setPrimary(true);
+        auto *openMotion = new FluentButton(DEMO_TEXT("主题与动效", "Theme & motion"));
+        auto *openIcons = new FluentButton(DEMO_TEXT("图标", "Icons"));
+        auto *openPopups = new FluentButton(DEMO_TEXT("弹层/窗口", "Popups & windows"));
+        QObject::connect(openBasic, &QPushButton::clicked, window, [jumpTo]() { jumpTo(1); });
+        QObject::connect(openMotion, &QPushButton::clicked, window, [jumpTo]() { jumpTo(5); });
+        QObject::connect(openIcons, &QPushButton::clicked, window, [jumpTo]() { jumpTo(4); });
+        QObject::connect(openPopups, &QPushButton::clicked, window, [jumpTo]() { jumpTo(10); });
+        quickRow->addWidget(openBasic);
+        quickRow->addWidget(openMotion);
+        quickRow->addWidget(openIcons);
+        quickRow->addWidget(openPopups);
+        quickRow->addStretch(1);
+
+        copyLayout->addWidget(eyebrow);
+        copyLayout->addWidget(title);
+        copyLayout->addWidget(subtitle);
+        copyLayout->addLayout(quickRow);
+        copyLayout->addStretch(1);
+
+        auto *preview = new FluentWidget();
+        preview->setBackgroundRole(FluentWidget::BackgroundRole::Transparent);
+        preview->setMinimumWidth(360);
+        auto *previewLayout = new QVBoxLayout(preview);
+        previewLayout->setContentsMargins(0, 0, 0, 0);
+        previewLayout->setSpacing(10);
+
+        auto *inputRow = new QHBoxLayout();
+        inputRow->setContentsMargins(0, 0, 0, 0);
+        inputRow->setSpacing(8);
+        auto *searchPreview = new FluentSearchBox();
+        searchPreview->setPlaceholderText(DEMO_TEXT("搜索控件", "Search controls"));
+        searchPreview->setSuggestions({QStringLiteral("FluentButton"),
+                                        QStringLiteral("FluentTabWidget"),
+                                        QStringLiteral("FluentTeachingTip")});
+        auto *accentButton = new FluentButton(DEMO_TEXT("Primary", "Primary"));
+        accentButton->setPrimary(true);
+        inputRow->addWidget(searchPreview, 1);
+        inputRow->addWidget(accentButton);
+
+        auto *command = new FluentCommandBar();
+        command->addAction(DEMO_TEXT("新建", "New"));
+        command->addAction(DEMO_TEXT("编辑", "Edit"));
+        command->addSeparator();
+        auto *previewMenu = new FluentMenu(DEMO_TEXT("导出", "Export"), command);
+        previewMenu->addAction(QStringLiteral("PDF"));
+        previewMenu->addAction(QStringLiteral("PNG"));
+        auto *previewAction = new QAction(DEMO_TEXT("导出", "Export"), command);
+        previewAction->setMenu(previewMenu);
+        command->addCommand(previewAction);
+        auto *readOnly = new FluentToggleSwitch(DEMO_TEXT("只读", "Read only"));
+        command->addWidget(readOnly);
+
+        auto *progressRow = new QHBoxLayout();
+        progressRow->setContentsMargins(0, 0, 0, 0);
+        progressRow->setSpacing(12);
+        auto *bar = new FluentProgressBar();
+        bar->setRange(0, 100);
+        bar->setValue(72);
+        auto *ring = new FluentProgressRing();
+        ring->setFixedSize(36, 36);
+        ring->setValue(72);
+        progressRow->addWidget(bar, 1);
+        progressRow->addWidget(ring);
+
+        auto *tip = new FluentInfoBar(FluentInfoBar::Severity::Info,
+                                      DEMO_TEXT("主题联动", "Theme linked"),
+                                      DEMO_TEXT("切换深浅色、accent 与 motion token 后，示例会同步更新。",
+                                                "Examples update with light/dark, accent, and motion tokens."),
+                                      preview);
+        tip->setActionText(DEMO_TEXT("查看", "View"));
+        tip->setClosable(false);
+
+        previewLayout->addLayout(inputRow);
+        previewLayout->addWidget(command);
+        previewLayout->addLayout(progressRow);
+        previewLayout->addWidget(tip);
+
+        heroLayout->addWidget(copy, 1);
+        heroLayout->addWidget(preview, 1);
+        overviewLayout->addWidget(hero);
+    }
+
+    {
         auto *t = new FluentLabel(DEMO_TEXT("控件画廊", "Control gallery"));
         t->setStyleSheet("font-size: 18px; font-weight: 650;");
         auto *st = new FluentLabel(DEMO_TEXT("FlowLayout 自适应换行：窗口越宽，一行展示越多；新增控件也只需添加一个 tile。",
