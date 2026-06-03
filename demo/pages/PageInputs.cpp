@@ -46,19 +46,18 @@ QWidget *createInputsPage(FluentMainWindow *window)
                 QStringLiteral("P0 Input State Matrix"),
                 DEMO_TEXT("基础输入控件的 placeholder / filled / disabled 横向对比", "Side-by-side placeholder / filled / disabled states for core input controls"),
                 DEMO_TEXT("要点：\n"
-                          "-LineEdit、AutoSuggestBox、SearchBox、ComboBox 在同一行高和密度体系下比较\n"
+                          "-LineEdit、AutoSuggestBox 在同一行高和密度体系下比较\n"
                           "-placeholder 与 disabled 的文本强度需要明显区分\n"
                           "-AutoSuggestBox 与 ComboBox 的 popup 已统一到 Fluent 自绘弹层",
                           "Highlights:\n"
-                          "-LineEdit, AutoSuggestBox, SearchBox, and ComboBox are compared in one density system\n"
+                          "-LineEdit and AutoSuggestBox are compared in one density system\n"
                           "-Placeholder and disabled text strength should be clearly distinct\n"
                           "-AutoSuggestBox and ComboBox popups now share Fluent-painted popup behavior"),
                 code,
                 [=](QVBoxLayout *body) {
-                    auto *grid = new QGridLayout();
-                    grid->setContentsMargins(0, 0, 0, 0);
-                    grid->setHorizontalSpacing(14);
-                    grid->setVerticalSpacing(10);
+                    auto *matrix = new QVBoxLayout();
+                    matrix->setContentsMargins(0, 0, 0, 0);
+                    matrix->setSpacing(12);
 
                     auto makeCaption = [](const QString &text, bool strong = false) {
                         auto *label = new FluentLabel(text);
@@ -69,21 +68,34 @@ QWidget *createInputsPage(FluentMainWindow *window)
                     };
 
                     auto prepareInput = [](QWidget *widget) {
-                        widget->setMinimumWidth(184);
+                        widget->setMinimumWidth(176);
                         widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
                         return widget;
                     };
 
-                    grid->addWidget(makeCaption(DEMO_TEXT("控件", "Control"), true), 0, 0);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Placeholder", "Placeholder"), true), 0, 1);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Filled / Selected", "Filled / Selected"), true), 0, 2);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 0, 3);
+                    auto *header = new QHBoxLayout();
+                    header->setContentsMargins(0, 0, 0, 0);
+                    header->setSpacing(12);
+                    auto *controlHeader = makeCaption(DEMO_TEXT("控件", "Control"), true);
+                    controlHeader->setMinimumWidth(150);
+                    header->addWidget(controlHeader, 0);
+                    header->addWidget(makeCaption(DEMO_TEXT("Placeholder", "Placeholder"), true), 1);
+                    header->addWidget(makeCaption(DEMO_TEXT("Filled", "Filled"), true), 1);
+                    header->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 1);
+                    matrix->addLayout(header);
 
                     auto addRow = [&](int row, const QString &name, QWidget *placeholder, QWidget *filled, QWidget *disabled) {
-                        grid->addWidget(makeCaption(name), row, 0);
-                        grid->addWidget(prepareInput(placeholder), row, 1);
-                        grid->addWidget(prepareInput(filled), row, 2);
-                        grid->addWidget(prepareInput(disabled), row, 3);
+                        Q_UNUSED(row)
+                        auto *line = new QHBoxLayout();
+                        line->setContentsMargins(0, 0, 0, 0);
+                        line->setSpacing(12);
+                        auto *caption = makeCaption(name);
+                        caption->setMinimumWidth(150);
+                        line->addWidget(caption, 0);
+                        line->addWidget(prepareInput(placeholder), 1);
+                        line->addWidget(prepareInput(filled), 1);
+                        line->addWidget(prepareInput(disabled), 1);
+                        matrix->addLayout(line);
                     };
 
                     auto *linePlaceholder = new FluentLineEdit();
@@ -113,38 +125,10 @@ QWidget *createInputsPage(FluentMainWindow *window)
                     suggestDisabled->setDisabled(true);
                     addRow(2, QStringLiteral("FluentAutoSuggestBox"), suggestPlaceholder, suggestFilled, suggestDisabled);
 
-                    auto *searchPlaceholder = new FluentSearchBox();
-                    searchPlaceholder->setPlaceholderText(DEMO_TEXT("搜索", "Search"));
-                    searchPlaceholder->setSuggestions(suggestions);
-                    auto *searchFilled = new FluentSearchBox();
-                    searchFilled->setSuggestions(suggestions);
-                    searchFilled->setText(QStringLiteral("Fluent"));
-                    auto *searchDisabled = new FluentSearchBox();
-                    searchDisabled->setPlaceholderText(DEMO_TEXT("禁用搜索", "Disabled search"));
-                    searchDisabled->setDisabled(true);
-                    addRow(3, QStringLiteral("FluentSearchBox"), searchPlaceholder, searchFilled, searchDisabled);
-
-                    auto makeCombo = []() {
-                        auto *combo = new FluentComboBox();
-                        combo->addItem(QStringLiteral("Alpha"));
-                        combo->addItem(QStringLiteral("Beta"));
-                        combo->addItem(QStringLiteral("Gamma"));
-                        return combo;
-                    };
-                    auto *comboPlaceholder = makeCombo();
-                    comboPlaceholder->setCurrentIndex(0);
-                    auto *comboFilled = makeCombo();
-                    comboFilled->setCurrentIndex(1);
-                    auto *comboDisabled = makeCombo();
-                    comboDisabled->setCurrentIndex(2);
-                    comboDisabled->setDisabled(true);
-                    addRow(4, QStringLiteral("FluentComboBox"), comboPlaceholder, comboFilled, comboDisabled);
-
-                    grid->setColumnStretch(4, 1);
-                    body->addLayout(grid);
+                    body->addLayout(matrix);
                 },
                 false,
-                150));
+                120));
         }
 
         // LineEdit

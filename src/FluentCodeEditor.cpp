@@ -39,8 +39,8 @@ QColor codeEditorSurfaceFill(const FluentThemeTokens &tokens, bool enabled, qrea
         return Style::mix(tokens.neutral.card, tokens.neutral.background, tokens.dark ? 0.48 : 0.35);
     }
     return Style::mix(tokens.neutral.card,
-                      tokens.neutral.cardHover,
-                      qBound<qreal>(0.0, hoverLevel, 1.0) * (tokens.dark ? 0.76 : 0.68));
+                      Style::controlHoverFill(tokens),
+                      qBound<qreal>(0.0, hoverLevel, 1.0));
 }
 
 QColor codeEditorGutterFill(const FluentThemeTokens &tokens)

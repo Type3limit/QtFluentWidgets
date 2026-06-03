@@ -34,7 +34,7 @@ inline QColor primaryPressedFill(const FluentThemeTokens &tokens)
 
 inline QColor neutralHoverFill(const FluentThemeTokens &tokens)
 {
-    return Style::mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.70 : 0.55);
+    return Style::controlHoverFill(tokens);
 }
 
 inline QColor neutralPressedFill(const FluentThemeTokens &tokens)

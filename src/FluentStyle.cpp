@@ -56,6 +56,14 @@ QColor Style::withAlpha(const QColor &c, int alpha)
     return out;
 }
 
+QColor Style::controlHoverFill(const FluentThemeTokens &tokens)
+{
+    if (tokens.dark) {
+        return tokens.neutral.fillSecondary;
+    }
+    return mix(tokens.neutral.card, tokens.neutral.cardHover, 0.55);
+}
+
 QPainterPath Style::roundedRectPath(const QRectF &rect, qreal radius)
 {
     QPainterPath path;
@@ -213,8 +221,7 @@ void Style::paintControlSurface(
     } else if (pressed) {
         fill = mix(tokens.neutral.card, tokens.neutral.fillTertiary, tokens.dark ? 0.42 : 0.34);
     } else if (hoverLevel > 0.0) {
-        const QColor hover = mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.70 : 0.55);
-        fill = mix(fill, hover, hoverLevel);
+        fill = mix(fill, controlHoverFill(tokens), hoverLevel);
     }
 
     const QColor stroke = enabled ? tokens.neutral.strokeSubtle

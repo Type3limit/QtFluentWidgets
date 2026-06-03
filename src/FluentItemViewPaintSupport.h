@@ -20,7 +20,7 @@ inline QColor fluentItemHoverFill(const ThemeColors &colors, qreal level)
 inline QColor fluentItemSelectionFill(const ThemeColors &colors, qreal opacity)
 {
     const auto tokens = Theme::tokens(colors);
-    QColor fill = Style::mix(tokens.neutral.card, tokens.accent.base, tokens.dark ? 0.28 : 0.13);
+    QColor fill = Style::mix(tokens.neutral.card, tokens.accent.base, tokens.dark ? 0.32 : 0.18);
     fill.setAlphaF(qBound<qreal>(0.0, opacity, 1.0));
     return fill;
 }

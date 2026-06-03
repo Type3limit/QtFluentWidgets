@@ -82,6 +82,17 @@ bool hasStaticIcon(const FluentNavigationItem &item)
     return item.hasFluentIcon || !item.iconGlyph.isEmpty() || !item.icon.isNull();
 }
 
+QIcon fallbackIconForItem(const FluentNavigationItem &item)
+{
+    if (item.hasFluentIcon) {
+        return FluentIcon::icon(item.fluentIcon);
+    }
+    if (!item.icon.isNull()) {
+        return item.icon;
+    }
+    return QIcon();
+}
+
 QString animatedIconFingerprint(const FluentNavigationItem &item)
 {
     if (!item.animatedIconData.isEmpty()) {
@@ -1074,6 +1085,7 @@ void FluentNavigationView::Private::syncAnimatedItemIcon(FluentNavigationView *o
         icon->setFallbackIconSize(QSize(kIconSize, kIconSize));
         animatedIconWidgets.insert(key, icon);
     }
+    icon->setFallbackIcon(fallbackIconForItem(item));
 
     const QString fingerprint = animatedIconFingerprint(item);
     if (animatedIconFingerprints.value(key) != fingerprint || !icon->isLoaded()) {
@@ -1221,7 +1233,7 @@ FluentAnimatedIcon *FluentNavigationView::Private::ensureChromeAnimation(FluentN
 
 bool FluentNavigationView::Private::chromeAnimationLoaded(const QPointer<FluentAnimatedIcon> &animation, bool enabled) const
 {
-    return enabled && animation && animation->isLoaded() && animation->isVisible();
+    return enabled && animation && animation->isLoaded() && animation->isVisible() && animation->isPlaying();
 }
 
 void FluentNavigationView::Private::syncChromeAnimation(FluentNavigationView *owner,
@@ -1256,6 +1268,13 @@ void FluentNavigationView::Private::syncChromeAnimation(FluentNavigationView *ow
 
     icon->setGeometry(iconRect.toAlignedRect());
     icon->setTintColor(tint);
+
+    if (!icon->isPlaying()) {
+        icon->hide();
+        icon->setCurrentFrame(0);
+        return;
+    }
+
     icon->show();
     icon->raise();
 }
@@ -1630,6 +1649,9 @@ void FluentNavigationView::setHeaderWidget(QWidget *widget)
 bool FluentNavigationView::loadPaneToggleAnimation(const QString &path)
 {
     auto *animation = d->ensureChromeAnimation(this, d->paneToggleAnimation);
+    if (animation) {
+        animation->setFallbackIcon(FluentIcon::icon(FluentIconType::Menu));
+    }
     const bool ok = animation && animation->load(path);
     d->hasPaneToggleAnimation = ok;
     if (ok) {
@@ -1644,6 +1666,9 @@ bool FluentNavigationView::loadPaneToggleAnimationData(const QByteArray &json,
                                                        const QString &resourcePath)
 {
     auto *animation = d->ensureChromeAnimation(this, d->paneToggleAnimation);
+    if (animation) {
+        animation->setFallbackIcon(FluentIcon::icon(FluentIconType::Menu));
+    }
     const bool ok = animation && animation->loadData(json, cacheKey, resourcePath);
     d->hasPaneToggleAnimation = ok;
     if (ok) {
@@ -1666,6 +1691,9 @@ void FluentNavigationView::clearPaneToggleAnimation()
 bool FluentNavigationView::loadBackButtonAnimation(const QString &path)
 {
     auto *animation = d->ensureChromeAnimation(this, d->backButtonAnimation);
+    if (animation) {
+        animation->setFallbackIcon(FluentIcon::icon(FluentIconType::Back));
+    }
     const bool ok = animation && animation->load(path);
     d->hasBackButtonAnimation = ok;
     if (ok) {
@@ -1680,6 +1708,9 @@ bool FluentNavigationView::loadBackButtonAnimationData(const QByteArray &json,
                                                        const QString &resourcePath)
 {
     auto *animation = d->ensureChromeAnimation(this, d->backButtonAnimation);
+    if (animation) {
+        animation->setFallbackIcon(FluentIcon::icon(FluentIconType::Back));
+    }
     const bool ok = animation && animation->loadData(json, cacheKey, resourcePath);
     d->hasBackButtonAnimation = ok;
     if (ok) {

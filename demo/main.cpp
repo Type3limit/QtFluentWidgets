@@ -6,9 +6,12 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QFont>
+#include <QFontDatabase>
 #include <QGraphicsEffect>
 #include <QImage>
 #include <QList>
+#include <QLocale>
 #include <QMouseEvent>
 #include <QPointer>
 #include <QRegularExpression>
@@ -161,6 +164,48 @@ QList<RenderVariant> renderVariants(const QString &overrideValue = QString())
         }
     }
     return variants;
+}
+
+QString firstAvailableFontFamily(const QStringList &candidates)
+{
+    const QStringList installedFamilies = QFontDatabase::families();
+    for (const QString &candidate : candidates) {
+        for (const QString &family : installedFamilies) {
+            if (family.compare(candidate, Qt::CaseInsensitive) == 0) {
+                return family;
+            }
+        }
+    }
+    return QString();
+}
+
+QString preferredDemoFontFamily()
+{
+    const bool chinese = QLocale::system().language() == QLocale::Chinese;
+    const QStringList candidates = chinese
+        ? QStringList{QStringLiteral("Microsoft YaHei"),
+                      QStringLiteral("Microsoft YaHei UI"),
+                      QStringLiteral("Segoe UI")}
+        : QStringList{QStringLiteral("Segoe UI"),
+                      QStringLiteral("Microsoft YaHei"),
+                      QStringLiteral("Microsoft YaHei UI")};
+    return firstAvailableFontFamily(candidates);
+}
+
+void configureDemoFontRendering(QApplication &app)
+{
+    QFont font = app.font();
+    const QString overrideFamily = qEnvironmentVariable("QTFLUENT_DEMO_FONT_FAMILY").trimmed();
+    const QString family = overrideFamily.isEmpty() ? preferredDemoFontFamily() : overrideFamily;
+    if (!family.isEmpty()) {
+        font.setFamily(family);
+    }
+    font.setHintingPreference(QFont::PreferFullHinting);
+    font.setStyleStrategy(QFont::PreferAntialias);
+    app.setFont(font);
+
+    qInfo().noquote() << QStringLiteral("[DemoStartup] font family=\"%1\" hinting=PreferFullHinting")
+                             .arg(app.font().family());
 }
 
 int currentScalePercent()
@@ -653,6 +698,7 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
     qInfo().noquote() << QStringLiteral("[DemoStartup] QApplication constructed at %1 ms").arg(startupTimer.elapsed());
+    configureDemoFontRendering(app);
 
     QCoreApplication::setOrganizationName(QStringLiteral("QtFluent"));
     QCoreApplication::setApplicationName(QStringLiteral("QtFluentDemo"));

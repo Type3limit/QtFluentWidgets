@@ -11,14 +11,17 @@
 
 ## 预览
 
-### 浅色模式：
+### 浅色模式
 
-![QtFluentWidgets LightMode](img/light.gif)
+| 总览 | 按钮 / 开关 | 容器 / 布局 |
+| --- | --- | --- |
+| ![QtFluentWidgets 浅色总览](img/preview-light-overview.png) | ![QtFluentWidgets 浅色按钮](img/preview-light-buttons.png) | ![QtFluentWidgets 浅色容器](img/preview-light-containers.png) |
 
+### 深色模式
 
-### 深色模式：
-
-![QtFluentWidgets DarkMode](img/dark.gif)
+| 总览 | 按钮 / 开关 | 容器 / 布局 |
+| --- | --- | --- |
+| ![QtFluentWidgets 深色总览](img/preview-dark-overview.png) | ![QtFluentWidgets 深色按钮](img/preview-dark-buttons.png) | ![QtFluentWidgets 深色容器](img/preview-dark-containers.png) |
 
 ## 特性
 

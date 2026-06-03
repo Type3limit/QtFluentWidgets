@@ -235,33 +235,42 @@ QWidget *createContainersPage(FluentMainWindow *window)
                         return tabs;
                     };
 
-                    auto *grid = new QGridLayout();
-                    grid->setContentsMargins(0, 0, 0, 0);
-                    grid->setHorizontalSpacing(14);
-                    grid->setVerticalSpacing(10);
+                    auto *navGrid = new QGridLayout();
+                    navGrid->setContentsMargins(0, 0, 0, 0);
+                    navGrid->setHorizontalSpacing(18);
+                    navGrid->setVerticalSpacing(10);
 
-                    grid->addWidget(makeCaption(DEMO_TEXT("控件", "Control"), true), 0, 0);
-                    grid->addWidget(makeCaption(QStringLiteral("Left / Underline"), true), 0, 1);
-                    grid->addWidget(makeCaption(QStringLiteral("Compact / Document"), true), 0, 2);
-                    grid->addWidget(makeCaption(QStringLiteral("Top / Disabled"), true), 0, 3);
+                    navGrid->addWidget(makeCaption(QStringLiteral("FluentNavigationView"), true), 0, 0, 1, 3);
+                    navGrid->addWidget(makeCaption(QStringLiteral("Left"), true), 1, 0);
+                    navGrid->addWidget(makeCaption(QStringLiteral("Compact"), true), 1, 1);
+                    navGrid->addWidget(makeCaption(QStringLiteral("Top"), true), 1, 2);
+                    navGrid->addWidget(makeNav(FluentNavigationView::Left, QSize(212, 224)), 2, 0);
+                    navGrid->addWidget(makeNav(FluentNavigationView::LeftCompact, QSize(72, 224)), 2, 1);
+                    navGrid->addWidget(makeNav(FluentNavigationView::Top, QSize(292, 118)), 2, 2);
+                    navGrid->setColumnStretch(0, 1);
+                    navGrid->setColumnStretch(1, 0);
+                    navGrid->setColumnStretch(2, 1);
+                    body->addLayout(navGrid);
 
-                    grid->addWidget(makeCaption(QStringLiteral("FluentNavigationView")), 1, 0);
-                    grid->addWidget(makeNav(FluentNavigationView::Left, QSize(212, 188)), 1, 1);
-                    grid->addWidget(makeNav(FluentNavigationView::LeftCompact, QSize(72, 188)), 1, 2);
-                    grid->addWidget(makeNav(FluentNavigationView::Top, QSize(292, 118)), 1, 3);
+                    auto *tabGrid = new QGridLayout();
+                    tabGrid->setContentsMargins(0, 10, 0, 0);
+                    tabGrid->setHorizontalSpacing(18);
+                    tabGrid->setVerticalSpacing(10);
 
-                    grid->addWidget(makeCaption(QStringLiteral("FluentTabWidget")), 2, 0);
-                    grid->addWidget(makeTabs(FluentTabWidget::TabDisplayMode::Underline), 2, 1);
-                    grid->addWidget(makeTabs(FluentTabWidget::TabDisplayMode::Document), 2, 2);
-                    grid->addWidget(makeTabs(FluentTabWidget::TabDisplayMode::Underline, false), 2, 3);
-
-                    grid->setColumnStretch(1, 1);
-                    grid->setColumnStretch(2, 1);
-                    grid->setColumnStretch(3, 1);
-                    body->addLayout(grid);
+                    tabGrid->addWidget(makeCaption(QStringLiteral("FluentTabWidget"), true), 0, 0, 1, 3);
+                    tabGrid->addWidget(makeCaption(QStringLiteral("Underline"), true), 1, 0);
+                    tabGrid->addWidget(makeCaption(QStringLiteral("Document"), true), 1, 1);
+                    tabGrid->addWidget(makeCaption(QStringLiteral("Disabled"), true), 1, 2);
+                    tabGrid->addWidget(makeTabs(FluentTabWidget::TabDisplayMode::Underline), 2, 0);
+                    tabGrid->addWidget(makeTabs(FluentTabWidget::TabDisplayMode::Document), 2, 1);
+                    tabGrid->addWidget(makeTabs(FluentTabWidget::TabDisplayMode::Underline, false), 2, 2);
+                    tabGrid->setColumnStretch(0, 1);
+                    tabGrid->setColumnStretch(1, 1);
+                    tabGrid->setColumnStretch(2, 1);
+                    body->addLayout(tabGrid);
                 },
                 false,
-                170));
+                130));
         }
 
         // FluentCard

@@ -86,6 +86,29 @@ void paintFallbackIcon(QPainter &painter,
     painter.drawImage(rect.topLeft(), image);
 }
 
+bool imageHasVisiblePixels(const QImage &image)
+{
+    if (image.isNull()) {
+        return false;
+    }
+
+    constexpr int kVisibleAlphaThreshold = 16;
+    constexpr int kMinimumVisiblePixels = 12;
+    int visiblePixels = 0;
+
+    const QImage argb = image.convertToFormat(QImage::Format_ARGB32);
+    for (int y = 0; y < argb.height(); ++y) {
+        const QRgb *line = reinterpret_cast<const QRgb *>(argb.constScanLine(y));
+        for (int x = 0; x < argb.width(); ++x) {
+            if (qAlpha(line[x]) > kVisibleAlphaThreshold && ++visiblePixels >= kMinimumVisiblePixels) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 } // namespace
 
 struct FluentLottieWidget::Private
@@ -566,6 +589,15 @@ void FluentLottieWidget::paintEvent(QPaintEvent *event)
 
         QRectF target(QPointF(0, 0), QSizeF(logicalSize));
         target.moveCenter(bounds.center());
+        if (!d->fallbackIcon.isNull() && !imageHasVisiblePixels(*frame)) {
+            const QSize iconSize = boundedIconSize(d->fallbackIconSize).boundedTo(bounds.size().toSize());
+            const QRect iconRect(QPoint(qRound(bounds.center().x() - iconSize.width() / 2.0),
+                                        qRound(bounds.center().y() - iconSize.height() / 2.0)),
+                                 iconSize);
+            const QIcon::Mode mode = isEnabled() ? QIcon::Normal : QIcon::Disabled;
+            paintFallbackIcon(painter, d->fallbackIcon, iconRect, mode, d->tintColor);
+            return;
+        }
         painter.drawImage(target.topLeft(), *frame);
         return;
     }

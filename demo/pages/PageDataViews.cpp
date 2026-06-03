@@ -10,6 +10,7 @@
 #include <QStandardItem>
 #include <QStandardItemModel>
 #include <QStringListModel>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "Fluent/FluentLabel.h"
@@ -45,22 +46,20 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
 #define DATAVIEWS_STATE_PREVIEW(X) \
     X(auto *grid = new QGridLayout();) \
     X(grid->setContentsMargins(0, 0, 0, 0);) \
-    X(grid->setHorizontalSpacing(14);) \
-    X(grid->setVerticalSpacing(10);) \
-    X(auto makeCaption = [](const QString &text, bool strong = false) { auto *label = new FluentLabel(text); label->setWordWrap(true); label->setStyleSheet(strong ? QStringLiteral("font-size: 12px; font-weight: 600; opacity: 0.9;") : QStringLiteral("font-size: 12px; opacity: 0.78;")); return label; };) \
-    X(auto makeList = [](bool enabled) { auto *view = new FluentListView(); auto *model = new QStringListModel({QStringLiteral("Normal row"), QStringLiteral("Selected row"), QStringLiteral("Hover candidate")}, view); view->setModel(model); view->setFixedSize(220, 120); view->setCurrentIndex(model->index(1, 0)); view->selectionModel()->select(model->index(1, 0), QItemSelectionModel::ClearAndSelect); view->setEnabled(enabled); return view; };) \
-    X(auto makeTable = [](bool enabled) { auto *view = new FluentTableView(); auto *model = new QStandardItemModel(3, 2, view); model->setHorizontalHeaderLabels({QStringLiteral("State"), QStringLiteral("Token")}); model->setItem(0, 0, new QStandardItem(QStringLiteral("Normal"))); model->setItem(0, 1, new QStandardItem(QStringLiteral("surface"))); model->setItem(1, 0, new QStandardItem(QStringLiteral("Selected"))); model->setItem(1, 1, new QStandardItem(QStringLiteral("accent"))); model->setItem(2, 0, new QStandardItem(QStringLiteral("Focus"))); model->setItem(2, 1, new QStandardItem(QStringLiteral("border"))); view->setModel(model); view->setFixedSize(240, 128); view->setCurrentIndex(model->index(1, 0)); view->selectionModel()->select(model->index(1, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows); view->setEnabled(enabled); return view; };) \
-    X(auto makeTree = [](bool enabled) { auto *view = new FluentTreeView(); auto *model = new QStandardItemModel(view); model->setHorizontalHeaderLabels({QStringLiteral("Section"), QStringLiteral("Value")}); auto *root = new QStandardItem(QStringLiteral("Group")); auto *rootValue = new QStandardItem(QStringLiteral("Ready")); root->appendRow({new QStandardItem(QStringLiteral("Selected child")), new QStandardItem(QStringLiteral("Active"))}); root->appendRow({new QStandardItem(QStringLiteral("Nested child")), new QStandardItem(QStringLiteral("Idle"))}); model->appendRow({root, rootValue}); view->setModel(model); view->expandAll(); view->setFixedSize(240, 136); const QModelIndex index = model->index(0, 0, root->index()); view->setCurrentIndex(index); view->selectionModel()->select(index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows); view->setEnabled(enabled); return view; };) \
-    X(auto makeTableWidget = [](bool enabled) { auto *view = new FluentTableWidget(3, 2); view->setHorizontalHeaderLabels({QStringLiteral("Field"), QStringLiteral("Value")}); view->setItem(0, 0, new QTableWidgetItem(QStringLiteral("Normal"))); view->setItem(0, 1, new QTableWidgetItem(QStringLiteral("Ready"))); view->setItem(1, 0, new QTableWidgetItem(QStringLiteral("Selected"))); view->setItem(1, 1, new QTableWidgetItem(QStringLiteral("On"))); view->setItem(2, 0, new QTableWidgetItem(QStringLiteral("Hover"))); view->setItem(2, 1, new QTableWidgetItem(QStringLiteral("Candidate"))); view->setFixedSize(240, 128); view->setCurrentCell(1, 0); view->selectionModel()->select(view->model()->index(1, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows); view->setEnabled(enabled); return view; };) \
-    X(grid->addWidget(makeCaption(DEMO_TEXT("控件", "Control"), true), 0, 0);) \
-    X(grid->addWidget(makeCaption(DEMO_TEXT("Selected / Header", "Selected / Header"), true), 0, 1);) \
-    X(grid->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 0, 2);) \
-    X(grid->addWidget(makeCaption(QStringLiteral("FluentListView")), 1, 0); grid->addWidget(makeList(true), 1, 1); grid->addWidget(makeList(false), 1, 2);) \
-    X(grid->addWidget(makeCaption(QStringLiteral("FluentTableView")), 2, 0); grid->addWidget(makeTable(true), 2, 1); grid->addWidget(makeTable(false), 2, 2);) \
-    X(grid->addWidget(makeCaption(QStringLiteral("FluentTreeView")), 3, 0); grid->addWidget(makeTree(true), 3, 1); grid->addWidget(makeTree(false), 3, 2);) \
-    X(grid->addWidget(makeCaption(QStringLiteral("FluentTableWidget")), 4, 0); grid->addWidget(makeTableWidget(true), 4, 1); grid->addWidget(makeTableWidget(false), 4, 2);) \
+    X(grid->setHorizontalSpacing(18);) \
+    X(grid->setVerticalSpacing(14);) \
+    X(auto makeCaption = [](const QString &text) { auto *label = new FluentLabel(text); label->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: 600; opacity: 0.9;")); return label; };) \
+    X(auto makeBlock = [&](const QString &title, QWidget *view) { auto *host = new QWidget(); auto *layout = new QVBoxLayout(host); layout->setContentsMargins(0, 0, 0, 0); layout->setSpacing(6); layout->addWidget(makeCaption(title)); layout->addWidget(view); return host; };) \
+    X(auto makeList = []() { auto *view = new FluentListView(); auto *model = new QStringListModel({QStringLiteral("Normal row"), QStringLiteral("Selected row"), QStringLiteral("Hover candidate")}, view); view->setModel(model); view->setFixedSize(260, 118); QTimer::singleShot(0, view, [view, model]() { view->selectionModel()->setCurrentIndex(model->index(1, 0), QItemSelectionModel::ClearAndSelect); }); return view; };) \
+    X(auto makeTable = []() { auto *view = new FluentTableView(); auto *model = new QStandardItemModel(3, 2, view); model->setHorizontalHeaderLabels({QStringLiteral("State"), QStringLiteral("Token")}); model->setItem(0, 0, new QStandardItem(QStringLiteral("Normal"))); model->setItem(0, 1, new QStandardItem(QStringLiteral("surface"))); model->setItem(1, 0, new QStandardItem(QStringLiteral("Selected"))); model->setItem(1, 1, new QStandardItem(QStringLiteral("accent"))); model->setItem(2, 0, new QStandardItem(QStringLiteral("Focus"))); model->setItem(2, 1, new QStandardItem(QStringLiteral("border"))); view->setModel(model); view->setFixedSize(280, 130); QTimer::singleShot(0, view, [view, model]() { view->selectionModel()->setCurrentIndex(model->index(1, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows); }); return view; };) \
+    X(auto makeTree = []() { auto *view = new FluentTreeView(); auto *model = new QStandardItemModel(view); model->setHorizontalHeaderLabels({QStringLiteral("Section"), QStringLiteral("Value")}); auto *root = new QStandardItem(QStringLiteral("Group")); auto *rootValue = new QStandardItem(QStringLiteral("Ready")); root->appendRow({new QStandardItem(QStringLiteral("Selected child")), new QStandardItem(QStringLiteral("Active"))}); root->appendRow({new QStandardItem(QStringLiteral("Nested child")), new QStandardItem(QStringLiteral("Idle"))}); model->appendRow({root, rootValue}); view->setModel(model); view->expandAll(); view->setFixedSize(280, 136); QTimer::singleShot(0, view, [view, model]() { const QModelIndex rootIndex = model->index(0, 0); view->selectionModel()->setCurrentIndex(model->index(0, 0, rootIndex), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows); }); return view; };) \
+    X(auto makeTableWidget = []() { auto *view = new FluentTableWidget(3, 2); view->setHorizontalHeaderLabels({QStringLiteral("Field"), QStringLiteral("Value")}); view->setItem(0, 0, new QTableWidgetItem(QStringLiteral("Normal"))); view->setItem(0, 1, new QTableWidgetItem(QStringLiteral("Ready"))); view->setItem(1, 0, new QTableWidgetItem(QStringLiteral("Selected"))); view->setItem(1, 1, new QTableWidgetItem(QStringLiteral("On"))); view->setItem(2, 0, new QTableWidgetItem(QStringLiteral("Hover"))); view->setItem(2, 1, new QTableWidgetItem(QStringLiteral("Candidate"))); view->setFixedSize(280, 130); QTimer::singleShot(0, view, [view]() { view->selectionModel()->setCurrentIndex(view->model()->index(1, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows); }); return view; };) \
+    X(grid->addWidget(makeBlock(QStringLiteral("FluentListView"), makeList()), 0, 0);) \
+    X(grid->addWidget(makeBlock(QStringLiteral("FluentTreeView"), makeTree()), 0, 1);) \
+    X(grid->addWidget(makeBlock(QStringLiteral("FluentTableView"), makeTable()), 1, 0);) \
+    X(grid->addWidget(makeBlock(QStringLiteral("FluentTableWidget"), makeTableWidget()), 1, 1);) \
+    X(grid->setColumnStretch(0, 1);) \
     X(grid->setColumnStretch(1, 1);) \
-    X(grid->setColumnStretch(2, 1);) \
     X(body->addLayout(grid);)
 
 #define X(line) code += QStringLiteral(#line "\n");
@@ -88,7 +87,7 @@ QWidget *createDataViewsPage(FluentMainWindow *window)
 #undef X
                 },
                 false,
-                310));
+                220));
 
 #undef DATAVIEWS_STATE_PREVIEW
         }

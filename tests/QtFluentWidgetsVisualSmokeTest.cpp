@@ -2527,17 +2527,24 @@ private slots:
                           tokens.neutral.strokeSubtle,
                           colors.border);
         const QRect eyeFillSample(5, 5, 8, 7);
-        const QColor expectedEyeHover =
-            Style::mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.70 : 0.55);
+        const QColor expectedEyeHover = Style::controlHoverFill(tokens);
         sendEnter(&eyedropper);
         const QImage eyeHoverImage = renderWidgetImage(&eyedropper, QSize(30, 30));
         const QColor eyeHoverFill = dominantColor(eyeHoverImage, eyeFillSample);
         QVERIFY2(colorDelta(eyeHoverFill, expectedEyeHover) < 28,
-                 qPrintable(QStringLiteral("EyeDropperButton hover fill should use neutral card/cardHover tokens, got %1 expected near %2")
+                 qPrintable(QStringLiteral("EyeDropperButton hover fill should use the control hover token, got %1 expected near %2")
                                 .arg(eyeHoverFill.name(), expectedEyeHover.name())));
-        QVERIFY2(colorDelta(eyeHoverFill, colors.hover) > 96,
-                 qPrintable(QStringLiteral("EyeDropperButton hover fill should not use raw legacy hover color, got %1")
-                                .arg(eyeHoverFill.name())));
+        if (tokens.dark) {
+            const QColor cardSurfaceHover =
+                Style::mix(tokens.neutral.card, tokens.neutral.cardHover, 0.70);
+            QVERIFY2(colorDelta(eyeHoverFill, cardSurfaceHover) > 6,
+                     qPrintable(QStringLiteral("Dark EyeDropperButton hover should separate from card hover, got %1 card hover %2")
+                                    .arg(eyeHoverFill.name(), cardSurfaceHover.name())));
+        } else {
+            QVERIFY2(colorDelta(eyeHoverFill, colors.hover) > 96,
+                     qPrintable(QStringLiteral("EyeDropperButton hover fill should not use raw legacy hover color, got %1")
+                                    .arg(eyeHoverFill.name())));
+        }
 
         const QColor expectedEyePressed =
             Style::mix(tokens.neutral.card, tokens.neutral.fillTertiary, tokens.dark ? 0.44 : 0.38);
@@ -4226,6 +4233,33 @@ private slots:
         QVERIFY2(nearColorPixelCount(resetFrame, retintColor, loadedIconSample, 64) < 10,
                  "Reset loaded Lottie frames should not keep the previous tint cache");
 
+        const QByteArray transparentLottieJson = QByteArrayLiteral(R"JSON({
+  "v": "5.7.4",
+  "fr": 60,
+  "ip": 0,
+  "op": 1,
+  "w": 96,
+  "h": 96,
+  "nm": "QtFluent Transparent Lottie",
+  "ddd": 0,
+  "assets": [],
+  "layers": []
+})JSON");
+        FluentLottieWidget transparentLoadedWidget;
+        transparentLoadedWidget.setFallbackIcon(QIcon(QPixmap::fromImage(source)));
+        transparentLoadedWidget.setFallbackIconSize(QSize(28, 28));
+        transparentLoadedWidget.setTintColor(tokens.accent.base);
+        QVERIFY2(transparentLoadedWidget.loadData(transparentLottieJson, QStringLiteral("visual-smoke-lottie-transparent-frame")),
+                 "Transparent Lottie fixture should parse so blank loaded frames can use fallback icons");
+        transparentLoadedWidget.setCurrentFrame(0);
+        transparentLoadedWidget.resize(48, 48);
+        transparentLoadedWidget.show();
+        QCoreApplication::processEvents();
+
+        const QImage transparentFallbackFrame = renderWidgetImage(&transparentLoadedWidget);
+        QVERIFY2(nearColorPixelCount(transparentFallbackFrame, tokens.accent.base, loadedIconSample, 64) > 40,
+                 "Loaded Lottie frames that render transparent should fall back to the themed fallback icon");
+
         FluentAnimatedButton primary(QStringLiteral("Search"));
         primary.setPrimary(true);
         primary.setAnimatedIconSize(QSize(28, 28));
@@ -5686,9 +5720,9 @@ private slots:
         QVERIFY(indicator->hasMarker(QStringLiteral("Collapsed")));
         QCOMPARE(indicator->markerFrame(QStringLiteral("Expanded")), 8);
         QCOMPARE(indicator->markerFrame(QStringLiteral("Collapsed")), 72);
-        QVERIFY2(!indicator->isHidden(),
-                 "Loaded Lottie collapse indicator should be explicitly shown before the card is shown");
-        QCOMPARE(chevronButton->icon().isNull(), true);
+        QVERIFY2(indicator->isHidden(),
+                 "Idle Lottie collapse indicator should stay hidden so the static chevron remains visible");
+        QCOMPARE(chevronButton->icon().isNull(), false);
         QCOMPARE(indicator->currentFrame(), indicator->markerFrame(QStringLiteral("Expanded")));
         QCOMPARE(indicator->state(), QStringLiteral("Expanded"));
 
@@ -6863,8 +6897,7 @@ private slots:
         QCoreApplication::processEvents();
         QCOMPARE(normalButton->hoverLevel(), 1.0);
 
-        QColor expectedHoverFill =
-            Style::mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.70 : 0.55);
+        QColor expectedHoverFill = Style::controlHoverFill(tokens);
         expectedHoverFill.setAlphaF(tokens.dark ? 0.95 : 0.90);
         const QColor expectedHover = blendOver(expectedHoverFill, transparentProbeBackground);
         const QImage hoverButton = renderButtonOver(normalButton, transparentProbeBackground);
@@ -7087,9 +7120,7 @@ private slots:
                                       const ThemeColors &colors,
                                       bool checkLegacyAbsence = false) {
             const auto tokenSet = Theme::tokens(colors);
-            const QColor expectedHover = Style::mix(tokenSet.neutral.card,
-                                                    tokenSet.neutral.cardHover,
-                                                    tokenSet.dark ? 0.70 : 0.55);
+            const QColor expectedHover = Style::controlHoverFill(tokenSet);
             const QColor expectedPressed = Style::mix(tokenSet.neutral.card,
                                                       tokenSet.neutral.fillTertiary,
                                                       tokenSet.dark ? 0.44 : 0.38);
@@ -9336,7 +9367,7 @@ private slots:
 
         const FluentThemeTokens tokens = ThemeManager::instance().tokens();
         const QColor expectedSelection =
-            Style::mix(tokens.neutral.card, tokens.accent.base, tokens.dark ? 0.28 : 0.13);
+            Style::mix(tokens.neutral.card, tokens.accent.base, tokens.dark ? 0.32 : 0.18);
         QColor hoverFill = tokens.neutral.cardHover;
         hoverFill.setAlphaF(tokens.dark ? 0.82 : 0.90);
         const QColor expectedHover = blendOver(hoverFill, tokens.neutral.card);
@@ -9457,7 +9488,7 @@ private slots:
         const ThemeColors colors = ThemeManager::instance().colors();
         const FluentThemeTokens tokens = ThemeManager::instance().tokens();
         const QColor expectedDisabledSelection = disabledSelectionFill(colors);
-        const QColor enabledSelection = Style::mix(tokens.neutral.card, tokens.accent.base, tokens.dark ? 0.28 : 0.13);
+        const QColor enabledSelection = Style::mix(tokens.neutral.card, tokens.accent.base, tokens.dark ? 0.32 : 0.18);
 
         auto assertDisabledSelection = [&](QAbstractItemView *view, const QModelIndex &index, const QString &name) {
             QVERIFY2(view, qPrintable(name + QStringLiteral(" should exist")));
@@ -10101,8 +10132,8 @@ private slots:
                 return Style::mix(tokens.neutral.card, tokens.neutral.background, tokens.dark ? 0.48 : 0.35);
             }
             return Style::mix(tokens.neutral.card,
-                              tokens.neutral.cardHover,
-                              qBound<qreal>(0.0, hoverLevel, 1.0) * (tokens.dark ? 0.76 : 0.68));
+                              Style::controlHoverFill(tokens),
+                              qBound<qreal>(0.0, hoverLevel, 1.0));
         };
         auto codeEditorGutterFill = [](const FluentThemeTokens &tokens) {
             return Style::mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.82 : 0.74);
@@ -10138,7 +10169,7 @@ private slots:
         const QColor surfaceFill = dominantColor(surfaceImage, surfaceSample);
         const QColor expectedSurface = codeEditorSurfaceFill(tokens, true, 1.0);
         QVERIFY2(colorDelta(surfaceFill, expectedSurface) < 42,
-                 qPrintable(QStringLiteral("CodeEditor viewport surface should use neutral card/cardHover tokens, got %1 expected near %2")
+                 qPrintable(QStringLiteral("CodeEditor viewport surface should use the control hover token, got %1 expected near %2")
                                 .arg(surfaceFill.name(), expectedSurface.name())));
         QVERIFY2(nearColorPixelCount(surfaceImage,
                                      tokens.neutral.strokeSubtle,
@@ -11029,9 +11060,7 @@ private slots:
 
         const auto &darkColors = ThemeManager::instance().colors();
         const auto darkTokens = ThemeManager::instance().tokens();
-        const QColor darkHover = Style::mix(darkTokens.neutral.card,
-                                            darkTokens.neutral.cardHover,
-                                            darkTokens.dark ? 0.70 : 0.55);
+        const QColor darkHover = Style::controlHoverFill(darkTokens);
         const QString darkStyle = toolbar.styleSheet();
         QVERIFY(lightStyle != darkStyle);
         QVERIFY(darkStyle.contains(darkTokens.neutral.card.name(QColor::HexArgb)));
@@ -11040,8 +11069,11 @@ private slots:
         QVERIFY(darkStyle.contains(darkColors.text.name(QColor::HexArgb)));
         QVERIFY2(!darkStyle.contains(darkColors.border.name(QColor::HexArgb)),
                  "Dark FluentToolBar style should not use the raw legacy border color");
-        QVERIFY2(!darkStyle.contains(darkColors.hover.name(QColor::HexArgb)),
-                 "Dark FluentToolBar style should not use the raw legacy hover color");
+        const QColor legacyDarkHover = Style::mix(darkColors.surface, darkColors.hover, 0.32);
+        if (legacyDarkHover != darkHover) {
+            QVERIFY2(!darkStyle.contains(legacyDarkHover.name(QColor::HexArgb)),
+                     "Dark FluentToolBar style should not use the old surface/hover mix");
+        }
     }
 
     void toolBarPreservesWrappedActionMaintenanceSemantics()
@@ -12037,9 +12069,16 @@ private slots:
         QTRY_VERIFY(chromeNav.isVisible());
         QVERIFY2(!renderWidgetImage(&chromeNav).isNull(),
                  "NavigationView chrome Lottie icon should render to an offscreen QWidget::render image");
-        FluentAnimatedIcon *paneToggleIcon = firstVisibleLoadedLottieIcon(&chromeNav);
-        QVERIFY2(paneToggleIcon,
-                 "NavigationView should expose a visible loaded pane-toggle Lottie icon after render synchronization");
+        FluentAnimatedIcon *paneToggleIcon = nullptr;
+        const auto chromeIcons = chromeNav.findChildren<FluentAnimatedIcon *>();
+        for (FluentAnimatedIcon *icon : chromeIcons) {
+            if (icon && icon->isLoaded()) {
+                paneToggleIcon = icon;
+                break;
+            }
+        }
+        QVERIFY2(paneToggleIcon && !paneToggleIcon->isVisible(),
+                 "NavigationView idle pane-toggle Lottie should stay loaded but hidden behind the static Menu icon");
 
         QMouseEvent paneTogglePress(QEvent::MouseButtonPress,
                                     QPointF(22.0, 20.0),
@@ -12057,7 +12096,9 @@ private slots:
         QCoreApplication::processEvents();
         QTRY_VERIFY2(!paneToggleIcon->isPlaying(),
                      "NavigationView pane-toggle Lottie icon should stop when reduced motion is enabled mid-flight");
-        QCOMPARE(paneToggleIcon->currentFrame(), qMax(0, paneToggleIcon->totalFrames() - 1));
+        QVERIFY2(paneToggleIcon->currentFrame() == 0
+                     || paneToggleIcon->currentFrame() == qMax(0, paneToggleIcon->totalFrames() - 1),
+                 "NavigationView hidden pane-toggle Lottie should snap to a stable endpoint under reduced motion");
     }
 
     void navigationChromeAnimationsClearToStaticIcons()
@@ -12099,11 +12140,11 @@ private slots:
         QVERIFY2(!renderWidgetImage(&nav, nav.size()).isNull(),
                  "NavigationView loaded chrome animations should render offscreen before clearing");
 
-        auto visibleLoadedIcons = [&nav]() {
+        auto loadedChromeIcons = [&nav]() {
             QList<FluentAnimatedIcon *> icons;
             const auto allIcons = nav.findChildren<FluentAnimatedIcon *>();
             for (FluentAnimatedIcon *icon : allIcons) {
-                if (icon && icon->isLoaded() && icon->isVisible()) {
+                if (icon && icon->isLoaded()) {
                     icons.append(icon);
                 }
             }
@@ -12113,11 +12154,13 @@ private slots:
             return icons;
         };
 
-        QList<FluentAnimatedIcon *> icons = visibleLoadedIcons();
+        QList<FluentAnimatedIcon *> icons = loadedChromeIcons();
         QCOMPARE(icons.size(), 2);
         QPointer<FluentAnimatedIcon> backIcon = icons.at(0);
         QPointer<FluentAnimatedIcon> paneIcon = icons.at(1);
         QVERIFY(backIcon && paneIcon);
+        QVERIFY2(!backIcon->isVisible() && !paneIcon->isVisible(),
+                 "Idle NavigationView chrome Lottie widgets should stay hidden while static icons render");
 
         nav.clearPaneToggleAnimation();
         QCoreApplication::processEvents();
@@ -12125,10 +12168,10 @@ private slots:
                  "NavigationView should render offscreen after clearing pane-toggle animation");
         QVERIFY2(paneIcon && !paneIcon->isVisible(),
                  "clearPaneToggleAnimation should hide the pane-toggle Lottie widget");
-        QVERIFY2(backIcon && backIcon->isVisible(),
-                 "clearPaneToggleAnimation should leave the back-button Lottie widget active");
-        icons = visibleLoadedIcons();
-        QCOMPARE(icons.size(), 1);
+        QVERIFY2(backIcon && !backIcon->isVisible(),
+                 "clearPaneToggleAnimation should leave the idle back-button Lottie widget hidden behind static chrome");
+        icons = loadedChromeIcons();
+        QCOMPARE(icons.size(), 2);
         QCOMPARE(icons.constFirst(), backIcon.data());
 
         nav.clearBackButtonAnimation();
@@ -12138,7 +12181,7 @@ private slots:
                  "NavigationView should render static chrome after clearing both Lottie animations");
         QVERIFY2(backIcon && !backIcon->isVisible(),
                  "clearBackButtonAnimation should hide the back-button Lottie widget");
-        QVERIFY2(visibleLoadedIcons().isEmpty(),
+        QVERIFY2(!backIcon->isLoaded() || !backIcon->isVisible(),
                  "Cleared NavigationView chrome animations should not leave visible Lottie widgets");
 
         const QColor iconColor = ThemeManager::instance().colors().text;
@@ -12228,20 +12271,24 @@ private slots:
         QVERIFY2(!renderWidgetImage(&compactNav, compactNav.size()).isNull(),
                  "Compact NavigationView chrome and item Lottie icons should render offscreen");
 
-        QList<FluentAnimatedIcon *> visibleIcons;
+        QList<FluentAnimatedIcon *> loadedIcons;
         const auto allIcons = compactNav.findChildren<FluentAnimatedIcon *>();
         for (FluentAnimatedIcon *icon : allIcons) {
-            if (icon && icon->isLoaded() && icon->isVisible()) {
-                visibleIcons.append(icon);
+            if (icon && icon->isLoaded()) {
+                loadedIcons.append(icon);
             }
         }
-        std::sort(visibleIcons.begin(), visibleIcons.end(), [](const FluentAnimatedIcon *a, const FluentAnimatedIcon *b) {
+        std::sort(loadedIcons.begin(), loadedIcons.end(), [](const FluentAnimatedIcon *a, const FluentAnimatedIcon *b) {
             return a->geometry().center().y() < b->geometry().center().y();
         });
 
-        QCOMPARE(visibleIcons.size(), 2);
-        const int chromeCenterX = visibleIcons.at(0)->geometry().center().x();
-        const int itemCenterX = visibleIcons.at(1)->geometry().center().x();
+        QCOMPARE(loadedIcons.size(), 2);
+        QVERIFY2(!loadedIcons.at(0)->isVisible(),
+                 "Idle compact pane-toggle Lottie should stay hidden behind the static Menu icon");
+        QVERIFY2(loadedIcons.at(1)->isVisible(),
+                 "Selected compact item Lottie should remain visible for animated item chrome");
+        const int chromeCenterX = loadedIcons.at(0)->geometry().center().x();
+        const int itemCenterX = loadedIcons.at(1)->geometry().center().x();
         QVERIFY2(qAbs(chromeCenterX - itemCenterX) <= 1,
                  qPrintable(QStringLiteral("Compact NavigationView pane toggle should align with item icon column, chrome=%1 item=%2")
                                 .arg(chromeCenterX)
@@ -13433,6 +13480,41 @@ private slots:
                  "Style::paintControlSurface should not use the legacy focus color");
     }
 
+    void controlSurfaceHoverSeparatesFromDarkCardHover()
+    {
+        auto colorDelta = [](const QColor &a, const QColor &b) {
+            return qAbs(a.red() - b.red())
+                 + qAbs(a.green() - b.green())
+                 + qAbs(a.blue() - b.blue());
+        };
+
+        const ThemeColors colors = Theme::dark();
+        const FluentThemeTokens tokens = Theme::tokens(colors);
+
+        QImage image(104, 56, QImage::Format_ARGB32);
+        image.fill(Qt::transparent);
+        {
+            QPainter painter(&image);
+            Style::paintControlSurface(painter,
+                                       QRectF(10, 10, 84, 36),
+                                       colors,
+                                       1.0,
+                                       0.0,
+                                       true,
+                                       false);
+        }
+
+        const QColor hoverFill = dominantColor(image, QRect(28, 22, 48, 12));
+        const QColor expectedControlHover = Style::controlHoverFill(tokens);
+        const QColor cardSurfaceHover = Style::mix(tokens.neutral.card, tokens.neutral.cardHover, 0.70);
+        QVERIFY2(colorDelta(hoverFill, expectedControlHover) < 18,
+                 qPrintable(QStringLiteral("Dark control surface hover should use controlHoverFill, got %1 expected near %2")
+                                .arg(hoverFill.name(), expectedControlHover.name())));
+        QVERIFY2(colorDelta(hoverFill, cardSurfaceHover) > 6,
+                 qPrintable(QStringLiteral("Dark control surface hover should not collapse into card hover, got %1 card hover %2")
+                                .arg(hoverFill.name(), cardSurfaceHover.name())));
+    }
+
     void buttonSurfacesUseThemeTokens()
     {
         auto colorDelta = [](const QColor &a, const QColor &b) {
@@ -13482,8 +13564,7 @@ private slots:
         const FluentThemeTokens lightTokens = ThemeManager::instance().tokens();
         const ThemeColors lightColors = ThemeManager::instance().colors();
         const QColor lightHoverFill = dominantColor(lightHoverImage, fillSample);
-        const QColor expectedLightHover =
-            Style::mix(lightTokens.neutral.card, lightTokens.neutral.cardHover, 0.55);
+        const QColor expectedLightHover = Style::controlHoverFill(lightTokens);
         const QColor legacyLightHover = Style::mix(lightColors.surface, lightColors.hover, 0.88);
         QVERIFY2(colorDelta(lightHoverFill, expectedLightHover) < 42,
                  qPrintable(QStringLiteral("Neutral FluentButton hover should use neutral card tokens, got %1 expected near %2")
@@ -13491,6 +13572,20 @@ private slots:
         QVERIFY2(colorDelta(lightHoverFill, legacyLightHover) > 12,
                  qPrintable(QStringLiteral("Neutral FluentButton hover should not fall back to legacy surface/hover mix, got %1")
                                 .arg(lightHoverFill.name())));
+
+        const QImage darkHoverImage =
+            renderButton(true, QColor(QStringLiteral("#0066B4")), false, true, 1.0, 0.0);
+        const FluentThemeTokens darkHoverTokens = ThemeManager::instance().tokens();
+        const QColor darkHoverFill = dominantColor(darkHoverImage, fillSample);
+        const QColor expectedDarkHover = Style::controlHoverFill(darkHoverTokens);
+        const QColor darkCardHover =
+            Style::mix(darkHoverTokens.neutral.card, darkHoverTokens.neutral.cardHover, 0.70);
+        QVERIFY2(colorDelta(darkHoverFill, expectedDarkHover) < 42,
+                 qPrintable(QStringLiteral("Dark neutral FluentButton hover should use the control hover token, got %1 expected near %2")
+                                .arg(darkHoverFill.name(), expectedDarkHover.name())));
+        QVERIFY2(colorDelta(darkHoverFill, darkCardHover) > 6,
+                 qPrintable(QStringLiteral("Dark neutral FluentButton hover should separate from card hover, got %1 card hover %2")
+                                .arg(darkHoverFill.name(), darkCardHover.name())));
 
         const QImage darkDisabledImage =
             renderButton(true, QColor(QStringLiteral("#0066B4")), false, false, 0.0, 0.0);
@@ -18240,9 +18335,7 @@ private slots:
             }
         };
         auto menuBarHoverFill = [](const FluentThemeTokens &tokenSet) {
-            return Style::mix(tokenSet.neutral.card,
-                              tokenSet.neutral.cardHover,
-                              tokenSet.dark ? 0.70 : 0.55);
+            return Style::controlHoverFill(tokenSet);
         };
         auto menuBarPressedFill = [](const FluentThemeTokens &tokenSet) {
             return Style::mix(tokenSet.neutral.card,
@@ -18250,9 +18343,7 @@ private slots:
                               tokenSet.dark ? 0.44 : 0.38);
         };
         auto toolBarHoverFill = [](const FluentThemeTokens &tokenSet) {
-            return Style::mix(tokenSet.neutral.card,
-                              tokenSet.neutral.cardHover,
-                              tokenSet.dark ? 0.70 : 0.55);
+            return Style::controlHoverFill(tokenSet);
         };
         auto disabledControlFill = [](const FluentThemeTokens &tokenSet) {
             return Style::mix(tokenSet.neutral.card,
@@ -18557,7 +18648,10 @@ private slots:
             QVERIFY(style.contains(expected.scrollHandlePressed.name(QColor::HexArgb)));
             QVERIFY(style.contains(tokens.neutral.background.name(QColor::HexArgb)));
             QVERIFY(style.contains(tokens.accent.base.name(QColor::HexArgb)));
+            QVERIFY(style.contains(tokens.typography.family));
             QVERIFY(style.contains(QStringLiteral("font-size: %1px").arg(tokens.typography.body)));
+            QVERIFY2(!style.contains(QStringLiteral("__QTFLUENT_FONT_FAMILY__")),
+                     qPrintable(name + QStringLiteral(" should resolve the typography font-family placeholder")));
 
             const QColor legacyTooltipFill =
                 Style::mix(colors.surface, colors.accent, tokens.dark ? 0.18 : 0.08);

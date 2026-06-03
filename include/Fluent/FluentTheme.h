@@ -71,7 +71,7 @@ struct FluentSpacingTokens {
 };
 
 struct FluentTypographyTokens {
-    QString family = QStringLiteral("'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif");
+    QString family = QStringLiteral("'Segoe UI', 'Microsoft YaHei', 'Microsoft YaHei UI', sans-serif");
     int caption = 12;
     int body = 14;
     int bodyLarge = 16;

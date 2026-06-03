@@ -61,10 +61,9 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                           "-DropDownButton / SplitButton and CommandBar use the same Fluent menu popup system"),
                 code,
                 [=](QVBoxLayout *body) {
-                    auto *grid = new QGridLayout();
-                    grid->setContentsMargins(0, 0, 0, 0);
-                    grid->setHorizontalSpacing(14);
-                    grid->setVerticalSpacing(10);
+                    auto *matrix = new QVBoxLayout();
+                    matrix->setContentsMargins(0, 0, 0, 0);
+                    matrix->setSpacing(12);
 
                     auto makeCaption = [](const QString &text, bool strong = false) {
                         auto *label = new FluentLabel(text);
@@ -74,16 +73,34 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                         return label;
                     };
 
-                    grid->addWidget(makeCaption(DEMO_TEXT("控件", "Control"), true), 0, 0);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Normal", "Normal"), true), 0, 1);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Active / Menu", "Active / Menu"), true), 0, 2);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 0, 3);
+                    auto prepareButton = [](QWidget *widget) {
+                        widget->setMinimumWidth(118);
+                        return widget;
+                    };
+
+                    auto *header = new QHBoxLayout();
+                    header->setContentsMargins(0, 0, 0, 0);
+                    header->setSpacing(12);
+                    auto *controlHeader = makeCaption(DEMO_TEXT("控件", "Control"), true);
+                    controlHeader->setMinimumWidth(150);
+                    header->addWidget(controlHeader, 0);
+                    header->addWidget(makeCaption(DEMO_TEXT("Normal", "Normal"), true), 1);
+                    header->addWidget(makeCaption(DEMO_TEXT("Active", "Active"), true), 1);
+                    header->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 1);
+                    matrix->addLayout(header);
 
                     auto addRow = [&](int row, const QString &name, QWidget *normal, QWidget *active, QWidget *disabled) {
-                        grid->addWidget(makeCaption(name), row, 0);
-                        grid->addWidget(normal, row, 1);
-                        grid->addWidget(active, row, 2);
-                        grid->addWidget(disabled, row, 3);
+                        Q_UNUSED(row)
+                        auto *line = new QHBoxLayout();
+                        line->setContentsMargins(0, 0, 0, 0);
+                        line->setSpacing(12);
+                        auto *caption = makeCaption(name);
+                        caption->setMinimumWidth(150);
+                        line->addWidget(caption, 0);
+                        line->addWidget(prepareButton(normal), 1);
+                        line->addWidget(prepareButton(active), 1);
+                        line->addWidget(prepareButton(disabled), 1);
+                        matrix->addLayout(line);
                     };
 
                     auto *buttonNormal = new FluentButton(DEMO_TEXT("Secondary", "Secondary"));
@@ -96,11 +113,11 @@ QWidget *createButtonsPage(FluentMainWindow *window)
 
                     auto *primaryNormal = new FluentButton(DEMO_TEXT("Primary", "Primary"));
                     primaryNormal->setPrimary(true);
-                    auto *primaryActive = new FluentButton(DEMO_TEXT("Primary Checked", "Primary Checked"));
+                    auto *primaryActive = new FluentButton(DEMO_TEXT("Checked", "Checked"));
                     primaryActive->setPrimary(true);
                     primaryActive->setCheckable(true);
                     primaryActive->setChecked(true);
-                    auto *primaryDisabled = new FluentButton(DEMO_TEXT("Primary Off", "Primary Off"));
+                    auto *primaryDisabled = new FluentButton(DEMO_TEXT("Disabled", "Disabled"));
                     primaryDisabled->setPrimary(true);
                     primaryDisabled->setDisabled(true);
                     addRow(2, DEMO_TEXT("Primary", "Primary"), primaryNormal, primaryActive, primaryDisabled);
@@ -112,51 +129,10 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                     auto *toolDisabled = new FluentToolButton(DEMO_TEXT("Disabled", "Disabled"));
                     toolDisabled->setDisabled(true);
                     addRow(3, QStringLiteral("FluentToolButton"), toolNormal, toolActive, toolDisabled);
-
-                    auto *animatedNormal = new FluentAnimatedButton(DEMO_TEXT("Search", "Search"));
-                    animatedNormal->loadAnimationData(Demo::animatedSearchIconJson(), QStringLiteral("state-matrix-search"));
-                    auto *animatedPrimary = new FluentAnimatedButton(DEMO_TEXT("Primary", "Primary"));
-                    animatedPrimary->setPrimary(true);
-                    animatedPrimary->loadAnimationData(Demo::animatedSearchIconJson(), QStringLiteral("state-matrix-primary-search"));
-                    auto *animatedDisabled = new FluentAnimatedButton(DEMO_TEXT("Disabled", "Disabled"));
-                    animatedDisabled->loadAnimationData(Demo::animatedSearchIconJson(), QStringLiteral("state-matrix-disabled-search"));
-                    animatedDisabled->setDisabled(true);
-                    addRow(4, QStringLiteral("FluentAnimatedButton"), animatedNormal, animatedPrimary, animatedDisabled);
-
-                    auto makeDropDown = [](const QString &text) {
-                        auto *button = new FluentDropDownButton(text);
-                        button->addAction(QStringLiteral("Copy"));
-                        button->addAction(QStringLiteral("Move"));
-                        return button;
-                    };
-                    auto *dropNormal = makeDropDown(DEMO_TEXT("More", "More"));
-                    auto *dropMenu = makeDropDown(DEMO_TEXT("Has menu", "Has menu"));
-                    auto *dropDisabled = makeDropDown(DEMO_TEXT("Disabled", "Disabled"));
-                    dropDisabled->setDisabled(true);
-                    addRow(5, QStringLiteral("FluentDropDownButton"), dropNormal, dropMenu, dropDisabled);
-
-                    auto makeSplit = [](const QString &text) {
-                        auto *split = new FluentSplitButton(text);
-                        auto *action = new QAction(text, split);
-                        split->setDefaultAction(action);
-                        auto *menu = new FluentMenu(split);
-                        menu->addAction(QStringLiteral("Save as"));
-                        menu->addAction(QStringLiteral("Export"));
-                        split->setMenu(menu);
-                        return split;
-                    };
-                    auto *splitNormal = makeSplit(DEMO_TEXT("Save", "Save"));
-                    auto *splitPrimary = makeSplit(DEMO_TEXT("Publish", "Publish"));
-                    splitPrimary->setPrimary(true);
-                    auto *splitDisabled = makeSplit(DEMO_TEXT("Disabled", "Disabled"));
-                    splitDisabled->setEnabled(false);
-                    addRow(6, QStringLiteral("FluentSplitButton"), splitNormal, splitPrimary, splitDisabled);
-
-                    grid->setColumnStretch(4, 1);
-                    body->addLayout(grid);
+                    body->addLayout(matrix);
                 },
                 false,
-                150));
+                120));
         }
 
         // FluentButton demo

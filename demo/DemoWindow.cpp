@@ -323,10 +323,12 @@ void DemoWindow::buildUi()
         search->setPlaceholderText(DEMO_TEXT("搜索…", "Search..."));
         search->setFixedWidth(150);
 
-        auto *searchButton = Demo::makeAnimatedSearchButton(QString(), searchHost);
+        auto *searchButton = new FluentToolButton(searchHost);
+        searchButton->setIcon(FluentIcon::icon(FluentIconType::Search));
+        searchButton->setIconSize(QSize(18, 18));
         searchButton->setFixedSize(34, 28);
         searchButton->setToolTip(DEMO_TEXT("填入示例搜索词", "Fill a sample search term"));
-        QObject::connect(searchButton, &QPushButton::clicked, search, [search]() {
+        QObject::connect(searchButton, &QToolButton::clicked, search, [search]() {
             search->setText(QStringLiteral("AnimatedIcon"));
             search->setFocus();
             search->selectAll();

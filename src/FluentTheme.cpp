@@ -55,9 +55,9 @@ QString fluentFontFamily()
 {
   const QLocale locale;
   if (locale.language() == QLocale::Chinese) {
-    return QStringLiteral("'Microsoft YaHei UI', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans CJK SC', sans-serif");
+    return QStringLiteral("'Microsoft YaHei', 'Microsoft YaHei UI', 'Segoe UI', 'Noto Sans CJK SC', sans-serif");
   }
-  return QStringLiteral("'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif");
+  return QStringLiteral("'Segoe UI', 'Microsoft YaHei', 'Microsoft YaHei UI', 'Noto Sans CJK SC', sans-serif");
 }
 
 } // namespace
@@ -197,6 +197,7 @@ FluentThemeTokens Theme::tokens(const ThemeColors &colors)
   const bool darkMode = isDark(colors);
   FluentThemeTokens t;
   t.legacyColors = colors;
+  t.typography.family = fluentFontFamily();
   t.accent = accentRamp(colors.accent, darkMode);
   t.neutral = neutralRamp(colors);
   t.semantic = semanticRamp(colors);
@@ -318,7 +319,7 @@ QString Theme::baseStyleSheet(const ThemeColors &colors) {
            tooltipBorder.name(QColor::HexArgb))
       .arg(themeTokens.neutral.background.name(QColor::HexArgb),
            themeTokens.accent.base.name(QColor::HexArgb))
-      .replace(QStringLiteral("__QTFLUENT_FONT_FAMILY__"), fluentFontFamily());
+      .replace(QStringLiteral("__QTFLUENT_FONT_FAMILY__"), themeTokens.typography.family);
 }
 
 QString Theme::buttonStyle(const ThemeColors &colors, bool primary) {
@@ -375,7 +376,7 @@ QString Theme::labelStyle(const ThemeColors &colors) {
 QString Theme::lineEditStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
   QColor selectionFill = themeTokens.accent.base;
@@ -418,7 +419,7 @@ QString Theme::lineEditStyle(const ThemeColors &colors) {
 QString Theme::textEditStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
   QColor selectionFill = themeTokens.accent.base;
@@ -461,7 +462,7 @@ QString Theme::textEditStyle(const ThemeColors &colors) {
 QString Theme::dateTimeStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
   return QString("QDateEdit, QTimeEdit {"
@@ -520,7 +521,7 @@ QString Theme::dateTimeStyle(const ThemeColors &colors) {
 QString Theme::calendarPopupStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor pressed = Style::mix(fill, themeTokens.neutral.fillTertiary, themeTokens.dark ? 0.42 : 0.34);
   return QString("QCalendarWidget {"
                  "  background: %1;"
@@ -627,7 +628,7 @@ QString Theme::checkBoxStyle(const ThemeColors &colors) {
   ensureFluentThemeResourcesInitialized();
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
   const QString checkmarkIcon = themeTokens.onAccent.lightness() > 128
@@ -678,7 +679,7 @@ QString Theme::checkBoxStyle(const ThemeColors &colors) {
 QString Theme::radioButtonStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
   const QString checkedFill =
@@ -796,7 +797,7 @@ QString Theme::toggleSwitchStyle(const ThemeColors &colors) {
 QString Theme::comboBoxStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor pressed = Style::mix(fill, themeTokens.neutral.fillTertiary, themeTokens.dark ? 0.42 : 0.34);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
@@ -943,7 +944,7 @@ QString Theme::progressBarStyle(const ThemeColors &colors) {
 QString Theme::spinBoxStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
   return QString("QSpinBox, QDoubleSpinBox {"
@@ -981,7 +982,7 @@ QString Theme::spinBoxStyle(const ThemeColors &colors) {
 QString Theme::toolButtonStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover = Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor pressed = Style::mix(fill, themeTokens.neutral.fillTertiary, themeTokens.dark ? 0.42 : 0.34);
   const QColor disabledFill = Style::mix(fill, themeTokens.neutral.background, themeTokens.dark ? 0.48 : 0.35);
   const QColor disabledStroke = Style::mix(themeTokens.neutral.strokeSubtle, colors.disabledText, themeTokens.dark ? 0.28 : 0.18);
@@ -1020,7 +1021,7 @@ QString Theme::toolButtonStyle(const ThemeColors &colors) {
 
 QString Theme::tabWidgetStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
-  const QColor hover = Style::mix(themeTokens.neutral.card, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor pressed = Style::mix(themeTokens.neutral.card, themeTokens.neutral.fillTertiary, themeTokens.dark ? 0.42 : 0.34);
   return QString("QTabWidget::pane {"
                  "  border: none;"
@@ -1239,8 +1240,7 @@ QString Theme::groupBoxStyle(const ThemeColors &colors) {
 QString Theme::menuBarStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover =
-      Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   const QColor pressed =
       Style::mix(fill, themeTokens.neutral.fillTertiary, themeTokens.dark ? 0.44 : 0.38);
   return QString("QMenuBar {"
@@ -1275,8 +1275,7 @@ QString Theme::toolBarStyle(const ThemeColors &colors) {
   const auto themeTokens = tokens(colors);
   const QColor separator = themeTokens.neutral.strokeSubtle;
   const QColor fill = themeTokens.neutral.card;
-  const QColor hover =
-      Style::mix(fill, themeTokens.neutral.cardHover, themeTokens.dark ? 0.70 : 0.55);
+  const QColor hover = Style::controlHoverFill(themeTokens);
   return QString("QToolBar {"
                  "  background: %1;"
                  "  color: %2;"

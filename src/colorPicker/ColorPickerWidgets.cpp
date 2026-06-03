@@ -60,7 +60,7 @@ static QColor pickerAccent(const ThemeColors &colors)
 static QColor pickerHoverFill(const ThemeColors &colors)
 {
     const auto tokens = Theme::tokens(colors);
-    return Style::mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.70 : 0.55);
+    return Style::controlHoverFill(tokens);
 }
 
 static QColor pickerPressedFill(const ThemeColors &colors)

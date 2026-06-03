@@ -45,6 +45,7 @@ public:
 
     static QColor mix(const QColor &a, const QColor &b, qreal t);
     static QColor withAlpha(const QColor &c, int alpha);
+    static QColor controlHoverFill(const FluentThemeTokens &tokens);
 
     static QPainterPath roundedRectPath(const QRectF &rect, qreal radius);
 

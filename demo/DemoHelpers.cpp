@@ -6,6 +6,7 @@
 #include "Fluent/FluentAnnotatedScrollBar.h"
 #include "Fluent/FluentCard.h"
 #include "Fluent/FluentCodeEditor.h"
+#include "Fluent/FluentIcon.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentLottieWidget.h"
 #include "Fluent/FluentScrollArea.h"
@@ -125,7 +126,7 @@ private:
             return;
         }
 
-        const int w = m_annotatedScrollBar->sizeHint().width();
+        const int w = m_annotatedScrollBar->width();
         m_annotatedScrollBar->setGeometry(width() - w - 10, 12, w, qMax(0, height() - 24));
         m_annotatedScrollBar->raise();
     }
@@ -248,6 +249,111 @@ bool setLanguage(DemoLanguage language)
 QString text(const QString &zh, const QString &en)
 {
     return s_currentLanguage == DemoLanguage::English ? en : zh;
+}
+
+QString compactAnnotatedRailTitle(QString title)
+{
+    title = title.trimmed();
+    if (title.isEmpty()) {
+        return title;
+    }
+
+    if (title == QStringLiteral("P0 Input State Matrix")) {
+        return QStringLiteral("Input Matrix");
+    }
+    if (title == QStringLiteral("P0 Button State Matrix")) {
+        return QStringLiteral("Button Matrix");
+    }
+    if (title == QStringLiteral("Navigation / Tab State Matrix")) {
+        return QStringLiteral("Navigation / Tabs");
+    }
+    if (title == QStringLiteral("Data View State Matrix")) {
+        return QStringLiteral("Data Matrix");
+    }
+    if (title == QStringLiteral("Picker State Matrix")) {
+        return QStringLiteral("Picker Matrix");
+    }
+    if (title == QStringLiteral("Angle State Matrix")) {
+        return QStringLiteral("Angle Matrix");
+    }
+    if (title == QStringLiteral("Icon State Matrix")) {
+        return QStringLiteral("Icon Matrix");
+    }
+    if (title == QStringLiteral("Feedback State Matrix")) {
+        return QStringLiteral("Feedback Matrix");
+    }
+    if (title == QStringLiteral("Collapsible FluentCard")) {
+        return QStringLiteral("Collapsible Card");
+    }
+    if (title == QStringLiteral("FluentAnnotatedScrollBar")) {
+        return QStringLiteral("AnnotatedScrollBar");
+    }
+    if (title == QStringLiteral("FluentAutoSuggestBox / FluentSearchBox")) {
+        return QStringLiteral("Suggest / Search");
+    }
+    if (title == QStringLiteral("FluentSpinBox / FluentDoubleSpinBox")) {
+        return QStringLiteral("SpinBox / DoubleSpin");
+    }
+    if (title == QStringLiteral("CommandBar / DropDownButton / SplitButton")) {
+        return QStringLiteral("Command / Menus");
+    }
+    if (title == QStringLiteral("CheckBox / RadioButton / ToggleSwitch")) {
+        return QStringLiteral("Choice Controls");
+    }
+    if (title == QStringLiteral("FluentProgressBar / FluentProgressRing")) {
+        return QStringLiteral("Progress");
+    }
+    if (title == QStringLiteral("ColorPicker / ColorDialog")) {
+        return QStringLiteral("Color Picker");
+    }
+    if (title == QStringLiteral("FluentDateRangePicker（自定义前后缀 / 分隔符）")) {
+        return QStringLiteral("DateRange custom");
+    }
+    if (title == QStringLiteral("FluentComboBox（滚动阈值）")) {
+        return QStringLiteral("ComboBox scroll");
+    }
+    if (title == QStringLiteral("FluentComboBox（多选）")) {
+        return QStringLiteral("ComboBox multi");
+    }
+    if (title.startsWith(QStringLiteral("FluentAngleSelector")) && title.length() > 20) {
+        return QStringLiteral("AngleSelector variants");
+    }
+    if (title.length() > 18) {
+        title.replace(QStringLiteral(" / Fluent"), QStringLiteral(" / "));
+        if (title.startsWith(QStringLiteral("Fluent"))) {
+            title.remove(0, 6);
+        }
+    }
+
+    return title;
+}
+
+QString annotatedRailTitleForWidget(QWidget *widget)
+{
+    if (!widget) {
+        return QString();
+    }
+
+    const QString explicitRailTitle = widget->property("_demoRailTitle").toString().trimmed();
+    if (!explicitRailTitle.isEmpty()) {
+        return explicitRailTitle;
+    }
+
+    const QString explicitSectionTitle = widget->property("_demoSectionTitle").toString().trimmed();
+    if (!explicitSectionTitle.isEmpty()) {
+        return compactAnnotatedRailTitle(explicitSectionTitle);
+    }
+
+    if (auto *card = qobject_cast<FluentCard *>(widget)) {
+        const QString title = card->title().trimmed();
+        if (!title.isEmpty()) {
+            return compactAnnotatedRailTitle(title);
+        }
+    }
+    if (auto *label = widget->findChild<FluentLabel *>(QString(), Qt::FindDirectChildrenOnly)) {
+        return compactAnnotatedRailTitle(label->text());
+    }
+    return QString();
 }
 
 Section makeSection(const QString &title, const QString &subtitle)
@@ -534,6 +640,7 @@ FluentAnimatedButton *makeAnimatedSearchButton(const QString &text, QWidget *par
 {
     auto *button = new FluentAnimatedButton(text, parent);
     button->setAnimatedIconSize(QSize(22, 22));
+    button->animatedIcon()->setFallbackIcon(FluentIcon::icon(FluentIconType::Search));
     button->loadAnimationData(animatedSearchIconJson(), QStringLiteral("demo-search-button-icon"));
     button->setAnimationState(QStringLiteral("Normal"), false);
     return button;
@@ -555,40 +662,20 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
     area->setWidget(content);
 
     auto *layout = new QVBoxLayout(content);
-    layout->setContentsMargins(24, 24, 136, 24);
+    layout->setContentsMargins(24, 24, 204, 24);
     layout->setSpacing(18);
     fill(layout);
     layout->addStretch(1);
 
     auto *annotated = new FluentAnnotatedScrollBar(area);
     annotated->setObjectName(QStringLiteral("DemoPageAnnotatedScrollBar"));
-    annotated->setFixedWidth(116);
+    annotated->setFixedWidth(184);
     annotated->setToolTipDuration(1100);
     annotated->setScrollArea(area);
     annotated->setVisible(true);
     area->setAnnotatedScrollBar(annotated);
 
-    auto sectionTitle = [](QWidget *widget) {
-        if (!widget) {
-            return QString();
-        }
-        const QString explicitTitle = widget->property("_demoSectionTitle").toString().trimmed();
-        if (!explicitTitle.isEmpty()) {
-            return explicitTitle;
-        }
-        if (auto *card = qobject_cast<FluentCard *>(widget)) {
-            const QString title = card->title().trimmed();
-            if (!title.isEmpty()) {
-                return title;
-            }
-        }
-        if (auto *label = widget->findChild<FluentLabel *>(QString(), Qt::FindDirectChildrenOnly)) {
-            return label->text().trimmed();
-        }
-        return QString();
-    };
-
-    auto refreshSources = [layout, annotated, area, sectionTitle]() {
+    auto refreshSources = [layout, annotated, area]() {
         if (!layout || !annotated || !area || !area->widget()) {
             return;
         }
@@ -606,7 +693,7 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
             const int hintHeight = qMax(1, widget->sizeHint().height());
             const bool hasGeometry = widget->isVisible() && geometry.width() > 0 && geometry.height() > 0;
 
-            QString title = sectionTitle(widget);
+            QString title = annotatedRailTitleForWidget(widget);
             if (title.isEmpty()) {
                 title = text(QStringLiteral("分段 %1").arg(sources.size() + 1),
                              QStringLiteral("Section %1").arg(sources.size() + 1));

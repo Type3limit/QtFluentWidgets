@@ -34,6 +34,8 @@ bool setLanguage(DemoLanguage language);
 
 QString text(const QString &zh, const QString &en);
 
+QString annotatedRailTitleForWidget(QWidget *widget);
+
 Section makeSection(const QString &title, const QString &subtitle = QString());
 
 Fluent::FluentCard *makeCollapsedCard(const QString &title,

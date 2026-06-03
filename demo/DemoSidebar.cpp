@@ -47,7 +47,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
     auto *sideLayout = new QVBoxLayout(sidebarContent);
     sideLayout->setContentsMargins(showNavigation ? 0 : 24,
                                    showNavigation ? 0 : 24,
-                                   showNavigation ? 0 : 136,
+                                   showNavigation ? 0 : 204,
                                    showNavigation ? 0 : 24);
     sideLayout->setSpacing(showNavigation ? 12 : 18);
 
@@ -178,7 +178,7 @@ DemoSidebar::DemoSidebar(QWidget *hostWindow, QWidget *parent, bool showNavigati
 
         m_annotatedScrollBar = new FluentAnnotatedScrollBar(this);
         m_annotatedScrollBar->setObjectName(QStringLiteral("DemoSettingsAnnotatedScrollBar"));
-        m_annotatedScrollBar->setFixedWidth(116);
+        m_annotatedScrollBar->setFixedWidth(184);
         m_annotatedScrollBar->setToolTipDuration(1100);
         m_annotatedScrollBar->setScrollArea(this);
         m_annotatedScrollBar->setVisible(true);
@@ -233,7 +233,7 @@ void DemoSidebar::resizeEvent(QResizeEvent *event)
     FluentScrollArea::resizeEvent(event);
 
     if (m_annotatedScrollBar) {
-        const int w = m_annotatedScrollBar->sizeHint().width();
+        const int w = m_annotatedScrollBar->width();
         m_annotatedScrollBar->setGeometry(width() - w - 10, 12, w, qMax(0, height() - 24));
         m_annotatedScrollBar->raise();
         for (int delay : {0, 16, 48}) {
@@ -256,7 +256,7 @@ void DemoSidebar::refreshAnnotatedSources()
             continue;
         }
 
-        const QString title = card->property("_demoSectionTitle").toString().trimmed();
+        const QString title = annotatedRailTitleForWidget(card);
         if (title.isEmpty()) {
             continue;
         }
