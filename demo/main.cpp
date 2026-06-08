@@ -168,7 +168,12 @@ QList<RenderVariant> renderVariants(const QString &overrideValue = QString())
 
 QString firstAvailableFontFamily(const QStringList &candidates)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     const QStringList installedFamilies = QFontDatabase::families();
+#else
+    const QFontDatabase fontDatabase;
+    const QStringList installedFamilies = fontDatabase.families();
+#endif
     for (const QString &candidate : candidates) {
         for (const QString &family : installedFamilies) {
             if (family.compare(candidate, Qt::CaseInsensitive) == 0) {

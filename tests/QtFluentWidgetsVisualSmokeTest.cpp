@@ -112,6 +112,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
+#include <QScrollArea>
 #include <QScrollBar>
 #include <QScreen>
 #include <QSettings>
@@ -3977,6 +3978,224 @@ private slots:
         QCOMPARE(stateButton.animationState(), QStringLiteral("Selected"));
         QCOMPARE(stateButton.animatedIcon()->currentFrame(),
                  stateButton.animatedIcon()->markerFrame(QStringLiteral("Selected")));
+    }
+
+    void lottiePlaybackStopsWhileHidden()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        const bool oldAnimationsEnabled = ThemeManager::instance().animationsEnabled();
+        struct RestoreAnimations {
+            bool enabled = true;
+            ~RestoreAnimations()
+            {
+                ThemeManager::instance().setAnimationsEnabled(enabled);
+                QCoreApplication::processEvents();
+            }
+        } restore{oldAnimationsEnabled};
+
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        FluentLottieWidget widget;
+        QVERIFY2(widget.loadData(visualSmokeLottieJson(), QStringLiteral("visual-smoke-lottie-hidden-playback")),
+                 "Visual smoke Lottie fixture should parse for hidden playback suspension");
+        widget.setLooping(true);
+        widget.setSpeed(8.0);
+        widget.resize(48, 48);
+        widget.show();
+        QTRY_VERIFY(widget.isVisible());
+
+        widget.play();
+        QVERIFY2(widget.isPlaying(), "Lottie playback intent should remain true while the widget is visible");
+        const int initialFrame = widget.currentFrame();
+        QTRY_VERIFY2(widget.currentFrame() != initialFrame,
+                     "Visible Lottie playback should advance before hidden playback stop is tested");
+
+        widget.hide();
+        QCoreApplication::processEvents();
+        const int hiddenFrame = widget.currentFrame();
+        QTest::qWait(80);
+        QCoreApplication::processEvents();
+        QCOMPARE(widget.currentFrame(), hiddenFrame);
+        QVERIFY2(widget.isPlaying(), "Hiding a Lottie widget should keep the playback request for automatic resume");
+
+        widget.show();
+        QTRY_VERIFY(widget.isVisible());
+        QTRY_VERIFY2(widget.currentFrame() != hiddenFrame,
+                     "Showing a hidden Lottie widget with an active play request should resume playback");
+        widget.pause();
+    }
+
+    void lottiePlaybackStopsWhenClippedByParent()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        const bool oldAnimationsEnabled = ThemeManager::instance().animationsEnabled();
+        struct RestoreAnimations {
+            bool enabled = true;
+            ~RestoreAnimations()
+            {
+                ThemeManager::instance().setAnimationsEnabled(enabled);
+                QCoreApplication::processEvents();
+            }
+        } restore{oldAnimationsEnabled};
+
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        QWidget parent;
+        parent.resize(64, 64);
+
+        FluentLottieWidget widget(&parent);
+        QVERIFY2(widget.loadData(visualSmokeLottieJson(), QStringLiteral("visual-smoke-lottie-clipped-playback")),
+                 "Visual smoke Lottie fixture should parse for clipped playback suspension");
+        widget.setLooping(true);
+        widget.setSpeed(8.0);
+        widget.resize(48, 48);
+        widget.move(8, 8);
+
+        parent.show();
+        QTRY_VERIFY(parent.isVisible());
+        widget.show();
+        QTRY_VERIFY(widget.isVisible());
+
+        widget.play();
+        QVERIFY2(widget.isPlaying(), "Visible Lottie playback should start before clipping is tested");
+        const int visibleFrame = widget.currentFrame();
+        QTRY_VERIFY2(widget.currentFrame() != visibleFrame,
+                     "Visible Lottie playback should advance before parent clipping is tested");
+
+        widget.move(80, 8);
+        QCoreApplication::processEvents();
+        const int clippedFrame = widget.currentFrame();
+        QTest::qWait(160);
+        QCoreApplication::processEvents();
+        QCOMPARE(widget.currentFrame(), clippedFrame);
+        QVERIFY2(widget.isPlaying(), "Clipped Lottie should keep the playback request while its timer is suspended");
+
+        widget.move(8, 8);
+        QCoreApplication::processEvents();
+        QTRY_VERIFY2(widget.currentFrame() != clippedFrame,
+                     "Clipped Lottie playback should resume when the widget becomes visible again");
+        widget.pause();
+    }
+
+    void lottiePreShowPlaybackStartsWhenVisibleInScrollViewport()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        const bool oldAnimationsEnabled = ThemeManager::instance().animationsEnabled();
+        struct RestoreAnimations {
+            bool enabled = true;
+            ~RestoreAnimations()
+            {
+                ThemeManager::instance().setAnimationsEnabled(enabled);
+                QCoreApplication::processEvents();
+            }
+        } restore{oldAnimationsEnabled};
+
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        QScrollArea area;
+        area.setWidgetResizable(false);
+        area.resize(120, 96);
+
+        auto *content = new QWidget();
+        content->resize(120, 260);
+        area.setWidget(content);
+
+        auto *animation = new FluentLottieWidget(content);
+        QVERIFY2(animation->loadData(visualSmokeLottieJson(), QStringLiteral("visual-smoke-lottie-scroll-visible")),
+                 "Visual smoke Lottie fixture should parse for scroll viewport playback");
+        animation->setLooping(true);
+        animation->setSpeed(8.0);
+        animation->resize(48, 48);
+        animation->move(12, 12);
+        animation->show();
+        animation->play();
+
+        area.show();
+        QTRY_VERIFY(area.isVisible());
+        QVERIFY2(animation->isPlaying(), "Pre-show Lottie playback should start once it is visible in a scroll viewport");
+        const int visibleFrame = animation->currentFrame();
+        QTRY_VERIFY2(animation->currentFrame() != visibleFrame,
+                     "Visible Lottie in a scroll viewport should advance after the page is shown");
+
+        area.verticalScrollBar()->setValue(180);
+        QCoreApplication::processEvents();
+        const int stoppedFrame = animation->currentFrame();
+        QTest::qWait(120);
+        QCoreApplication::processEvents();
+        QCOMPARE(animation->currentFrame(), stoppedFrame);
+        QVERIFY2(animation->isPlaying(), "Scrolled-out Lottie should keep its playback request while frames are suspended");
+
+        area.verticalScrollBar()->setValue(0);
+        QCoreApplication::processEvents();
+        QTRY_VERIFY2(animation->currentFrame() != stoppedFrame,
+                     "A looping Lottie with an active play request should resume after scrolling back into view");
+        animation->pause();
+    }
+
+    void progressRingIndeterminateStopsWhenClippedByScrollViewport()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        const bool oldAnimationsEnabled = ThemeManager::instance().animationsEnabled();
+        struct RestoreAnimations {
+            bool enabled = true;
+            ~RestoreAnimations()
+            {
+                ThemeManager::instance().setAnimationsEnabled(enabled);
+                QCoreApplication::processEvents();
+            }
+        } restore{oldAnimationsEnabled};
+
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        QScrollArea area;
+        area.setWidgetResizable(false);
+        area.resize(120, 96);
+
+        auto *content = new QWidget();
+        content->resize(120, 260);
+        area.setWidget(content);
+
+        auto *ring = new FluentProgressRing(content);
+        ring->setFixedSize(48, 48);
+        ring->setIndeterminate(true);
+        ring->move(12, 12);
+        ring->show();
+
+        area.show();
+        QTRY_VERIFY(area.isVisible());
+        const qreal visibleAngle = ring->rotationAngle();
+        QTRY_VERIFY2(!qFuzzyCompare(ring->rotationAngle(), visibleAngle),
+                     "Visible indeterminate ProgressRing should spin in a scroll viewport");
+        const qreal firstVisibleAngle = ring->rotationAngle();
+        QTest::qWait(90);
+        QCoreApplication::processEvents();
+        QVERIFY2(qAbs(ring->rotationAngle() - firstVisibleAngle) >= 15.0,
+                 "Visible indeterminate ProgressRing should use the normal 16 ms spin interval");
+
+        area.verticalScrollBar()->setValue(180);
+        QCoreApplication::processEvents();
+        const qreal clippedAngle = ring->rotationAngle();
+        QTest::qWait(120);
+        QCoreApplication::processEvents();
+        QCOMPARE(ring->rotationAngle(), clippedAngle);
+
+        area.verticalScrollBar()->setValue(0);
+        QCoreApplication::processEvents();
+        QTRY_VERIFY2(!qFuzzyCompare(ring->rotationAngle(), clippedAngle),
+                     "Indeterminate ProgressRing should resume when it scrolls back into view");
+        const qreal resumedAngle = ring->rotationAngle();
+        QTest::qWait(90);
+        QCoreApplication::processEvents();
+        QVERIFY2(qAbs(ring->rotationAngle() - resumedAngle) >= 15.0,
+                 "Indeterminate ProgressRing should restore the normal spin interval after becoming visible again");
     }
 
     void animatedIconMarkerResolutionFollowsDocumentation()
@@ -12091,6 +12310,8 @@ private slots:
         QCoreApplication::processEvents();
         QVERIFY2(paneToggleIcon->isPlaying(),
                  "NavigationView pane-toggle Lottie icon should play while global animations are enabled");
+        QVERIFY2(paneToggleIcon->isVisible(),
+                 "NavigationView pane-toggle Lottie icon should become visible while its click animation is playing");
 
         ThemeManager::instance().setAnimationsEnabled(false);
         QCoreApplication::processEvents();
@@ -12293,6 +12514,75 @@ private slots:
                  qPrintable(QStringLiteral("Compact NavigationView pane toggle should align with item icon column, chrome=%1 item=%2")
                                 .arg(chromeCenterX)
                                 .arg(itemCenterX)));
+    }
+
+    void navigationAnimatedIconSyncDoesNotRepaintWhenIdle()
+    {
+        struct ThemeGuard {
+            ThemeManager::ThemeMode mode = ThemeManager::instance().themeMode();
+            ThemeColors colors = ThemeManager::instance().colors();
+            bool animationsEnabled = ThemeManager::instance().animationsEnabled();
+
+            ~ThemeGuard()
+            {
+                ThemeManager::instance().setAnimationsEnabled(animationsEnabled);
+                ThemeManager::instance().setColors(colors);
+                ThemeManager::instance().setThemeMode(mode);
+                QCoreApplication::processEvents();
+            }
+        } guard;
+
+        struct PaintCounter final : QObject {
+            int count = 0;
+
+            bool eventFilter(QObject *watched, QEvent *event) override
+            {
+                Q_UNUSED(watched)
+                if (event->type() == QEvent::Paint) {
+                    ++count;
+                }
+                return false;
+            }
+        } paintCounter;
+
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        FluentNavigationItem overview;
+        overview.key = QStringLiteral("overview");
+        overview.text = QStringLiteral("Overview");
+        overview.hasFluentIcon = true;
+        overview.fluentIcon = FluentIconType::Home;
+
+        FluentNavigationItem settings;
+        settings.key = QStringLiteral("settings");
+        settings.text = QStringLiteral("Settings");
+        settings.hasFluentIcon = true;
+        settings.fluentIcon = FluentIconType::Settings;
+        settings.animatedIconData = visualSmokeLottieJson();
+        settings.animatedIconCacheKey = QStringLiteral("visual-smoke-nav-idle-repaint");
+
+        FluentNavigationView nav;
+        nav.setExpandedWidth(248);
+        nav.setFixedSize(248, 180);
+        nav.setItems({overview});
+        nav.addFooterItem(settings);
+        nav.setSelectedKey(overview.key);
+        nav.installEventFilter(&paintCounter);
+        nav.show();
+        QTRY_VERIFY(nav.isVisible());
+
+        QCoreApplication::processEvents();
+        QTest::qWait(80);
+        QCoreApplication::processEvents();
+
+        paintCounter.count = 0;
+        QTest::qWait(500);
+        QCoreApplication::processEvents();
+        QVERIFY2(paintCounter.count <= 12,
+                 qPrintable(QStringLiteral("Idle NavigationView animated icon sync should not keep repainting, paints=%1")
+                                .arg(paintCounter.count)));
     }
 
     void infoBarCompactModeUsesSingleLineMetrics()

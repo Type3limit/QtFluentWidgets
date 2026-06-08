@@ -606,6 +606,13 @@ void FluentCard::updateCollapseIndicatorState(bool animated)
     const QString targetState = m_collapsed ? QStringLiteral("Collapsed") : QStringLiteral("Expanded");
     if (m_chevronAnimation->hasMarker(targetState)) {
         if (animated) {
+            updateCollapseIndicatorGeometry();
+            if (m_chevronButton) {
+                m_chevronButton->setIcon(QIcon());
+            }
+            m_chevronAnimation->show();
+            m_chevronAnimation->raise();
+
             const QString transition = m_chevronAnimation->state() + QStringLiteral("To") + targetState;
             const QString transitionStart = transition + QStringLiteral("_Start");
             const QString transitionEnd = transition + QStringLiteral("_End");
@@ -628,6 +635,12 @@ void FluentCard::updateCollapseIndicatorState(bool animated)
         const int startFrame = m_collapsed ? middleFrame : 0;
         const int endFrame = m_collapsed ? lastFrame : middleFrame;
         syncCollapseIndicatorSpeed(startFrame, endFrame);
+        updateCollapseIndicatorGeometry();
+        if (m_chevronButton) {
+            m_chevronButton->setIcon(QIcon());
+        }
+        m_chevronAnimation->show();
+        m_chevronAnimation->raise();
         m_chevronAnimation->playSegment(startFrame, endFrame);
         updateHeaderUi();
         return;

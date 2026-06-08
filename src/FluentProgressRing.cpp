@@ -15,6 +15,48 @@
 
 namespace Fluent {
 
+namespace {
+
+constexpr int kVisibleSpinIntervalMs = 16;
+constexpr int kOccludedSpinProbeIntervalMs = 250;
+
+bool widgetHasVisibleArea(const QWidget *widget)
+{
+    if (!widget || widget->isHidden() || !widget->isVisible()) {
+        return false;
+    }
+
+    const QWidget *window = widget->window();
+    if (window && window->isMinimized()) {
+        return false;
+    }
+
+    QRect visibleRect = widget->rect();
+    if (visibleRect.isEmpty()) {
+        return false;
+    }
+
+    const QWidget *current = widget;
+    while (const QWidget *parent = current->parentWidget()) {
+        if (parent->isHidden() || !parent->isVisible()) {
+            return false;
+        }
+
+        QRect parentRect(current->mapTo(parent, visibleRect.topLeft()), visibleRect.size());
+        parentRect = parentRect.intersected(parent->rect());
+        if (parentRect.isEmpty()) {
+            return false;
+        }
+
+        visibleRect = parentRect;
+        current = parent;
+    }
+
+    return true;
+}
+
+} // namespace
+
 FluentProgressRing::FluentProgressRing(QWidget *parent)
     : QProgressBar(parent)
 {
@@ -107,6 +149,17 @@ void FluentProgressRing::changeEvent(QEvent *event)
     }
 }
 
+bool FluentProgressRing::event(QEvent *event)
+{
+    const bool handled = QProgressBar::event(event);
+    if (event->type() == QEvent::ParentChange) {
+        syncSpinTimer();
+    } else if (event->type() == QEvent::Move || event->type() == QEvent::Resize) {
+        syncSpinTimer();
+    }
+    return handled;
+}
+
 void FluentProgressRing::hideEvent(QHideEvent *event)
 {
     QProgressBar::hideEvent(event);
@@ -126,6 +179,11 @@ void FluentProgressRing::timerEvent(QTimerEvent *event)
             syncSpinTimer();
             return;
         }
+        if (!widgetHasVisibleArea(this)) {
+            syncSpinTimer();
+            return;
+        }
+        syncSpinTimer();
         setRotationAngle(m_rotationAngle + 7.5);
         return;
     }
@@ -154,10 +212,22 @@ void FluentProgressRing::syncSpinTimer()
         && isEnabled()
         && isIndeterminate()
         && ThemeManager::instance().animationsEnabled();
-    if (shouldSpin && !m_spinTimer.isActive()) {
-        m_spinTimer.start(16, this);
-    } else if (!shouldSpin && m_spinTimer.isActive()) {
+    if (!shouldSpin) {
+        if (m_spinTimer.isActive()) {
+            m_spinTimer.stop();
+        }
+        m_spinTimerIntervalMs = 0;
+        return;
+    }
+
+    const int interval = widgetHasVisibleArea(this) ? kVisibleSpinIntervalMs : kOccludedSpinProbeIntervalMs;
+    if (!m_spinTimer.isActive()) {
+        m_spinTimer.start(interval, this);
+        m_spinTimerIntervalMs = interval;
+    } else if (m_spinTimerIntervalMs != interval) {
         m_spinTimer.stop();
+        m_spinTimer.start(interval, this);
+        m_spinTimerIntervalMs = interval;
     }
 }
 

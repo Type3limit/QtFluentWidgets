@@ -93,13 +93,16 @@ signals:
     void finished();
 
 protected:
+    bool event(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private:
     void advanceFrame();
     void clearRenderCache();
+    void syncPlaybackVisibility();
     void syncTimerInterval();
+    void syncTimerState();
     void syncReducedMotionState();
     void finishActiveSegmentImmediately(bool emitFinished);
     void syncAnimationMetadata();

@@ -8,6 +8,7 @@
 #include <rlottie.h>
 
 #include <QCryptographicHash>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -27,6 +28,7 @@ namespace Fluent {
 namespace {
 
 constexpr int kDefaultFrameRate = 60;
+constexpr int kVisibilityProbeIntervalMs = 250;
 
 QSize boundedIconSize(const QSize &size)
 {
@@ -109,6 +111,41 @@ bool imageHasVisiblePixels(const QImage &image)
     return false;
 }
 
+bool widgetHasVisibleArea(const QWidget *widget)
+{
+    if (!widget || widget->isHidden() || !widget->isVisible()) {
+        return false;
+    }
+
+    const QWidget *window = widget->window();
+    if (window && window->isMinimized()) {
+        return false;
+    }
+
+    QRect visibleRect = widget->rect();
+    if (visibleRect.isEmpty()) {
+        return false;
+    }
+
+    const QWidget *current = widget;
+    while (const QWidget *parent = current->parentWidget()) {
+        if (parent->isHidden() || !parent->isVisible()) {
+            return false;
+        }
+
+        QRect parentRect(current->mapTo(parent, visibleRect.topLeft()), visibleRect.size());
+        parentRect = parentRect.intersected(parent->rect());
+        if (parentRect.isEmpty()) {
+            return false;
+        }
+
+        visibleRect = parentRect;
+        current = parent;
+    }
+
+    return true;
+}
+
 } // namespace
 
 struct FluentLottieWidget::Private
@@ -123,7 +160,10 @@ struct FluentLottieWidget::Private
     QHash<QString, QPair<int, int>> markers;
 
     QTimer *timer = nullptr;
+    bool playbackRequested = false;
     bool playing = false;
+    bool hasBeenVisible = false;
+    bool visibilityPaused = false;
     bool looping = true;
     qreal speed = 1.0;
     int currentFrame = 0;
@@ -151,7 +191,7 @@ FluentLottieWidget::FluentLottieWidget(QWidget *parent)
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
     d->timer = new QTimer(this);
-    d->timer->setTimerType(Qt::PreciseTimer);
+    d->timer->setTimerType(Qt::CoarseTimer);
     connect(d->timer, &QTimer::timeout, this, &FluentLottieWidget::advanceFrame);
 
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
@@ -217,6 +257,7 @@ bool FluentLottieWidget::loadData(const QByteArray &json, const QString &cacheKe
         d->totalFrames = 0;
         d->markers.clear();
         d->currentFrame = 0;
+        d->playbackRequested = false;
         d->playing = false;
         d->timer->stop();
         setError(tr("Failed to parse Lottie data."));
@@ -229,7 +270,7 @@ bool FluentLottieWidget::loadData(const QByteArray &json, const QString &cacheKe
     d->segmentActive = false;
     d->currentFrame = 0;
     syncAnimationMetadata();
-    syncTimerInterval();
+    syncTimerState();
     clearRenderCache();
 
     emit currentFrameChanged(d->currentFrame);
@@ -274,7 +315,7 @@ qreal FluentLottieWidget::duration() const
 
 bool FluentLottieWidget::isPlaying() const
 {
-    return d->playing;
+    return d->playbackRequested;
 }
 
 void FluentLottieWidget::setPlaying(bool playing)
@@ -309,7 +350,7 @@ void FluentLottieWidget::setSpeed(qreal speed)
     }
 
     d->speed = next;
-    syncTimerInterval();
+    syncTimerState();
 }
 
 int FluentLottieWidget::currentFrame() const
@@ -352,6 +393,9 @@ QIcon FluentLottieWidget::fallbackIcon() const
 
 void FluentLottieWidget::setFallbackIcon(const QIcon &icon)
 {
+    if (d->fallbackIcon.cacheKey() == icon.cacheKey()) {
+        return;
+    }
     d->fallbackIcon = icon;
     update();
 }
@@ -442,35 +486,44 @@ void FluentLottieWidget::play()
         return;
     }
 
-    if (d->playing) {
-        return;
-    }
+    const bool wasRequested = d->playbackRequested;
+    d->playbackRequested = true;
 
-    d->playing = true;
-    syncTimerInterval();
-    d->timer->start();
-    emit playingChanged(true);
+    syncTimerState();
+    if (!wasRequested) {
+        emit playingChanged(true);
+    }
 }
 
 void FluentLottieWidget::pause()
 {
-    if (!d->playing) {
+    const bool wasRequested = d->playbackRequested;
+    d->playbackRequested = false;
+    if (!d->playing && !d->timer->isActive()) {
+        if (wasRequested) {
+            emit playingChanged(false);
+        }
         return;
     }
 
-    d->playing = false;
     d->timer->stop();
-    emit playingChanged(false);
+    if (d->playing) {
+        d->playing = false;
+    }
+    if (wasRequested) {
+        emit playingChanged(false);
+    }
 }
 
 void FluentLottieWidget::stop()
 {
-    const bool wasPlaying = d->playing;
+    const bool wasRequested = d->playbackRequested;
+    d->playbackRequested = false;
     d->playing = false;
     d->timer->stop();
     d->segmentActive = false;
     setCurrentFrame(0);
-    if (wasPlaying) {
+    if (wasRequested) {
         emit playingChanged(false);
     }
 }
@@ -516,6 +569,26 @@ void FluentLottieWidget::playMarker(const QString &name)
         pause();
         setCurrentFrame(start);
     }
+}
+
+bool FluentLottieWidget::event(QEvent *event)
+{
+    const bool handled = QWidget::event(event);
+    if (event->type() == QEvent::ParentChange) {
+        syncPlaybackVisibility();
+    } else if (event->type() == QEvent::Show || event->type() == QEvent::ShowToParent) {
+        d->visibilityPaused = false;
+        syncPlaybackVisibility();
+    } else if (event->type() == QEvent::Hide || event->type() == QEvent::HideToParent) {
+        d->visibilityPaused = true;
+        d->timer->stop();
+        if (d->playing) {
+            d->playing = false;
+        }
+    } else if (event->type() == QEvent::Move || event->type() == QEvent::Resize) {
+        syncPlaybackVisibility();
+    }
+    return handled;
 }
 
 void FluentLottieWidget::paintEvent(QPaintEvent *event)
@@ -641,9 +714,28 @@ void FluentLottieWidget::resizeEvent(QResizeEvent *event)
 
 void FluentLottieWidget::advanceFrame()
 {
-    if (!isLoaded() || !d->playing || d->totalFrames <= 1) {
+    if (!isLoaded() || !d->playbackRequested || d->totalFrames <= 1) {
+        d->timer->stop();
         return;
     }
+
+    if (!widgetHasVisibleArea(this)) {
+        if (d->playing) {
+            d->playing = false;
+        }
+        if (d->visibilityPaused || isHidden()) {
+            d->timer->stop();
+        } else if (d->timer->interval() != kVisibilityProbeIntervalMs) {
+            d->timer->setInterval(kVisibilityProbeIntervalMs);
+        }
+        return;
+    }
+
+    d->hasBeenVisible = true;
+    if (!d->playing) {
+        d->playing = true;
+    }
+    syncTimerInterval();
 
     const int rangeStart = d->segmentActive ? d->segmentStart : 0;
     const int rangeEnd = d->segmentActive ? d->segmentEnd : d->totalFrames - 1;
@@ -683,6 +775,30 @@ void FluentLottieWidget::clearRenderCache()
     d->cachedTintColor = QColor();
 }
 
+void FluentLottieWidget::syncPlaybackVisibility()
+{
+    if (widgetHasVisibleArea(this)) {
+        d->hasBeenVisible = true;
+        d->visibilityPaused = false;
+        syncTimerState();
+        return;
+    }
+
+    if (d->playing) {
+        d->playing = false;
+    }
+
+    if (d->playbackRequested && !d->visibilityPaused && !isHidden()) {
+        if (!d->timer->isActive()) {
+            d->timer->start(kVisibilityProbeIntervalMs);
+        } else if (d->timer->interval() != kVisibilityProbeIntervalMs) {
+            d->timer->setInterval(kVisibilityProbeIntervalMs);
+        }
+    } else {
+        d->timer->stop();
+    }
+}
+
 void FluentLottieWidget::syncTimerInterval()
 {
     const qreal fps = qMax<qreal>(1.0, d->frameRate * d->speed);
@@ -690,10 +806,47 @@ void FluentLottieWidget::syncTimerInterval()
     d->timer->setInterval(interval);
 }
 
+void FluentLottieWidget::syncTimerState()
+{
+    syncTimerInterval();
+    if (!d->playbackRequested || !isLoaded() || d->totalFrames <= 1 || !FluentMotion::animationsEnabled()) {
+        d->timer->stop();
+        if (d->playing) {
+            d->playing = false;
+        }
+        return;
+    }
+
+    if (d->visibilityPaused || isHidden()) {
+        d->timer->stop();
+        if (d->playing) {
+            d->playing = false;
+        }
+        return;
+    }
+
+    if (!widgetHasVisibleArea(this)) {
+        if (d->playing) {
+            d->playing = false;
+        }
+        d->timer->start(kVisibilityProbeIntervalMs);
+        return;
+    }
+
+    d->hasBeenVisible = true;
+    if (!d->playing) {
+        d->playing = true;
+    }
+    syncTimerInterval();
+    if (!d->timer->isActive()) {
+        d->timer->start();
+    }
+}
+
 void FluentLottieWidget::syncReducedMotionState()
 {
     if (FluentMotion::animationsEnabled()) {
-        syncTimerInterval();
+        syncTimerState();
         return;
     }
 
@@ -702,7 +855,7 @@ void FluentLottieWidget::syncReducedMotionState()
         return;
     }
 
-    if (d->playing) {
+    if (d->playbackRequested) {
         pause();
     }
 }
@@ -710,19 +863,20 @@ void FluentLottieWidget::syncReducedMotionState()
 void FluentLottieWidget::finishActiveSegmentImmediately(bool emitFinished)
 {
     if (!d->segmentActive) {
-        if (d->playing) {
+        if (d->playbackRequested) {
             pause();
         }
         return;
     }
 
-    const bool wasPlaying = d->playing;
+    const bool wasRequested = d->playbackRequested;
     const int targetFrame = d->segmentEnd;
     d->segmentActive = false;
+    d->playbackRequested = false;
     d->playing = false;
     d->timer->stop();
     setCurrentFrame(targetFrame);
-    if (wasPlaying) {
+    if (wasRequested) {
         emit playingChanged(false);
     }
     if (emitFinished) {

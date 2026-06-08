@@ -32,6 +32,7 @@ public:
 
 protected:
     void changeEvent(QEvent *event) override;
+    bool event(QEvent *event) override;
     void hideEvent(QHideEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void showEvent(QShowEvent *event) override;
@@ -46,6 +47,7 @@ private:
     qreal m_ringWidth = 4.0;
     bool m_indeterminate = false;
     QBasicTimer m_spinTimer;
+    int m_spinTimerIntervalMs = 0;
     QPropertyAnimation *m_valueAnim = nullptr;
 };
 

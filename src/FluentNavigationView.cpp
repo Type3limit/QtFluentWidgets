@@ -1083,12 +1083,13 @@ void FluentNavigationView::Private::syncAnimatedItemIcon(FluentNavigationView *o
         icon->setAttribute(Qt::WA_TransparentForMouseEvents, true);
         icon->setInteractive(false);
         icon->setFallbackIconSize(QSize(kIconSize, kIconSize));
+        icon->setFallbackIcon(fallbackIconForItem(item));
         animatedIconWidgets.insert(key, icon);
     }
-    icon->setFallbackIcon(fallbackIconForItem(item));
 
     const QString fingerprint = animatedIconFingerprint(item);
     if (animatedIconFingerprints.value(key) != fingerprint || !icon->isLoaded()) {
+        icon->setFallbackIcon(fallbackIconForItem(item));
         const bool ok = item.animatedIconData.isEmpty()
                             ? icon->load(item.animatedIconSource)
                             : icon->loadData(item.animatedIconData,
@@ -1103,10 +1104,15 @@ void FluentNavigationView::Private::syncAnimatedItemIcon(FluentNavigationView *o
         icon->setCurrentFrame(0);
     }
 
-    icon->setGeometry(iconRect.toAlignedRect());
+    const QRect alignedIconRect = iconRect.toAlignedRect();
+    if (icon->geometry() != alignedIconRect) {
+        icon->setGeometry(alignedIconRect);
+    }
     icon->setTintColor(tint);
-    icon->show();
-    icon->raise();
+    if (!icon->isVisible()) {
+        icon->show();
+        icon->raise();
+    }
 
     if (active) {
         if (!animatedIconActiveKeys.contains(key)) {
@@ -1226,6 +1232,11 @@ FluentAnimatedIcon *FluentNavigationView::Private::ensureChromeAnimation(FluentN
         animation->setInteractive(false);
         animation->setFallbackIconSize(QSize(kIconSize, kIconSize));
         animation->setFixedSize(QSize(kIconSize, kIconSize));
+        QObject::connect(animation,
+                         &FluentAnimatedIcon::playingChanged,
+                         owner,
+                         [owner](bool) { owner->update(); });
+        QObject::connect(animation, &FluentAnimatedIcon::finished, owner, [owner]() { owner->update(); });
     }
 
     return animation;
@@ -1266,7 +1277,10 @@ void FluentNavigationView::Private::syncChromeAnimation(FluentNavigationView *ow
                           iconSize.width(),
                           iconSize.height());
 
-    icon->setGeometry(iconRect.toAlignedRect());
+    const QRect alignedIconRect = iconRect.toAlignedRect();
+    if (icon->geometry() != alignedIconRect) {
+        icon->setGeometry(alignedIconRect);
+    }
     icon->setTintColor(tint);
 
     if (!icon->isPlaying()) {
@@ -1275,8 +1289,10 @@ void FluentNavigationView::Private::syncChromeAnimation(FluentNavigationView *ow
         return;
     }
 
-    icon->show();
-    icon->raise();
+    if (!icon->isVisible()) {
+        icon->show();
+        icon->raise();
+    }
 }
 
 void FluentNavigationView::Private::syncChromeAnimations(FluentNavigationView *owner,
@@ -1325,6 +1341,10 @@ void FluentNavigationView::Private::playChromeAnimation(const QPointer<FluentAni
 
     animation->setLooping(false);
     animation->setCurrentFrame(0);
+    if (!animation->isVisible()) {
+        animation->show();
+        animation->raise();
+    }
     animation->playSegment(0, qMax(0, animation->totalFrames() - 1));
 }
 
