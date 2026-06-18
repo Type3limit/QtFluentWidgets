@@ -116,18 +116,9 @@ QStringList renderPages(const QString &overrideValue = QString())
         return splitCsv(env);
     }
     return {
-        QStringLiteral("overview"),
-        QStringLiteral("basic_input"),
-        QStringLiteral("inputs"),
-        QStringLiteral("buttons"),
-        QStringLiteral("icons"),
-        QStringLiteral("motion"),
-        QStringLiteral("pickers"),
-        QStringLiteral("angles"),
-        QStringLiteral("dataviews"),
-        QStringLiteral("containers"),
-        QStringLiteral("windows"),
-        QStringLiteral("settings"),
+        QStringLiteral("overview"), QStringLiteral("input"), QStringLiteral("buttons"),
+        QStringLiteral("pickers"), QStringLiteral("data"), QStringLiteral("containers"),
+        QStringLiteral("windows"), QStringLiteral("motion"), QStringLiteral("settings"),
     };
 }
 
@@ -480,33 +471,13 @@ QString annotatedScrollBarHealthError(QWidget *root, const QString &context)
 
 QStringList expectedStateMatrixTitles(const QString &key)
 {
-    if (key == QLatin1String("inputs")) {
-        return {QStringLiteral("P0 Input State Matrix")};
-    }
-    if (key == QLatin1String("buttons")) {
-        return {QStringLiteral("P0 Button State Matrix")};
-    }
-    if (key == QLatin1String("icons")) {
-        return {QStringLiteral("Icon State Matrix")};
-    }
-    if (key == QLatin1String("motion")) {
-        return {QStringLiteral("Motion Role Matrix")};
-    }
-    if (key == QLatin1String("pickers")) {
-        return {QStringLiteral("Picker State Matrix")};
-    }
-    if (key == QLatin1String("angles")) {
-        return {QStringLiteral("Angle State Matrix")};
-    }
-    if (key == QLatin1String("dataviews")) {
-        return {QStringLiteral("Data View State Matrix")};
-    }
-    if (key == QLatin1String("containers")) {
-        return {QStringLiteral("Navigation / Tab State Matrix")};
-    }
-    if (key == QLatin1String("windows")) {
-        return {QStringLiteral("Feedback State Matrix")};
-    }
+    if (key == QLatin1String("input"))      { return {QStringLiteral("P0 Input State Matrix"), QStringLiteral("Angle State Matrix")}; }
+    if (key == QLatin1String("buttons"))    { return {QStringLiteral("P0 Button State Matrix")}; }
+    if (key == QLatin1String("pickers"))    { return {QStringLiteral("Picker State Matrix")}; }
+    if (key == QLatin1String("data"))       { return {QStringLiteral("Data View State Matrix")}; }
+    if (key == QLatin1String("containers")) { return {QStringLiteral("Navigation / Tab State Matrix")}; }
+    if (key == QLatin1String("windows"))    { return {QStringLiteral("Feedback State Matrix")}; }
+    if (key == QLatin1String("motion"))     { return {QStringLiteral("Icon State Matrix"), QStringLiteral("Motion Role Matrix")}; }
     return {};
 }
 
@@ -522,7 +493,8 @@ QString demoMatrixHealthError(QWidget *root, const QString &key, const QString &
 
     const QList<Fluent::FluentCard *> cards = root->findChildren<Fluent::FluentCard *>();
     const QRect viewport = root->rect();
-    for (const QString &title : titles) {
+    for (int titleIndex = 0; titleIndex < titles.size(); ++titleIndex) {
+        const QString &title = titles.at(titleIndex);
         Fluent::FluentCard *matched = nullptr;
         for (Fluent::FluentCard *card : cards) {
             if (!card) {
@@ -558,11 +530,12 @@ QString demoMatrixHealthError(QWidget *root, const QString &key, const QString &
                 .arg(contentHeight);
         }
 
-        const QRect cardRect(matched->mapTo(root, QPoint(0, 0)), matched->size());
-        const QRect visibleRect = viewport.intersected(cardRect);
-        if (visibleRect.height() < 72 || visibleRect.width() < qMin(240, qMax(1, cardRect.width() / 2))) {
-            return QStringLiteral("%1 state matrix '%2' is not visible in the first viewport")
-                .arg(context, title);
+        if (titleIndex == 0) {
+            const QRect cardRect(matched->mapTo(root, QPoint(0, 0)), matched->size());
+            const QRect visibleRect = viewport.intersected(cardRect);
+            if (visibleRect.height() < 72 || visibleRect.width() < qMin(240, qMax(1, cardRect.width() / 2))) {
+                return QStringLiteral("%1 state matrix '%2' is not visible in the first viewport").arg(context, title);
+            }
         }
     }
 
@@ -625,18 +598,9 @@ int runInteractionSmoke(const QString &outputPath)
     appendRenderLog(outputDir, QStringLiteral("language/theme rebuild smoke ok"));
 
     const QStringList keys = {
-        QStringLiteral("overview"),
-        QStringLiteral("basic_input"),
-        QStringLiteral("inputs"),
-        QStringLiteral("buttons"),
-        QStringLiteral("icons"),
-        QStringLiteral("motion"),
-        QStringLiteral("pickers"),
-        QStringLiteral("angles"),
-        QStringLiteral("dataviews"),
-        QStringLiteral("containers"),
-        QStringLiteral("windows"),
-        QStringLiteral("settings"),
+        QStringLiteral("overview"), QStringLiteral("input"), QStringLiteral("buttons"),
+        QStringLiteral("pickers"), QStringLiteral("data"), QStringLiteral("containers"),
+        QStringLiteral("windows"), QStringLiteral("motion"), QStringLiteral("settings"),
         QStringLiteral("overview"),
     };
 

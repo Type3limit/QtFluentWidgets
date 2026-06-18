@@ -29,6 +29,7 @@ private:
     bool m_languageSwitchPending = false;
     QPointer<QWidget> m_rootWidget;
     QPointer<QWidget> m_titleBarLeftOwnedWidget;
+    QPointer<QWidget> m_titleBarCenterOwnedWidget;
     QPointer<QWidget> m_titleBarRightOwnedWidget;
     QPointer<Fluent::FluentMenuBar> m_ownedMenuBar;
 };

@@ -9,7 +9,7 @@ param(
     [string] $QtBinDir,
 
     [string] $Platform = "windows",
-    [string[]] $ExpectedPages = @("overview", "basic_input", "inputs", "buttons", "icons", "motion", "pickers", "angles", "dataviews", "containers", "windows", "settings", "overview"),
+    [string[]] $ExpectedPages = @("overview", "input", "buttons", "pickers", "data", "containers", "windows", "motion", "settings", "overview"),
     [int] $ExpectedCount = 0
 )
 

@@ -4,20 +4,19 @@
 #include "DemoSidebar.h"
 
 #include "pages/PageButtons.h"
-#include "pages/PageBasicInput.h"
 #include "pages/PageContainers.h"
 #include "pages/PageDataViews.h"
-#include "pages/PageAngleControls.h"
-#include "pages/PageIcons.h"
 #include "pages/PageInputs.h"
 #include "pages/PageMotion.h"
 #include "pages/PageOverview.h"
 #include "pages/PagePickers.h"
 #include "pages/PageWindows.h"
 
+#include <QAbstractButton>
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QButtonGroup>
 #include <QClipboard>
 #include <QComboBox>
 #include <QCursor>
@@ -25,9 +24,11 @@
 #include <QElapsedTimer>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
+#include <QPainter>
 #include <QParallelAnimationGroup>
 #include <QPointer>
 #include <QPropertyAnimation>
+#include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -133,6 +134,39 @@ private:
     qint64 m_lastMark = 0;
 };
 
+class AccentSwatchButton final : public QAbstractButton
+{
+public:
+    explicit AccentSwatchButton(const QColor &color, QWidget *parent = nullptr)
+        : QAbstractButton(parent)
+        , m_color(color)
+    {
+        setCheckable(true);
+        setFixedSize(20, 20);
+        setCursor(Qt::PointingHandCursor);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(Qt::NoPen);
+        p.setBrush(m_color);
+        p.drawEllipse(QRectF(rect()).adjusted(3, 3, -3, -3));
+        if (isChecked()) {
+            QPen ring(m_color.lightness() > 140 ? QColor(0, 0, 0, 160) : QColor(255, 255, 255, 230));
+            ring.setWidthF(2.0);
+            p.setBrush(Qt::NoBrush);
+            p.setPen(ring);
+            p.drawEllipse(QRectF(rect()).adjusted(1.5, 1.5, -1.5, -1.5));
+        }
+    }
+
+private:
+    QColor m_color;
+};
+
 void animateStackPageTransition(QStackedWidget *stack, QWidget *page, int previousIndex, int nextIndex)
 {
     if (!stack || !page || previousIndex == nextIndex || !stack->isVisible()) {
@@ -191,17 +225,6 @@ void animateStackPageTransition(QStackedWidget *stack, QWidget *page, int previo
     group->start();
 }
 
-void fitCommandButtonText(FluentButton *button, int minimumWidth = 72)
-{
-    if (!button) {
-        return;
-    }
-
-    const int horizontalPadding = 28;
-    const int textWidth = button->fontMetrics().horizontalAdvance(button->text());
-    button->setFixedSize(qMax(minimumWidth, textWidth + horizontalPadding), 28);
-}
-
 } // namespace
 
 DemoWindow::DemoWindow(QWidget *parent,
@@ -220,17 +243,22 @@ void DemoWindow::clearUi()
 {
     QPointer<QWidget> oldRoot = m_rootWidget;
     QPointer<QWidget> oldLeftWidget = m_titleBarLeftOwnedWidget;
+    QPointer<QWidget> oldCenterWidget = m_titleBarCenterOwnedWidget;
     QPointer<QWidget> oldRightWidget = m_titleBarRightOwnedWidget;
     QPointer<FluentMenuBar> oldMenuBar = m_ownedMenuBar;
 
     if (m_titleBarLeftOwnedWidget && fluentTitleBarLeftWidget() == m_titleBarLeftOwnedWidget) {
         setFluentTitleBarLeftWidget(nullptr);
     }
+    if (m_titleBarCenterOwnedWidget && fluentTitleBarCenterWidget() == m_titleBarCenterOwnedWidget) {
+        setFluentTitleBarCenterWidget(nullptr);
+    }
     if (m_titleBarRightOwnedWidget && fluentTitleBarRightWidget() == m_titleBarRightOwnedWidget) {
         setFluentTitleBarRightWidget(nullptr);
     }
 
     m_titleBarLeftOwnedWidget = nullptr;
+    m_titleBarCenterOwnedWidget = nullptr;
     m_titleBarRightOwnedWidget = nullptr;
 
     if (oldMenuBar) {
@@ -252,6 +280,10 @@ void DemoWindow::clearUi()
         oldLeftWidget->hide();
         oldLeftWidget->deleteLater();
     }
+    if (oldCenterWidget) {
+        oldCenterWidget->hide();
+        oldCenterWidget->deleteLater();
+    }
     if (oldRightWidget) {
         oldRightWidget->hide();
         oldRightWidget->deleteLater();
@@ -264,6 +296,8 @@ void DemoWindow::buildUi()
     auto &window = *this;
 
     window.setWindowTitle(QStringLiteral("QtFluentWidgets Showcase"));
+    ThemeManager::instance().setAccentColor(QColor(QStringLiteral("#5A48E8")));
+    ThemeManager::instance().setAccentBorderEnabled(true);
     trace.mark(QStringLiteral("window title"));
 
     // Menu / Toolbar / StatusBar: demonstrate window-level Fluent components.
@@ -277,29 +311,6 @@ void DemoWindow::buildUi()
     QObject::connect(exitAction, &QAction::triggered, this, &QWidget::close);
     trace.mark(QStringLiteral("file menu"));
 
-    auto *viewMenu = menuBar->addFluentMenu(DEMO_TEXT("视图", "View"));
-    QAction *lightAction = viewMenu->addAction(DEMO_TEXT("浅色", "Light"));
-    QAction *darkAction = viewMenu->addAction(DEMO_TEXT("深色", "Dark"));
-    lightAction->setIcon(FluentIcon::icon(FluentIconType::Eye));
-    darkAction->setIcon(FluentIcon::icon(FluentIconType::Settings));
-    auto *themeGroup = new QActionGroup(viewMenu);
-    themeGroup->setExclusive(true);
-    themeGroup->addAction(lightAction);
-    themeGroup->addAction(darkAction);
-    lightAction->setCheckable(true);
-    darkAction->setCheckable(true);
-    const bool isDarkAtStartup = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
-    darkAction->setChecked(isDarkAtStartup);
-    lightAction->setChecked(!isDarkAtStartup);
-    QObject::connect(lightAction, &QAction::triggered, []() { ThemeManager::instance().setLightMode(); });
-    QObject::connect(darkAction, &QAction::triggered, []() { ThemeManager::instance().setDarkMode(); });
-    QObject::connect(&ThemeManager::instance(), &ThemeManager::themeChanged, menuBar, [lightAction, darkAction]() {
-        const bool isDark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
-        darkAction->setChecked(isDark);
-        lightAction->setChecked(!isDark);
-    });
-    trace.mark(QStringLiteral("view menu"));
-
     window.setFluentMenuBar(menuBar);
     trace.mark(QStringLiteral("menu bar"));
 
@@ -311,167 +322,71 @@ void DemoWindow::buildUi()
     dlgAction->setIcon(FluentIcon::icon(FluentIconType::Dialog));
     toastAction->setIcon(FluentIcon::icon(FluentIconType::Bell));
 
-    // TitleBar custom slots demo
+    auto showToast = [this]() {
+        FluentToast::showToast(this,
+                               QStringLiteral("Toast"),
+                               DEMO_TEXT("演示 Toast（点击可关闭）", "Demo toast (click to dismiss)"),
+                               m_toastPosition,
+                               2600);
+    };
+    QObject::connect(toastAction, &QAction::triggered, this, showToast);
+
+    // TitleBar custom slots: centered search + accent swatches + theme toggle.
+    auto *search = new FluentLineEdit();
+    search->setPlaceholderText(DEMO_TEXT("搜索控件 Search controls…", "Search controls…"));
+    search->setFixedWidth(420);
+    m_titleBarCenterOwnedWidget = search;
+    window.setFluentTitleBarCenterWidget(search);
+
     {
-        auto *searchHost = new QWidget();
-        m_titleBarLeftOwnedWidget = searchHost;
-        auto *searchLayout = new QHBoxLayout(searchHost);
-        searchLayout->setContentsMargins(0, 0, 0, 0);
-        searchLayout->setSpacing(6);
+        auto *right = new QWidget();
+        m_titleBarRightOwnedWidget = right;
+        auto *rl = new QHBoxLayout(right);
+        rl->setContentsMargins(0, 0, 8, 0);
+        rl->setSpacing(10);
 
-        auto *search = new FluentLineEdit(searchHost);
-        search->setPlaceholderText(DEMO_TEXT("搜索…", "Search..."));
-        search->setFixedWidth(150);
+        auto *accentGroup = new QButtonGroup(right);
+        accentGroup->setExclusive(true);
+        const std::array<QColor, 4> accents = {
+            QColor(QStringLiteral("#5A48E8")),
+            QColor(QStringLiteral("#8A46D8")),
+            QColor(QStringLiteral("#0F9B8E")),
+            QColor(QStringLiteral("#2563EB")),
+        };
+        AccentSwatchButton *swatch0 = nullptr;
+        for (int i = 0; i < static_cast<int>(accents.size()); ++i) {
+            const QColor c = accents[static_cast<size_t>(i)];
+            auto *btn = new AccentSwatchButton(c, right);
+            if (i == 0) {
+                swatch0 = btn;
+            }
+            QObject::connect(btn, &QAbstractButton::clicked, this, [c] { ThemeManager::instance().setAccentColor(c); });
+            rl->addWidget(btn);
+            accentGroup->addButton(btn);
+        }
+        if (swatch0) {
+            swatch0->setChecked(true);
+        }
 
-        auto *searchButton = new FluentToolButton(searchHost);
-        searchButton->setIcon(FluentIcon::icon(FluentIconType::Search));
-        searchButton->setIconSize(QSize(18, 18));
-        searchButton->setFixedSize(34, 28);
-        searchButton->setToolTip(DEMO_TEXT("填入示例搜索词", "Fill a sample search term"));
-        QObject::connect(searchButton, &QToolButton::clicked, search, [search]() {
-            search->setText(QStringLiteral("AnimatedIcon"));
-            search->setFocus();
-            search->selectAll();
+        const bool isDarkAtStartup = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
+        auto *themeSwitch = new FluentToggleSwitch(right);
+        themeSwitch->setChecked(isDarkAtStartup);
+        themeSwitch->setText(isDarkAtStartup ? DEMO_TEXT("深色", "Dark") : DEMO_TEXT("浅色", "Light"));
+        QObject::connect(themeSwitch, &FluentToggleSwitch::toggled, this, [themeSwitch](bool on) {
+            on ? ThemeManager::instance().setDarkMode() : ThemeManager::instance().setLightMode();
+            themeSwitch->setText(on ? DEMO_TEXT("深色", "Dark") : DEMO_TEXT("浅色", "Light"));
         });
-
-        searchLayout->addWidget(search);
-        searchLayout->addWidget(searchButton);
-        searchHost->setFixedWidth(190);
-        window.setFluentTitleBarLeftWidget(searchHost);
-
-        auto *toastControls = new QWidget();
-        m_titleBarRightOwnedWidget = toastControls;
-        auto *tl = new QHBoxLayout(toastControls);
-        tl->setContentsMargins(0, 0, 0, 0);
-        tl->setSpacing(8);
-
-        auto *languageHint = new FluentLabel(DEMO_TEXT("语言：", "Language:"));
-        languageHint->setStyleSheet("font-size: 12px; opacity: 0.85;");
-        languageHint->setToolTip(DEMO_TEXT("切换 demo 显示语言", "Switch the demo display language"));
-
-        auto *languageCombo = new FluentComboBox();
-        languageCombo->setFixedHeight(28);
-        languageCombo->setFixedWidth(148);
-        languageCombo->setToolTip(DEMO_TEXT("选择显示语言", "Choose the display language"));
-        languageCombo->addItem(DEMO_TEXT("简体中文", "Chinese (Simplified)"), static_cast<int>(DemoLanguage::Chinese));
-        languageCombo->addItem(QStringLiteral("English"), static_cast<int>(DemoLanguage::English));
-        languageCombo->setCurrentIndex(currentLanguage() == DemoLanguage::English ? 1 : 0);
-
-        auto *toastHint = new FluentLabel(DEMO_TEXT("Toast：", "Toast:"));
-        toastHint->setStyleSheet("font-size: 12px; opacity: 0.85;");
-        toastHint->setToolTip(DEMO_TEXT("快速测试 Toast：选择弹出位置，然后发送。", "Quick Toast test: choose a position and send."));
-
-        auto *toastPosCombo = new FluentComboBox();
-        toastPosCombo->setFixedHeight(28);
-        toastPosCombo->setFixedWidth(120);
-        toastPosCombo->setToolTip(DEMO_TEXT("选择 Toast 弹出位置", "Choose the Toast position"));
-        toastPosCombo->addItem(DEMO_TEXT("左上", "Top left"), static_cast<int>(FluentToast::Position::TopLeft));
-        toastPosCombo->addItem(DEMO_TEXT("顶中", "Top center"), static_cast<int>(FluentToast::Position::TopCenter));
-        toastPosCombo->addItem(DEMO_TEXT("右上", "Top right"), static_cast<int>(FluentToast::Position::TopRight));
-        toastPosCombo->addItem(DEMO_TEXT("左下", "Bottom left"), static_cast<int>(FluentToast::Position::BottomLeft));
-        toastPosCombo->addItem(DEMO_TEXT("底中", "Bottom center"), static_cast<int>(FluentToast::Position::BottomCenter));
-        toastPosCombo->addItem(DEMO_TEXT("右下", "Bottom right"), static_cast<int>(FluentToast::Position::BottomRight));
-
-        auto *toastOne = new FluentButton(DEMO_TEXT("发一条", "Send one"));
-        auto *toastAll = new FluentButton(DEMO_TEXT("全位置", "All positions"));
-        fitCommandButtonText(toastOne);
-        fitCommandButtonText(toastAll);
-        toastOne->setToolTip(DEMO_TEXT("按当前选择的位置发送一条 Toast", "Send one Toast at the selected position"));
-        toastAll->setToolTip(DEMO_TEXT("在所有位置依次弹出 Toast（用于对比布局）", "Show Toasts in every position for layout comparison"));
-
-        tl->addWidget(languageHint);
-        tl->addWidget(languageCombo);
-        tl->addWidget(toastHint);
-        tl->addWidget(toastPosCombo);
-        tl->addWidget(toastOne);
-        tl->addWidget(toastAll);
-
-        window.setFluentTitleBarRightWidget(toastControls);
-
-        const auto toastIndexFromPosition = [](FluentToast::Position position) {
-            switch (position) {
-            case FluentToast::Position::TopLeft:
-                return 0;
-            case FluentToast::Position::TopCenter:
-                return 1;
-            case FluentToast::Position::TopRight:
-                return 2;
-            case FluentToast::Position::BottomLeft:
-                return 3;
-            case FluentToast::Position::BottomCenter:
-                return 4;
-            case FluentToast::Position::BottomRight:
-                return 5;
+        QObject::connect(&ThemeManager::instance(), &ThemeManager::themeChanged, themeSwitch, [themeSwitch] {
+            const bool dark = ThemeManager::instance().themeMode() == ThemeManager::ThemeMode::Dark;
+            {
+                const QSignalBlocker b(themeSwitch);
+                themeSwitch->setChecked(dark);
             }
-            return 5;
-        };
-
-        toastPosCombo->setCurrentIndex(toastIndexFromPosition(m_toastPosition));
-
-        auto posName = [](FluentToast::Position p) {
-            switch (p) {
-            case FluentToast::Position::TopLeft:
-                return DEMO_TEXT("左上", "Top left");
-            case FluentToast::Position::TopCenter:
-                return DEMO_TEXT("顶部居中", "Top center");
-            case FluentToast::Position::TopRight:
-                return DEMO_TEXT("右上", "Top right");
-            case FluentToast::Position::BottomLeft:
-                return DEMO_TEXT("左下", "Bottom left");
-            case FluentToast::Position::BottomCenter:
-                return DEMO_TEXT("底部居中", "Bottom center");
-            case FluentToast::Position::BottomRight:
-                return DEMO_TEXT("右下", "Bottom right");
-            }
-            return DEMO_TEXT("右下", "Bottom right");
-        };
-
-        QObject::connect(toastPosCombo,
-                         QOverload<int>::of(&QComboBox::currentIndexChanged),
-                         this,
-                         [this, toastPosCombo](int) {
-                             m_toastPosition = static_cast<FluentToast::Position>(toastPosCombo->currentData().toInt());
-                         });
-
-        QObject::connect(languageCombo,
-                         QOverload<int>::of(&QComboBox::currentIndexChanged),
-                         this,
-                         [this, languageCombo](int) {
-                             switchLanguage(static_cast<DemoLanguage>(languageCombo->currentData().toInt()));
-                         });
-
-        auto showToast = [this, posName]() {
-            FluentToast::showToast(this,
-                                  QStringLiteral("Toast"),
-                                  DEMO_TEXT("当前弹出位置：%1（点击可关闭）", "Current position: %1 (click to dismiss)").arg(posName(m_toastPosition)),
-                                  m_toastPosition,
-                                  2600);
-        };
-
-        QObject::connect(toastOne, &QPushButton::clicked, this, showToast);
-        QObject::connect(toastAction, &QAction::triggered, this, showToast);
-
-        QObject::connect(toastAll, &QPushButton::clicked, this, [this, posName]() {
-            const std::array<FluentToast::Position, 6> positions = {
-                FluentToast::Position::TopLeft,
-                FluentToast::Position::TopCenter,
-                FluentToast::Position::TopRight,
-                FluentToast::Position::BottomLeft,
-                FluentToast::Position::BottomCenter,
-                FluentToast::Position::BottomRight,
-            };
-
-            for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
-                const auto p = positions[static_cast<size_t>(i)];
-                QTimer::singleShot(i * 120, this, [this, p, posName]() {
-                    FluentToast::showToast(this,
-                                          QStringLiteral("Toast"),
-                                          DEMO_TEXT("位置：%1（点击可关闭）", "Position: %1 (click to dismiss)").arg(posName(p)),
-                                          p,
-                                          2400);
-                });
-            }
+            themeSwitch->setText(dark ? DEMO_TEXT("深色", "Dark") : DEMO_TEXT("浅色", "Light"));
         });
+        rl->addWidget(themeSwitch);
+
+        window.setFluentTitleBarRightWidget(right);
     }
     trace.mark(QStringLiteral("title bar controls"));
 
@@ -512,76 +427,20 @@ void DemoWindow::buildUi()
     using NI = FluentNavigationItem;
 
     std::vector<NI> mainItems;
-    {
-        NI overview;
-        overview.key  = QStringLiteral("overview");
-        overview.text = DEMO_TEXT("总览", "Overview");
-        applyIcon(overview, FluentIconType::Home);
-        mainItems.push_back(overview);
-
-        // "基本输入" category with sub-items
-        NI basicInput;
-        basicInput.key  = QStringLiteral("basic_input");
-        basicInput.text = DEMO_TEXT("基本输入", "Basic Input");
-        applyIcon(basicInput, FluentIconType::Input);
-        {
-            NI inputs;
-            inputs.key  = QStringLiteral("inputs");
-            inputs.text = DEMO_TEXT("输入", "Inputs");
-            applyIcon(inputs, FluentIconType::Edit);
-            basicInput.children.push_back(inputs);
-
-            NI buttons;
-            buttons.key  = QStringLiteral("buttons");
-            buttons.text = DEMO_TEXT("按钮/开关", "Buttons / Toggles");
-            applyIcon(buttons, FluentIconType::Controls);
-            basicInput.children.push_back(buttons);
-
-            NI angles;
-            angles.key  = QStringLiteral("angles");
-            angles.text = DEMO_TEXT("角度控件", "Angle Controls");
-            applyIcon(angles, FluentIconType::Gauge);
-            basicInput.children.push_back(angles);
-        }
-        mainItems.push_back(basicInput);
-
-        NI icons;
-        icons.key  = QStringLiteral("icons");
-        icons.text = DEMO_TEXT("图标", "Icons");
-        applyIcon(icons, FluentIconType::Icons);
-        mainItems.push_back(icons);
-
-        NI motion;
-        motion.key  = QStringLiteral("motion");
-        motion.text = DEMO_TEXT("动态", "Motion");
-        applyIcon(motion, FluentIconType::Play);
-        mainItems.push_back(motion);
-
-        // "选择器" category
-        NI pickers;
-        pickers.key  = QStringLiteral("pickers");
-        pickers.text = DEMO_TEXT("选择器", "Pickers");
-        applyIcon(pickers, FluentIconType::Calendar);
-        mainItems.push_back(pickers);
-
-        NI dataViews;
-        dataViews.key  = QStringLiteral("dataviews");
-        dataViews.text = DEMO_TEXT("数据视图", "Data Views");
-        applyIcon(dataViews, FluentIconType::Data);
-        mainItems.push_back(dataViews);
-
-        NI containers;
-        containers.key  = QStringLiteral("containers");
-        containers.text = DEMO_TEXT("容器/布局", "Containers / Layout");
-        applyIcon(containers, FluentIconType::Layout);
-        mainItems.push_back(containers);
-
-        NI windows;
-        windows.key  = QStringLiteral("windows");
-        windows.text = DEMO_TEXT("窗口/对话框", "Windows / Dialogs");
-        applyIcon(windows, FluentIconType::Dialog);
-        mainItems.push_back(windows);
-    }
+    auto add = [&](const QString &key, const QString &zh, const QString &en, FluentIconType icon) {
+        NI it; it.key = key; it.text = Demo::text(zh, en);
+        it.hasFluentIcon = true; it.fluentIcon = icon;
+        mainItems.push_back(it);
+    };
+    add(QStringLiteral("overview"),   QStringLiteral("总览"),       QStringLiteral("Overview"), FluentIconType::Home);
+    { NI sep; sep.separator = true; mainItems.push_back(sep); }
+    add(QStringLiteral("input"),      QStringLiteral("基本输入"),    QStringLiteral("Input"),    FluentIconType::Input);
+    add(QStringLiteral("buttons"),    QStringLiteral("按钮/命令"),   QStringLiteral("Buttons"),  FluentIconType::Controls);
+    add(QStringLiteral("pickers"),    QStringLiteral("选择器"),      QStringLiteral("Pickers"),  FluentIconType::Calendar);
+    add(QStringLiteral("data"),       QStringLiteral("数据视图"),    QStringLiteral("Data"),     FluentIconType::Data);
+    add(QStringLiteral("containers"), QStringLiteral("容器/布局"),   QStringLiteral("Layout"),   FluentIconType::Layout);
+    add(QStringLiteral("windows"),    QStringLiteral("窗口/对话框"), QStringLiteral("Dialogs"),  FluentIconType::Dialog);
+    add(QStringLiteral("motion"),     QStringLiteral("动态/图标"),   QStringLiteral("Motion"),   FluentIconType::Play);
     nav->setItems(mainItems);
     trace.mark(QStringLiteral("navigation items"));
 
@@ -602,16 +461,13 @@ void DemoWindow::buildUi()
     const auto jumpTo = [nav](int pageIndex) {
         const QStringList keys = {
             QStringLiteral("overview"),
-            QStringLiteral("basic_input"),
-            QStringLiteral("inputs"),
+            QStringLiteral("input"),
             QStringLiteral("buttons"),
-            QStringLiteral("icons"),
-            QStringLiteral("motion"),
             QStringLiteral("pickers"),
-            QStringLiteral("angles"),
-            QStringLiteral("dataviews"),
+            QStringLiteral("data"),
             QStringLiteral("containers"),
             QStringLiteral("windows"),
+            QStringLiteral("motion"),
         };
         if (pageIndex >= 0 && pageIndex < keys.size()) {
             nav->setSelectedKey(keys[pageIndex]);
@@ -633,22 +489,17 @@ void DemoWindow::buildUi()
         pageWidgets->append(placeholder);
     };
 
-    addLazyPage(QStringLiteral("Overview"), [windowPtr, jumpTo]() { return Demo::Pages::createOverviewPage(windowPtr, jumpTo); });       // 0
-    addLazyPage(QStringLiteral("BasicInput"), [windowPtr, jumpTo]() { return Demo::Pages::createBasicInputPage(windowPtr, jumpTo); });  // 1
-    addLazyPage(QStringLiteral("Inputs"), [windowPtr]() { return Demo::Pages::createInputsPage(windowPtr); });                          // 2
-    addLazyPage(QStringLiteral("Buttons"), [windowPtr]() { return Demo::Pages::createButtonsPage(windowPtr); });                        // 3
-    addLazyPage(QStringLiteral("Icons"), []() { return Demo::Pages::createIconsPage(); });                                               // 4
-    addLazyPage(QStringLiteral("Motion"), []() { return Demo::Pages::createMotionPage(); });                                             // 5
-    addLazyPage(QStringLiteral("Pickers"), [windowPtr]() { return Demo::Pages::createPickersPage(windowPtr); });                        // 6
-    addLazyPage(QStringLiteral("AngleControls"), [windowPtr]() { return Demo::Pages::createAngleControlsPage(windowPtr); });            // 7
-    addLazyPage(QStringLiteral("DataViews"), [windowPtr]() { return Demo::Pages::createDataViewsPage(windowPtr); });                    // 8
-    addLazyPage(QStringLiteral("Containers"), [windowPtr]() { return Demo::Pages::createContainersPage(windowPtr); });                  // 9
-    addLazyPage(QStringLiteral("Windows"), [windowPtr]() { return Demo::Pages::createWindowsPage(windowPtr); });                        // 10
-    addLazyPage(QStringLiteral("SettingsSidebar"), [this, windowPtr]() {                                                                 // 11
+    addLazyPage(QStringLiteral("Overview"),   [windowPtr, jumpTo]() { return Demo::Pages::createOverviewPage(windowPtr, jumpTo); }); // 0
+    addLazyPage(QStringLiteral("Input"),      [windowPtr]() { return Demo::Pages::createInputPage(windowPtr); });                    // 1
+    addLazyPage(QStringLiteral("Buttons"),    [windowPtr]() { return Demo::Pages::createButtonsPage(windowPtr); });                  // 2
+    addLazyPage(QStringLiteral("Pickers"),    [windowPtr]() { return Demo::Pages::createPickersPage(windowPtr); });                  // 3
+    addLazyPage(QStringLiteral("Data"),       [windowPtr]() { return Demo::Pages::createDataViewsPage(windowPtr); });                // 4
+    addLazyPage(QStringLiteral("Containers"), [windowPtr]() { return Demo::Pages::createContainersPage(windowPtr); });               // 5
+    addLazyPage(QStringLiteral("Windows"),    [windowPtr]() { return Demo::Pages::createWindowsPage(windowPtr); });                  // 6
+    addLazyPage(QStringLiteral("Motion"),     []() { return Demo::Pages::createMotionPage(); });                                     // 7
+    addLazyPage(QStringLiteral("SettingsSidebar"), [this, windowPtr]() {                                                            // 8
         auto *settingsPage = new DemoSidebar(windowPtr, nullptr, false);
-        QObject::connect(settingsPage, &DemoSidebar::toastPositionChanged, this, [this](FluentToast::Position pos) {
-            m_toastPosition = pos;
-        });
+        QObject::connect(settingsPage, &DemoSidebar::toastPositionChanged, this, [this](FluentToast::Position pos) { m_toastPosition = pos; });
         QObject::connect(settingsPage, &DemoSidebar::languageChanged, this, &DemoWindow::switchLanguage);
         return settingsPage;
     });
@@ -694,18 +545,11 @@ void DemoWindow::buildUi()
     QObject::connect(nav, &FluentNavigationView::selectedKeyChanged, this, [this, stack, ensurePage](const QString &key) {
         m_selectedNavigationKey = key;
         static const QHash<QString, int> keyMap = {
-            { QStringLiteral("overview"),   0 },
-            { QStringLiteral("basic_input"), 1 },
-            { QStringLiteral("inputs"),     2 },
-            { QStringLiteral("buttons"),    3 },
-            { QStringLiteral("icons"),      4 },
-            { QStringLiteral("motion"),     5 },
-            { QStringLiteral("pickers"),    6 },
-            { QStringLiteral("angles"),     7 },
-            { QStringLiteral("dataviews"),  8 },
-            { QStringLiteral("containers"), 9 },
-            { QStringLiteral("windows"),    10 },
-            { QStringLiteral("settings"),   11 },
+            { QStringLiteral("overview"),   0 }, { QStringLiteral("input"),      1 },
+            { QStringLiteral("buttons"),    2 }, { QStringLiteral("pickers"),    3 },
+            { QStringLiteral("data"),       4 }, { QStringLiteral("containers"), 5 },
+            { QStringLiteral("windows"),    6 }, { QStringLiteral("motion"),     7 },
+            { QStringLiteral("settings"),   8 },
         };
         auto it = keyMap.find(key);
         if (it != keyMap.end()) {
@@ -713,6 +557,17 @@ void DemoWindow::buildUi()
             ensurePage(it.value());
             stack->setCurrentIndex(it.value());
             animateStackPageTransition(stack, stack->widget(it.value()), previousIndex, it.value());
+        }
+    });
+
+    QObject::connect(search, &QLineEdit::returnPressed, this, [search, nav, mainItems]() {
+        const QString q = search->text().trimmed();
+        if (q.isEmpty()) { return; }
+        for (const auto &it : mainItems) {
+            if (it.separator) { continue; }
+            if (it.text.contains(q, Qt::CaseInsensitive) || it.key.contains(q, Qt::CaseInsensitive)) {
+                nav->setSelectedKey(it.key); return;
+            }
         }
     });
 

@@ -221,8 +221,6 @@ add_executable(QtFluentDemo WIN32
 
     demo/pages/PageOverview.h
     demo/pages/PageOverview.cpp
-    demo/pages/PageBasicInput.h
-    demo/pages/PageBasicInput.cpp
     demo/pages/PageInputs.h
     demo/pages/PageInputs.cpp
     demo/pages/PageButtons.h
