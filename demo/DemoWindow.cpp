@@ -327,6 +327,10 @@ void DemoWindow::buildUi()
     auto *search = new FluentLineEdit();
     search->setPlaceholderText(DEMO_TEXT("搜索控件 Search controls…", "Search controls…"));
     search->setFixedWidth(420);
+    // Title bar content area is titleBarHeight(40) - 2*titleBarPaddingY(6) = 28px when
+    // window buttons / menu bar are present (the bar uses the fixed height, not the
+    // content hint). Match the other title-bar controls so the field isn't clipped.
+    search->setFixedHeight(28);
     m_titleBarCenterOwnedWidget = search;
     window.setFluentTitleBarCenterWidget(search);
 
