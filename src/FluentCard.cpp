@@ -15,6 +15,8 @@
 #include <QHBoxLayout>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
+#include <QtMath>
 #include <QTimer>
 #include <QVariantAnimation>
 #include <QVBoxLayout>
@@ -322,6 +324,10 @@ bool FluentCard::event(QEvent *event)
         scheduleContentClipGeometryRefresh();
     }
 
+    if (event->type() == QEvent::Show || event->type() == QEvent::Hide) {
+        updateFlowAnimationState();
+    }
+
     return QWidget::event(event);
 }
 
@@ -391,8 +397,49 @@ void FluentCard::applyTheme()
     if (collapseRunning && m_collapseAnim && m_collapseAnim->duration() <= 0) {
         finishCollapseAnimationImmediately();
     }
+    updateFlowAnimationState();
     update();
     updateHeaderUi();
+}
+
+void FluentCard::setFlowBackgroundEnabled(bool enabled)
+{
+    if (m_flowBackgroundEnabled == enabled) {
+        return;
+    }
+    m_flowBackgroundEnabled = enabled;
+    updateFlowAnimationState();
+    update();
+}
+
+bool FluentCard::isFlowBackgroundEnabled() const
+{
+    return m_flowBackgroundEnabled;
+}
+
+void FluentCard::updateFlowAnimationState()
+{
+    const bool shouldRun = m_flowBackgroundEnabled
+        && isVisible()
+        && ThemeManager::instance().animationsEnabled();
+    if (shouldRun) {
+        if (!m_flowAnim) {
+            m_flowAnim = new QVariantAnimation(this);
+            m_flowAnim->setStartValue(0.0);
+            m_flowAnim->setEndValue(1.0);
+            m_flowAnim->setDuration(6000);
+            m_flowAnim->setLoopCount(-1);
+            connect(m_flowAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+                m_flowPhase = value.toReal();
+                update();
+            });
+        }
+        if (m_flowAnim->state() != QAbstractAnimation::Running) {
+            m_flowAnim->start();
+        }
+    } else if (m_flowAnim && m_flowAnim->state() == QAbstractAnimation::Running) {
+        m_flowAnim->stop();
+    }
 }
 
 void FluentCard::paintEvent(QPaintEvent *event)
@@ -415,6 +462,33 @@ void FluentCard::paintEvent(QPaintEvent *event)
     surface.borderInset = 0.5;
 
     paintFluentSurface(p, QRectF(rect()), ThemeManager::instance().colors(), surface);
+
+    if (m_flowBackgroundEnabled) {
+        // Subtle animated wash over the card surface: a low-alpha linear gradient
+        // from the shared flow palette whose axis slowly rotates (m_flowPhase),
+        // clipped to the card radius. Low alpha keeps content readable.
+        p.setRenderHint(QPainter::Antialiasing, true);
+        QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+        QPainterPath clip;
+        clip.addRoundedRect(r, surface.radius, surface.radius);
+        p.save();
+        p.setClipPath(clip);
+
+        const QList<QColor> flow = ThemeManager::instance().resolvedFlowColors();
+        const QPointF center = r.center();
+        const qreal reach = qMax(r.width(), r.height());
+        const qreal angle = m_flowPhase * 2.0 * M_PI;
+        const QPointF dir(qCos(angle), qSin(angle));
+        QLinearGradient gradient(center - dir * reach, center + dir * reach);
+        const int n = flow.size();
+        for (int i = 0; i < n; ++i) {
+            QColor stop = flow.at(i);
+            stop.setAlpha(48);
+            gradient.setColorAt(n > 1 ? qreal(i) / (n - 1) : 0.0, stop);
+        }
+        p.fillPath(clip, QBrush(gradient));
+        p.restore();
+    }
 }
 
 void FluentCard::ensureCollapsibleUi()

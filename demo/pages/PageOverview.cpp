@@ -60,6 +60,27 @@ QWidget *createOverviewPage(FluentMainWindow *window, const std::function<void(i
     return Demo::makePage([=](QVBoxLayout *page) {
         page->addWidget(Demo::makePageHeader(DEMO_TEXT("总览","OVERVIEW"), DEMO_TEXT("Fluent，为 Qt 桌面重制","Fluent, rebuilt for Qt desktop"), DEMO_TEXT("一套基于 Qt Widgets 的 Fluent Design 控件库，统一 ThemeManager 与 Style 联动。","A Fluent Design widget set on Qt Widgets, unified via ThemeManager and Style.")));
 
+        // Showcase: FluentCard's opt-in animated flow background.
+        {
+            auto flow = Demo::makeSection(DEMO_TEXT("流光背景 Flow background", "Flow background"),
+                                          DEMO_TEXT("FluentCard 可单独开启动态流光背景（线性渐变，跟随主题 accent，自动流转）。",
+                                                    "FluentCard can opt into an animated flow background (linear gradient, follows the accent)."));
+            flow.card->setFlowBackgroundEnabled(true);
+            flow.body->addWidget(makeBodyText(DEMO_TEXT("内容在流光之上依旧清晰可读；渐变配色可在「设置 → 描边」里自定义，描边与卡片共用同一套。",
+                                                        "Content stays readable over the flow; customise the gradient colours in Settings → Border (shared with the accent border).")));
+            auto *row = new QHBoxLayout();
+            auto *primary = new FluentButton(DEMO_TEXT("主按钮", "Primary"));
+            primary->setPrimary(true);
+            row->addWidget(primary);
+            row->addWidget(new FluentButton(DEMO_TEXT("默认", "Default")));
+            auto *toggle = new FluentToggleSwitch();
+            toggle->setChecked(true);
+            toggle->setText(DEMO_TEXT("启用", "On"));
+            row->addWidget(toggle);
+            addStretchingRow(flow.body, row);
+            page->addWidget(flow.card);
+        }
+
         const auto addJumpButton = [jumpTo](QHBoxLayout *row, const QString &text, int pageIndex, bool primary = false) {
             auto *button = new FluentButton(text);
             button->setPrimary(primary);

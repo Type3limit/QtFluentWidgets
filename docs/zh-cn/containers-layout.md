@@ -29,9 +29,15 @@ card->setCollapsed(false);
 
 auto *body = card->contentLayout();
 // body->addWidget(...)
+
+// 可单独开启的动态流光背景：低对比线性渐变（取自共享流光色板，见 theme-style.md），
+// 缓慢旋转流转。默认关闭；卡片隐藏或动画关闭时自动暂停。
+card->setFlowBackgroundEnabled(true);
 ```
 
 用途：内容分组容器（可选折叠），Demo 中多数示例卡片都基于此控件。
+
+`setFlowBackgroundEnabled(true)` 会在卡片表面叠加一层低对比的动画渐变（颜色取自 `ThemeManager::resolvedFlowColors()`，与 Flow 强调描边共用），保留正常的边框/hover 且内容保持可读；它与窗口的 Flow 描边属同一套效果，只是用线性渐变而非锥形。
 
 ### 结构与折叠机制（实现语义）
 

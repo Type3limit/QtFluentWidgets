@@ -23,9 +23,16 @@ Demo pages: Containers (`demo/pages/PageContainers.cpp`) and Overview (`demo/pag
 auto *card = new Fluent::FluentCard();
 card->setTitle(QStringLiteral("Title"));
 card->setCollapsible(true);
+
+// Opt-in animated "flow" background: a subtle, readable linear gradient from
+// the shared flow palette (see theme-style.md) that slowly rotates. Off by
+// default; the animation pauses when the card is hidden or animations are off.
+card->setFlowBackgroundEnabled(true);
 ```
 
 Purpose: content container with optional collapse/expand behavior. Most demo sections are built using cards.
+
+`setFlowBackgroundEnabled(true)` overlays the card surface with a low-contrast animated gradient (colours from `ThemeManager::resolvedFlowColors()`, shared with the Flow accent border). It keeps the normal border/hover and stays readable; it is the same effect family as the window's Flow border, but linear rather than conic.
 
 Structure & collapse mechanics (implementation semantics):
 

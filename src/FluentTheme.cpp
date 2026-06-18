@@ -1550,6 +1550,32 @@ void ThemeManager::setAccentBorderStyle(AccentBorderStyle style)
   scheduleThemeChanged(QStringLiteral("setAccentBorderStyle"));
 }
 
+QList<QColor> ThemeManager::flowGradientColors() const
+{
+  return m_flowGradientColors;
+}
+
+void ThemeManager::setFlowGradientColors(const QList<QColor> &colors)
+{
+  if (m_flowGradientColors == colors) {
+    return;
+  }
+  m_flowGradientColors = colors;
+  scheduleThemeChanged(QStringLiteral("setFlowGradientColors"));
+}
+
+QList<QColor> ThemeManager::resolvedFlowColors() const
+{
+  if (m_flowGradientColors.size() >= 2) {
+    return m_flowGradientColors;
+  }
+  // Auto: a flowing band derived from the current accent — a dark shade, the
+  // accent, a bright highlight, then the accent again (so a bright spot sweeps
+  // around as the gradient rotates / translates).
+  const QColor a = m_colors.accent;
+  return {a.darker(120), a, a.lighter(175), a};
+}
+
 void ThemeManager::setAnimationsEnabled(bool enabled)
 {
   if (m_animationsEnabled == enabled) {

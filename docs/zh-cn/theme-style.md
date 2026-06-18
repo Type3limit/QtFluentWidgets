@@ -56,12 +56,25 @@ ThemeManager::instance().setDarkMode();
 
 ```cpp
 ThemeManager::instance().setAccentBorderEnabled(true);
+
+// 描边样式：Solid（默认，Win11 风格）或 Flow（旋转的 accent 锥形渐变流光，
+// 仅在 accentBorderEnabled 为真时生效）。
+ThemeManager::instance().setAccentBorderStyle(ThemeManager::AccentBorderStyle::Flow);
+```
+
+流光渐变色板（Flow 描边与 `FluentCard` 流光背景共用）：
+
+```cpp
+// 自定义色标；传空列表则从当前 accent 自动推导。
+ThemeManager::instance().setFlowGradientColors({QColor("#2563EB"), QColor("#8A46D8"), QColor("#0F9B8E")});
+// resolvedFlowColors() 返回实际用于绘制的色标（自定义或 accent 推导）。
 ```
 
 实现语义补充：
 
 - `accentBorderEnabled()` 不只是一个布尔开关；窗口层组件（`FluentMainWindow` / `FluentDialog` / `FluentMessageBox` / `FluentToast`）会通过 `FluentBorderEffect` 把它映射到“普通描边 ↔ accent 描边”的状态切换，并在启用时播放 trace-in 动画。
 - `FluentMainWindow` 当前会把描边画在一个独立的顶层 overlay 上，因此描边可以同时包裹标题栏与 central widget，且不会被不透明内容控件覆盖。
+- **Flow** 样式用 `resolvedFlowColors()` 的 `QConicalGradient` 描边并旋转动画；窗口失焦/最小化/隐藏或 `animationsEnabled()` 为 false 时自动暂停（不在后台空转，也不影响离屏渲染）。
 
 也可以直接修改色板：
 

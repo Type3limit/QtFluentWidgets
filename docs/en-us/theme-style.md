@@ -56,12 +56,25 @@ Optional accent border:
 
 ```cpp
 ThemeManager::instance().setAccentBorderEnabled(true);
+
+// Border style: Solid (default, Win11-like) or Flow (a rotating accent-tinted
+// conic gradient — only takes effect while accentBorderEnabled is true).
+ThemeManager::instance().setAccentBorderStyle(ThemeManager::AccentBorderStyle::Flow);
+```
+
+Flow gradient palette (shared by the Flow border and `FluentCard`'s flow background):
+
+```cpp
+// Custom stops; pass an empty list to derive them from the current accent.
+ThemeManager::instance().setFlowGradientColors({QColor("#2563EB"), QColor("#8A46D8"), QColor("#0F9B8E")});
+// resolvedFlowColors() returns the stops actually used (custom, or accent-derived).
 ```
 
 Implementation notes:
 
 - `accentBorderEnabled()` is not just a plain on/off flag: window-layer widgets (`FluentMainWindow`, `FluentDialog`, `FluentMessageBox`, `FluentToast`) feed it through `FluentBorderEffect`, which switches between normal border and accent border states and can play a trace-in animation when enabled.
 - `FluentMainWindow` currently paints that border in a dedicated top-level overlay, so the border can wrap both the title bar and the central widget without being covered by opaque child widgets.
+- **Flow** style strokes that overlay with a `QConicalGradient` from `resolvedFlowColors()` and animates its rotation. The animation pauses when the window is inactive / minimized / hidden and when `animationsEnabled()` is false (so it never spins in the background or breaks offscreen rendering).
 
 ## Customize colors
 

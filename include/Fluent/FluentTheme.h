@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QColor>
+#include <QList>
 #include <QElapsedTimer>
 #include <QEasingCurve>
 #include <QString>
@@ -192,6 +193,14 @@ public:
     AccentBorderStyle accentBorderStyle() const;
     void setAccentBorderStyle(AccentBorderStyle style);
 
+    // Flow gradient palette shared by the Flow accent border (conic) and
+    // FluentCard's flow background (linear). Empty => derived from the accent.
+    QList<QColor> flowGradientColors() const;
+    void setFlowGradientColors(const QList<QColor> &colors);
+    // Stops actually used for painting: the custom palette if it has >= 2
+    // colors, otherwise an accent-derived set. Always returns >= 2 colors.
+    QList<QColor> resolvedFlowColors() const;
+
     bool animationsEnabled() const;
     void setAnimationsEnabled(bool enabled);
 
@@ -221,6 +230,7 @@ private:
 
     bool m_accentBorderEnabled = true;
     AccentBorderStyle m_accentBorderStyle = AccentBorderStyle::Solid;
+    QList<QColor> m_flowGradientColors;
     bool m_animationsEnabled = true;
     bool m_themeChangedPending = false;
     QElapsedTimer m_themeChangeTimer;

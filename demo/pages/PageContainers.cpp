@@ -312,6 +312,32 @@ QWidget *createContainersPage(FluentMainWindow *window)
 #undef CONTAINERS_CARD
         }
 
+        // FluentCard flow background (opt-in animated linear gradient)
+        {
+            const QString code = QStringLiteral(
+                "auto *card = new FluentCard();\n"
+                "card->setFlowBackgroundEnabled(true);   // animated linear gradient\n"
+                "// Colours are shared with the Flow accent border; empty = from accent:\n"
+                "// ThemeManager::instance().setFlowGradientColors({c1, c2, c3});\n");
+
+            auto *flowCard = Demo::makeCollapsedExample(
+                QStringLiteral("FluentCard flowBackground"),
+                DEMO_TEXT("可单独开启的动态流光背景：低对比线性渐变，跟随主题 accent 缓慢流转，内容保持可读。",
+                          "Opt-in animated flow background: a low-contrast linear gradient that follows the accent and stays readable."),
+                QString(),
+                code,
+                [](QVBoxLayout *body) {
+                    auto *hint = new FluentLabel(DEMO_TEXT("这张卡片自身开启了 flowBackground —— 注意背景缓慢流动，文字依旧清晰。",
+                                                           "This very card has flowBackground enabled — note the gentle motion while text stays crisp."));
+                    hint->setWordWrap(true);
+                    hint->setStyleSheet(QStringLiteral("font-size:12px; opacity:0.9;"));
+                    body->addWidget(hint);
+                },
+                false);
+            flowCard->setFlowBackgroundEnabled(true);
+            page->addWidget(flowCard);
+        }
+
         // Collapsible FluentCard
         {
             QString code;

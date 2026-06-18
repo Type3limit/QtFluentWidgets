@@ -375,21 +375,17 @@ protected:
             && tm.accentBorderStyle() == ThemeManager::AccentBorderStyle::Flow
             && !maximized;
         if (flow) {
-            // Accent-tinted conic gradient stroke; m_flowAngle rotates it. A bright
-            // band (at gradient pos 0.5) sweeps around like flowing light. Colours
-            // derive from the current accent so it follows the theme. When not
-            // animating (inactive / animations off) it renders as a static gradient.
-            const QColor base = colors.accent;
-            const QColor hi = Style::mix(base, QColor(255, 255, 255), 0.6);
-            const QColor lo = base.darker(130);
+            // Conic gradient stroke; m_flowAngle rotates it so the colours sweep
+            // around the edge like flowing light. Colours come from the shared
+            // flow palette (custom, or accent-derived). When not animating
+            // (inactive / animations off) it renders as a static gradient.
+            const QList<QColor> stops = tm.resolvedFlowColors();
             QConicalGradient grad(panelRect.center(), m_flowAngle);
-            grad.setColorAt(0.00, base);
-            grad.setColorAt(0.18, lo);
-            grad.setColorAt(0.42, base);
-            grad.setColorAt(0.50, hi);
-            grad.setColorAt(0.58, base);
-            grad.setColorAt(0.82, lo);
-            grad.setColorAt(1.00, base);
+            const int n = stops.size();
+            for (int i = 0; i < n; ++i) {
+                grad.setColorAt(qBound(0.0, qreal(i) / n, 1.0), stops.at(i));
+            }
+            grad.setColorAt(1.0, stops.first()); // close the loop seamlessly
             QPen pen(QBrush(grad), qMax<qreal>(1.5, frame.borderWidth + 0.5));
             p.setPen(pen);
             p.setBrush(Qt::NoBrush);

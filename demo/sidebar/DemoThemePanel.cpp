@@ -22,6 +22,7 @@
 #include "Fluent/FluentSpinBox.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
+#include "Fluent/FluentColorPicker.h"
 #include "Fluent/FluentToggleSwitch.h"
 
 namespace Demo {
@@ -379,6 +380,54 @@ static QWidget *makeAccentBorderAnimWidget(QWidget *parent)
         rowL->addStretch(1);
         rowL->addWidget(flowSwitch);
         layout->addWidget(rowW);
+    }
+
+    // Flow gradient colours (shared by the flow border and FluentCard flow
+    // backgrounds). "Auto" derives them from the accent; turning Auto off uses
+    // the three custom pickers below.
+    {
+        auto *autoColors = new FluentToggleSwitch();
+        autoColors->setChecked(ThemeManager::instance().flowGradientColors().isEmpty());
+        autoColors->setText(DEMO_TEXT("自动", "Auto"));
+
+        const QList<QColor> seed = ThemeManager::instance().resolvedFlowColors();
+        auto *pick1 = new FluentColorPicker();
+        auto *pick2 = new FluentColorPicker();
+        auto *pick3 = new FluentColorPicker();
+        pick1->setColor(seed.value(0, QColor(QStringLiteral("#2563EB"))));
+        pick2->setColor(seed.value(seed.size() / 2, QColor(QStringLiteral("#8A46D8"))));
+        pick3->setColor(seed.value(seed.size() - 1, QColor(QStringLiteral("#0F9B8E"))));
+
+        auto applyColors = [autoColors, pick1, pick2, pick3]() {
+            const bool autoOn = autoColors->isChecked();
+            if (autoOn) {
+                ThemeManager::instance().setFlowGradientColors({});
+            } else {
+                ThemeManager::instance().setFlowGradientColors(
+                    {pick1->color(), pick2->color(), pick3->color()});
+            }
+            pick1->setEnabled(!autoOn);
+            pick2->setEnabled(!autoOn);
+            pick3->setEnabled(!autoOn);
+        };
+        QObject::connect(autoColors, &FluentToggleSwitch::toggled, w, [applyColors](bool) { applyColors(); });
+        QObject::connect(pick1, &FluentColorPicker::colorChanged, w, [applyColors](const QColor &) { applyColors(); });
+        QObject::connect(pick2, &FluentColorPicker::colorChanged, w, [applyColors](const QColor &) { applyColors(); });
+        QObject::connect(pick3, &FluentColorPicker::colorChanged, w, [applyColors](const QColor &) { applyColors(); });
+
+        auto *rowW = new QWidget(w);
+        auto *rowL = new QHBoxLayout(rowW);
+        rowL->setContentsMargins(0, 0, 0, 0);
+        rowL->setSpacing(8);
+        rowL->addWidget(new FluentLabel(DEMO_TEXT("流光配色", "Flow colours")));
+        rowL->addWidget(autoColors);
+        rowL->addStretch(1);
+        rowL->addWidget(pick1);
+        rowL->addWidget(pick2);
+        rowL->addWidget(pick3);
+        layout->addWidget(rowW);
+
+        applyColors(); // set initial enabled state (pickers disabled while Auto)
     }
 
     auto *durSlider = new FluentSlider(Qt::Horizontal);

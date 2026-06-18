@@ -35,6 +35,13 @@ public:
     void setCollapseAnimationEnabled(bool enabled);
     bool isCollapseAnimationEnabled() const;
 
+    // Opt-in animated "flow" background: a subtle, readable linear gradient
+    // (from ThemeManager's shared flow palette) that slowly rotates. Off by
+    // default — cards keep their solid theme surface. The animation pauses when
+    // the card is hidden (e.g. another page is shown) or animations are off.
+    void setFlowBackgroundEnabled(bool enabled);
+    bool isFlowBackgroundEnabled() const;
+
     bool loadCollapseIndicatorAnimation(const QString &path);
     bool loadCollapseIndicatorAnimationData(const QByteArray &json,
                                             const QString &cacheKey = QString(),
@@ -65,6 +72,7 @@ private:
     void applyCollapsedState(bool animated);
     void finishCollapseAnimationImmediately();
     void startHoverAnimation(qreal endValue);
+    void updateFlowAnimationState();
     void lockContentHeightForAnimation(int height);
     void releaseContentHeightLock();
     void scheduleContentClipGeometryRefresh();
@@ -88,6 +96,9 @@ private:
     bool m_hovered = false;
     bool m_contentRefreshPending = false;
     qreal m_hoverLevel = 0.0;
+    bool m_flowBackgroundEnabled = false;
+    QVariantAnimation *m_flowAnim = nullptr;
+    qreal m_flowPhase = 0.0;
 };
 
 } // namespace Fluent
