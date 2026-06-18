@@ -646,6 +646,32 @@ FluentAnimatedButton *makeAnimatedSearchButton(const QString &text, QWidget *par
     return button;
 }
 
+QWidget *makePageHeader(const QString &eyebrow, const QString &title, const QString &desc)
+{
+    auto *w = new QWidget();
+    auto *l = new QVBoxLayout(w);
+    l->setContentsMargins(0, 0, 0, 6);
+    l->setSpacing(8);
+
+    auto *eb = new FluentLabel(eyebrow, w);
+    eb->setStyleSheet(QStringLiteral(
+        "font-family:'Cascadia Mono','Consolas',monospace;"
+        "font-size:11px;letter-spacing:2px;font-weight:600;"));
+    eb->setProperty("_demoRailTitle", title); // 标注条用大标题作分段名
+
+    auto *tt = new FluentLabel(title, w);
+    tt->setStyleSheet(QStringLiteral("font-size:30px;font-weight:600;"));
+
+    auto *ds = new FluentLabel(desc, w);
+    ds->setWordWrap(true);
+    ds->setStyleSheet(QStringLiteral("font-size:14px;"));
+
+    l->addWidget(eb);
+    l->addWidget(tt);
+    l->addWidget(ds);
+    return w;
+}
+
 QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
 {
     auto *area = new DemoAnnotatedScrollArea();
@@ -661,11 +687,23 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
     content->setBackgroundRole(FluentWidget::BackgroundRole::WindowBackground);
     area->setWidget(content);
 
-    auto *layout = new QVBoxLayout(content);
-    layout->setContentsMargins(24, 24, 204, 24);
+    auto *outer = new QHBoxLayout(content);
+    outer->setContentsMargins(24, 24, 204, 24); // 右侧留给标注条
+    outer->setSpacing(0);
+
+    auto *column = new QWidget(content);
+    column->setObjectName(QStringLiteral("DemoAnnotatedPageColumn"));
+    column->setMaximumWidth(1040);
+    column->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+
+    auto *layout = new QVBoxLayout(column);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(18);
     fill(layout);
     layout->addStretch(1);
+
+    outer->addWidget(column, 0, Qt::AlignLeft | Qt::AlignTop);
+    outer->addStretch(1);
 
     auto *annotated = new FluentAnnotatedScrollBar(area);
     annotated->setObjectName(QStringLiteral("DemoPageAnnotatedScrollBar"));
@@ -675,10 +713,12 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
     annotated->setVisible(true);
     area->setAnnotatedScrollBar(annotated);
 
-    auto refreshSources = [layout, annotated, area]() {
+    auto refreshSources = [layout, annotated, area, column]() {
         if (!layout || !annotated || !area || !area->widget()) {
             return;
         }
+
+        const int columnTop = column->mapTo(area->widget(), QPoint(0, 0)).y();
 
         QVector<FluentAnnotatedScrollBarSource> sources;
         const QMargins margins = layout->contentsMargins();
@@ -699,7 +739,7 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
                              QStringLiteral("Section %1").arg(sources.size() + 1));
             }
 
-            const int sourceStart = hasGeometry ? qMax(0, geometry.top()) : qMax(0, fallbackTop);
+            const int sourceStart = hasGeometry ? qMax(0, geometry.top() + columnTop) : qMax(0, fallbackTop);
             const int sectionHeight = hasGeometry ? qMax(1, geometry.height()) : hintHeight;
 
             FluentAnnotatedScrollBarSource source;

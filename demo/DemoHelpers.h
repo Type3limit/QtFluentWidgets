@@ -63,6 +63,8 @@ QString demoLottieResourcePath(const QString &fileName);
 bool loadDemoLottieResource(Fluent::FluentLottieWidget *widget, const QString &fileName);
 Fluent::FluentAnimatedButton *makeAnimatedSearchButton(const QString &text, QWidget *parent = nullptr);
 
+// 页眉：eyebrow（等宽小字+字距）/ 大标题 / 描述。颜色随主题，仅排版用 stylesheet。
+QWidget *makePageHeader(const QString &eyebrow, const QString &title, const QString &desc);
 QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill);
 QWidget *makeSidebarCard(QWidget *inner);
 
