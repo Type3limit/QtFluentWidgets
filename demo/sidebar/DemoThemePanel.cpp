@@ -415,17 +415,33 @@ static QWidget *makeAccentBorderAnimWidget(QWidget *parent)
         QObject::connect(pick2, &FluentColorPicker::colorChanged, w, [applyColors](const QColor &) { applyColors(); });
         QObject::connect(pick3, &FluentColorPicker::colorChanged, w, [applyColors](const QColor &) { applyColors(); });
 
-        auto *rowW = new QWidget(w);
-        auto *rowL = new QHBoxLayout(rowW);
-        rowL->setContentsMargins(0, 0, 0, 0);
-        rowL->setSpacing(8);
-        rowL->addWidget(new FluentLabel(DEMO_TEXT("流光配色", "Flow colours")));
-        rowL->addWidget(autoColors);
-        rowL->addStretch(1);
-        rowL->addWidget(pick1);
-        rowL->addWidget(pick2);
-        rowL->addWidget(pick3);
-        layout->addWidget(rowW);
+        // Header row: label + Auto toggle.
+        {
+            auto *rowW = new QWidget(w);
+            auto *rowL = new QHBoxLayout(rowW);
+            rowL->setContentsMargins(0, 0, 0, 0);
+            rowL->setSpacing(8);
+            rowL->addWidget(new FluentLabel(DEMO_TEXT("流光配色", "Flow colours")));
+            rowL->addStretch(1);
+            rowL->addWidget(autoColors);
+            layout->addWidget(rowW);
+        }
+        // Stack the three pickers one per row. Each FluentColorPicker has a wide
+        // minimum (preview + "选择颜色" button); three in a single row pushed the
+        // settings content past the annotated-scrollbar gutter on narrow windows.
+        const auto addPickerRow = [&](const QString &name, FluentColorPicker *pick) {
+            auto *rowW = new QWidget(w);
+            auto *rowL = new QHBoxLayout(rowW);
+            rowL->setContentsMargins(0, 0, 0, 0);
+            rowL->setSpacing(8);
+            rowL->addWidget(new FluentLabel(name));
+            rowL->addStretch(1);
+            rowL->addWidget(pick);
+            layout->addWidget(rowW);
+        };
+        addPickerRow(DEMO_TEXT("色标 1", "Stop 1"), pick1);
+        addPickerRow(DEMO_TEXT("色标 2", "Stop 2"), pick2);
+        addPickerRow(DEMO_TEXT("色标 3", "Stop 3"), pick3);
 
         applyColors(); // set initial enabled state (pickers disabled while Auto)
     }
