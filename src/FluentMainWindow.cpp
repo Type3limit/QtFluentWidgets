@@ -47,6 +47,50 @@ enum WindowGlyphType { GlyphMinimize = 0, GlyphMaximize = 1, GlyphRestore = 2, G
 // Window frame radius matching the Windows 11 DWM DWMWCP_ROUND corner clip (8 DIPs).
 static constexpr qreal kWindowFrameRadius = 8.0;
 
+#ifdef Q_OS_WIN
+// DWMWA_WINDOW_CORNER_PREFERENCE rounds a top-level window's corners only on
+// Windows 11 (build >= 22000). On Windows 10 DwmSetWindowAttribute accepts the
+// call but does nothing, so the frameless window keeps square corners. Detected
+// once via RtlGetVersion -- the documented GetVersionEx/VersionHelpers are
+// manifest-gated and under-report the build on Win10/11. See GitHub issue #17.
+static bool isWindows11OrGreater()
+{
+    using RtlGetVersionFn = LONG(WINAPI *)(OSVERSIONINFOEXW *);
+    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    if (!ntdll) {
+        return false;
+    }
+    auto rtlGetVersion = reinterpret_cast<RtlGetVersionFn>(GetProcAddress(ntdll, "RtlGetVersion"));
+    if (!rtlGetVersion) {
+        return false;
+    }
+    OSVERSIONINFOEXW info{};
+    info.dwOSVersionInfoSize = sizeof(info);
+    if (rtlGetVersion(&info) != 0) { // != STATUS_SUCCESS
+        return false;
+    }
+    return info.dwMajorVersion > 10
+        || (info.dwMajorVersion == 10 && info.dwBuildNumber >= 22000);
+}
+#endif
+
+// Effective outer window-frame radius. The frameless window only gets real
+// rounded corners where the platform can clip them: Windows 11 via DWM, and
+// other platforms via the cross-platform overlay fallback. On Windows 10 there
+// is no corner clipping, so painting a rounded border over the opaque card fill
+// leaves the corners poking through as white squares (issue #17) -- draw square
+// corners there instead, matching the native Windows 10 window shape.
+static qreal effectiveWindowFrameRadius()
+{
+#ifdef Q_OS_WIN
+    static const bool rounded = isWindows11OrGreater();
+    if (!rounded) {
+        return 0.0;
+    }
+#endif
+    return kWindowFrameRadius;
+}
+
 static QString applicationStyleSignature(const ThemeColors &colors)
 {
     // QApplication::setStyleSheet() repolishes the whole widget tree. Keep this
@@ -317,7 +361,7 @@ protected:
         const bool maximized = w && (w->isMaximized() || w->isFullScreen());
 
         FluentFrameSpec frame;
-        frame.radius = kWindowFrameRadius;
+        frame.radius = effectiveWindowFrameRadius();
         frame.maximized = maximized;
         {
             qreal dpr = devicePixelRatioF();
@@ -454,8 +498,11 @@ protected:
 
         const auto &tokens = ThemeManager::instance().tokens();
 
-        // Simple opaque fill — no rounded rect needed here because the border
-        // overlay and DWM handle the visual rounding.
+        // Simple opaque fill — the border overlay paints the rounded outline and,
+        // on Windows 11, DWM clips the window to rounded corners on top of this.
+        // On Windows 10 there is no corner clipping, so the overlay/title bar draw
+        // square corners (effectiveWindowFrameRadius() == 0) to match this square
+        // fill — otherwise the fill would show through as white corners (issue #17).
         p.fillRect(rect(), tokens.neutral.card);
     }
 };
@@ -2062,9 +2109,10 @@ void FluentMainWindow::updateTitleBarContent()
     }
     traceMark(QStringLiteral("visibility"));
 
-    // The frame host draws the outer border with full kWindowFrameRadius.
+    // The frame host draws the outer border with the effective window radius
+    // (0 on platforms that cannot clip corners, e.g. Windows 10 -- see issue #17).
     // The title bar is inside the 1px inset, so its effective inner radius is slightly smaller.
-    const qreal innerRadius = maximizedOrFullscreen ? 0.0 : qMax(0.0, kWindowFrameRadius - 1.0);
+    const qreal innerRadius = maximizedOrFullscreen ? 0.0 : qMax(0.0, effectiveWindowFrameRadius() - 1.0);
     const int frameRadius = static_cast<int>(innerRadius);
     if (m_titleBarHost->property("_fluentTitleBarBottomRule").toBool() != anyButtonsVisible) {
         m_titleBarHost->setProperty("_fluentTitleBarBottomRule", anyButtonsVisible);
@@ -2090,8 +2138,10 @@ void FluentMainWindow::updateTitleBarContent()
     // NOTE: We intentionally do NOT set a QRegion mask on the title bar.
     // QRegion masks are pixel-based and produce visible jaggies on rounded corners.
     // On Windows 11, DWM DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND provides
-    // smooth system-level corner clipping.  The CSS border-radius on the title bar
-    // provides the visual rounded background.
+    // smooth system-level corner clipping; the title bar paints a rounded top.
+    // On Windows 10 DWM does not round, so effectiveWindowFrameRadius() returns 0
+    // and the title bar paints square corners flush with the window edge (no white
+    // corner artifacts — issue #17).
     flushSlowTrace();
 }
 
