@@ -131,7 +131,10 @@ inline void paintPanel(QPainter &painter, const QRect &rect,
 
     paintFluentSurface(painter, r, colors, surface);
 
-    if (frame.traceEnabled) {
+    if (fluentFlowBorderActive(frame)) {
+        // Overdraw the rotating flow accent stroke (shared with windows/dialogs).
+        paintFluentFlowStroke(painter, r, kRadius, kBorderWidth);
+    } else if (frame.traceEnabled) {
         Style::paintTraceBorder(painter, r, kRadius, frame.traceColor, frame.traceT, kBorderWidth, 0.0);
     }
 }
@@ -165,7 +168,10 @@ inline void paintPanelWithShadowMargins(QPainter &painter, const QRect &rect,
     paintSoftPopupShadow(painter, r, colors);
     paintFluentSurface(painter, r, colors, surface);
 
-    if (frame.traceEnabled) {
+    if (fluentFlowBorderActive(frame)) {
+        // Overdraw the rotating flow accent stroke (shared with windows/dialogs).
+        paintFluentFlowStroke(painter, r, kRadius, kBorderWidth);
+    } else if (frame.traceEnabled) {
         Style::paintTraceBorder(painter, r, kRadius, frame.traceColor, frame.traceT, kBorderWidth, 0.0);
     }
 }
