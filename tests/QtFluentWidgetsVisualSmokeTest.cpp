@@ -19605,11 +19605,12 @@ private slots:
                      qPrintable(QStringLiteral("FluentMessageBox child kept palette() QSS: %1").arg(child->metaObject()->className())));
         }
 
-        if (auto *detail = box.findChild<QTextEdit *>()) {
+        if (auto *detail = box.findChild<QLabel *>(QStringLiteral("FluentMessageBoxDetail"))) {
             sawDetail = true;
             const QString style = detail->styleSheet();
-            QVERIFY(style.contains(messageLightColors.text.name(QColor::HexArgb)));
-            QVERIFY(style.contains(messageLightTokens.neutral.strokeSubtle.name(QColor::HexArgb)));
+            QVERIFY(detail->wordWrap());
+            QVERIFY(detail->textInteractionFlags().testFlag(Qt::TextSelectableByMouse));
+            QVERIFY(style.contains(messageLightColors.subText.name(QColor::HexArgb)));
         }
         if (auto *link = box.findChild<QLabel *>(QStringLiteral("FluentLink"))) {
             sawLink = true;
@@ -19628,9 +19629,8 @@ private slots:
                          qPrintable(QStringLiteral("FluentMessageBox child reintroduced palette() QSS after dark theme: %1").arg(child->metaObject()->className())));
             }
         }
-        if (auto *detail = box.findChild<QTextEdit *>()) {
-            QVERIFY(detail->styleSheet().contains(darkColors.text.name(QColor::HexArgb)));
-            QVERIFY(detail->styleSheet().contains(darkTokens.neutral.strokeSubtle.name(QColor::HexArgb)));
+        if (auto *detail = box.findChild<QLabel *>(QStringLiteral("FluentMessageBoxDetail"))) {
+            QVERIFY(detail->styleSheet().contains(darkColors.subText.name(QColor::HexArgb)));
         }
         if (auto *link = box.findChild<QLabel *>(QStringLiteral("FluentLink"))) {
             QVERIFY(link->styleSheet().contains(darkTokens.accent.base.name(QColor::HexArgb)));
@@ -20064,35 +20064,19 @@ private slots:
         QVERIFY2(nearColorPixelCount(image, tokens.accent.base, borderProbe, 72) < 4,
                  "FluentMessageBox neutral border should not keep an accent border when accent borders are disabled");
 
-        auto *detail = box.findChild<QTextEdit *>();
-        QVERIFY2(detail, "FluentMessageBox should expose its detail editor when detail text is provided");
+        auto *detail = box.findChild<QLabel *>(QStringLiteral("FluentMessageBoxDetail"));
+        QVERIFY2(detail, "FluentMessageBox should expose its detail label when detail text is provided");
+        QCOMPARE(detail->text(), QStringLiteral("Token detail\nSecond line"));
+        QVERIFY(detail->wordWrap());
+        QVERIFY(detail->textInteractionFlags().testFlag(Qt::TextSelectableByMouse));
+        const QString detailStyle = detail->styleSheet();
+        QVERIFY(detailStyle.contains(colors.subText.name(QColor::HexArgb)));
+        QVERIFY2(!detailStyle.contains(QStringLiteral("background")),
+                 "FluentMessageBox detail should flow as body text without a boxed background");
+        QVERIFY2(!detailStyle.contains(QStringLiteral("border")),
+                 "FluentMessageBox detail should flow as body text without a boxed border");
         const QRect detailRect(detail->mapTo(&box, QPoint(0, 0)), detail->size());
-        const QRect detailInner = detailRect.adjusted(18, 18, -18, -18);
-        QVERIFY2(detailInner.isValid(), "FluentMessageBox detail editor should have a sampleable interior");
-        const int detailFillWidth = qMin(72, detailInner.width());
-        const int detailFillHeight = qMin(18, detailInner.height());
-        const QRect detailFillProbe(detailInner.right() - detailFillWidth + 1,
-                                    detailInner.bottom() - detailFillHeight + 1,
-                                    detailFillWidth,
-                                    detailFillHeight);
-        const QColor expectedDetailFill =
-            Style::mix(tokens.neutral.card, tokens.neutral.cardHover, tokens.dark ? 0.42 : 0.30);
-        const QColor detailFill = dominantColor(image, detailFillProbe);
-        QVERIFY2(colorDelta(detailFill, expectedDetailFill) < 42,
-                 qPrintable(QStringLiteral("FluentMessageBox detail fill should use neutral card hover tokens, got %1 expected near %2")
-                                .arg(detailFill.name(), expectedDetailFill.name())));
-        QVERIFY2(colorDelta(detailFill, colors.hover) > 80,
-                 qPrintable(QStringLiteral("FluentMessageBox detail fill should not fall back to raw legacy hover, got %1")
-                                .arg(detailFill.name())));
-
-        const QRect detailBorderProbe(detailRect.left() + 24,
-                                      detailRect.top(),
-                                      qMax(1, detailRect.width() - 48),
-                                      3);
-        QVERIFY2(nearColorPixelCount(image, tokens.neutral.strokeSubtle, detailBorderProbe, 76) > 8,
-                 "FluentMessageBox detail border should render neutral.strokeSubtle token pixels");
-        QVERIFY2(nearColorPixelCount(image, colors.border, detailBorderProbe, 48) < 4,
-                 "FluentMessageBox detail border should not render the raw legacy border color");
+        QVERIFY2(detailRect.isValid(), "FluentMessageBox detail label should participate in the dialog layout");
 
         box.close();
         QCoreApplication::processEvents();
