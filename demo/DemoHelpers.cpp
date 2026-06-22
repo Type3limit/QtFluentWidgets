@@ -693,8 +693,7 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
 
     auto *column = new QWidget(content);
     column->setObjectName(QStringLiteral("DemoAnnotatedPageColumn"));
-    column->setMaximumWidth(1040);
-    column->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    column->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
     auto *layout = new QVBoxLayout(column);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -702,8 +701,9 @@ QWidget *makePage(const std::function<void(QVBoxLayout *)> &fill)
     fill(layout);
     layout->addStretch(1);
 
-    outer->addWidget(column, 0, Qt::AlignLeft | Qt::AlignTop);
-    outer->addStretch(1);
+    // Fill the available width (right gutter reserved above for the annotated
+    // scrollbar) so wide windows don't leave the content area half-empty.
+    outer->addWidget(column, 1);
 
     auto *annotated = new FluentAnnotatedScrollBar(area);
     annotated->setObjectName(QStringLiteral("DemoPageAnnotatedScrollBar"));
