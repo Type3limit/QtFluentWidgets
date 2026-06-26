@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QPointer>
 #include <QString>
 #include <QStringList>
@@ -11,7 +13,7 @@ class QScrollBar;
 
 namespace Fluent {
 
-struct FluentAnnotatedScrollBarRange {
+struct FLUENT_EXPORT FluentAnnotatedScrollBarRange {
     int start = 0;
     int end = 0;
     QString text;
@@ -22,7 +24,7 @@ inline bool operator==(const FluentAnnotatedScrollBarRange &lhs, const FluentAnn
     return lhs.start == rhs.start && lhs.end == rhs.end && lhs.text == rhs.text;
 }
 
-struct FluentAnnotatedScrollBarSource {
+struct FLUENT_EXPORT FluentAnnotatedScrollBarSource {
     QString group;
     QString text;
     int start = 0;
@@ -34,7 +36,7 @@ inline bool operator==(const FluentAnnotatedScrollBarSource &lhs, const FluentAn
     return lhs.group == rhs.group && lhs.text == rhs.text && lhs.start == rhs.start && lhs.end == rhs.end;
 }
 
-class FluentAnnotatedScrollBar final : public QWidget
+class FLUENT_EXPORT FluentAnnotatedScrollBar final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(bool showToolTipOnScroll READ showToolTipOnScroll WRITE setShowToolTipOnScroll)

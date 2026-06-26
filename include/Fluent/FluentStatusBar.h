@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QStatusBar>
 
 namespace Fluent {
 
-class FluentStatusBar final : public QStatusBar
+class FLUENT_EXPORT FluentStatusBar final : public QStatusBar
 {
     Q_OBJECT
 public:

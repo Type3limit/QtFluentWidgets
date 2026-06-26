@@ -107,7 +107,7 @@ Purpose: a `QPushButton` with Fluent rounded corners/border, hover/press animati
 Inheritance & construction:
 
 - `class FluentButton : public QPushButton`
-- Constructors: `FluentButton(QWidget*)`, `FluentButton(const QString&, QWidget*)`
+- Constructors: `FluentButton(QWidget*)`, `FluentButton(const QString&, QWidget*)`, `FluentButton(const QIcon&, const QString&, QWidget*)`
 
 Visual / interaction notes:
 
@@ -118,7 +118,7 @@ Visual / interaction notes:
 	- Icon/text use `onAccent`; if checkable and checked, it draws an extra inner highlight to strengthen the “selected” state.
 - The focus ring uses the current `accent.base` token; the button family no longer paints focus outlines directly from the legacy `focus` color.
 - Disabled: uses neutral disabled surface/stroke plus `disabledText` instead of deriving directly from legacy surface/hover colors.
-- With an icon: the icon is painted on the left; text is laid out as a group (icon + gap + text) and visually centered.
+- With an icon: the icon is painted on the left by default; text is laid out as a group (icon + gap + text) and visually centered. The icon can also be placed on the right, top, or bottom.
 
 Theme coupling: listens to `ThemeManager::themeChanged` and its own enabled-state changes to repaint.
 
@@ -127,6 +127,8 @@ Key APIs:
 - `setPrimary(bool)` / `isPrimary()`
 - `setCheckable(bool)` / `setChecked(bool)` / `toggled(bool)` (inherited from `QAbstractButton`; checked state has extra painting)
 - `setIcon(const QIcon&)` / `setIconSize(const QSize&)`
+- `setIconPosition(FluentButton::IconPosition)` / `iconPosition()`: `Left` (default), `Right`, `Top`, or `Bottom`.
+- `setIconSpacing(int)` / `iconSpacing()`: icon/text spacing, default 8 px.
 - `hoverLevel` / `pressLevel` (Q_PROPERTY): animation layers (normally driven internally)
 
 Demo: Buttons / Containers / Pickers / Windows / Overview.
@@ -147,6 +149,7 @@ auto *toggle = new Fluent::FluentButton(QStringLiteral("Pin"));
 toggle->setCheckable(true);
 toggle->setIcon(QIcon(QStringLiteral(":/icons/pin.svg")));
 toggle->setIconSize(QSize(16, 16));
+toggle->setIconPosition(Fluent::FluentButton::IconPosition::Left);
 connect(toggle, &QAbstractButton::toggled, this, [](bool on) {
 		qDebug() << "Pinned:" << on;
 });

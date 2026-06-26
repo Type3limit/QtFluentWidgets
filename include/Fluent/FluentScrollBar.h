@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QScrollBar>
 #include "Fluent/FluentQtCompat.h"
 
@@ -10,7 +12,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentScrollBar final : public QScrollBar
+class FLUENT_EXPORT FluentScrollBar final : public QScrollBar
 {
     Q_OBJECT
     Q_PROPERTY(qreal revealLevel READ revealLevel WRITE setRevealLevel)

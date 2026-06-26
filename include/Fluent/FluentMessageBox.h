@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QDialog>
 #include <QPointer>
 #include <QUrl>
@@ -13,7 +15,7 @@ class QHideEvent;
 
 namespace Fluent {
 
-class FluentMessageBox final : public QDialog
+class FLUENT_EXPORT FluentMessageBox final : public QDialog
 {
     Q_OBJECT
 public:

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QComboBox>
 #include "Fluent/FluentQtCompat.h"
 
@@ -9,7 +11,7 @@ namespace Fluent {
 
 class FluentComboPopup;
 
-class FluentComboBox final : public QComboBox
+class FLUENT_EXPORT FluentComboBox final : public QComboBox
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

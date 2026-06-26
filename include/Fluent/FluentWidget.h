@@ -1,12 +1,14 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QWidget>
 
 class QPaintEvent;
 
 namespace Fluent {
 
-class FluentWidget : public QWidget
+class FLUENT_EXPORT FluentWidget : public QWidget
 {
     Q_OBJECT
 public:

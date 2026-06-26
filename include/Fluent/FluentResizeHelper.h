@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QObject>
 #include <QPoint>
 #include <QRect>
@@ -11,7 +13,7 @@ class QMouseEvent;
 
 namespace Fluent {
 
-class FluentResizeHelper final : public QObject
+class FLUENT_EXPORT FluentResizeHelper final : public QObject
 {
     Q_OBJECT
 public:

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QMenu>
 
 #include <QPointer>
@@ -17,7 +19,7 @@ class QResizeEvent;
 
 namespace Fluent {
 
-class FluentMenu final : public QMenu
+class FLUENT_EXPORT FluentMenu final : public QMenu
 {
     Q_OBJECT
 public:

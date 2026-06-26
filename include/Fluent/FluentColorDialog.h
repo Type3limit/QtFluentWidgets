@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QDialog>
 #include <QColor>
 #include <QPoint>
@@ -17,19 +19,19 @@ enum class ColorPickerMode {
     RadialGradient
 };
 
-struct FluentGradientStop {
+struct FLUENT_EXPORT FluentGradientStop {
     qreal    position = 0.0;
     QColor   color;
 };
 
-struct FluentGradientResult {
+struct FLUENT_EXPORT FluentGradientResult {
     ColorPickerMode          mode = ColorPickerMode::Solid;
     QColor                   solidColor;
     QVector<FluentGradientStop> stops;     // populated in gradient modes
     int                      angle = 0;   // degrees, 0=left→right (LinearGradient only)
 };
 
-class FluentColorDialog final : public QDialog
+class FLUENT_EXPORT FluentColorDialog final : public QDialog
 {
     Q_OBJECT
 public:

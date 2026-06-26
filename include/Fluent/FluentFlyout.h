@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentBorderEffect.h"
 
 #include <QMargins>
@@ -11,7 +13,7 @@ class QVBoxLayout;
 
 namespace Fluent {
 
-class FluentFlyout : public QWidget
+class FLUENT_EXPORT FluentFlyout : public QWidget
 {
     Q_OBJECT
 public:

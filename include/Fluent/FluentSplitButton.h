@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QPointer>
 #include <QWidget>
 
@@ -11,7 +13,7 @@ namespace Fluent {
 
 class FluentButton;
 
-class FluentSplitButton final : public QWidget
+class FLUENT_EXPORT FluentSplitButton final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(QString text READ text WRITE setText)

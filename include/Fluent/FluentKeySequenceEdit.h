@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QKeySequenceEdit>
 #include <QPointer>
 
@@ -11,7 +13,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentKeySequenceEdit final : public QKeySequenceEdit
+class FLUENT_EXPORT FluentKeySequenceEdit final : public QKeySequenceEdit
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

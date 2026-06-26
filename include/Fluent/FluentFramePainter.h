@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -26,7 +28,7 @@ enum class FluentElevationLevel {
     High
 };
 
-struct FluentSurfaceSpec {
+struct FLUENT_EXPORT FluentSurfaceSpec {
     FluentSurfaceLevel level = FluentSurfaceLevel::Card;
     FluentElevationLevel elevation = FluentElevationLevel::None;
 
@@ -201,7 +203,7 @@ inline void paintFluentSurface(QPainter &p, const QRectF &rect, const ThemeColor
 
 // Common frameless dialog/window frame painter.
 // Intended for translucent top-level widgets that draw a rounded surface + 1px border.
-struct FluentFrameSpec {
+struct FLUENT_EXPORT FluentFrameSpec {
     qreal radius = 10.0;
     bool maximized = false;
 

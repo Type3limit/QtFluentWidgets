@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 
@@ -18,7 +20,7 @@ namespace Fluent {
 // - No Q_OBJECT / moc required
 // - Owns its internal QVariantAnimation
 // - Exposes (from/to enabled, t) so callers can decide actual colors
-class FluentAccentBorderTrace final : public QObject
+class FLUENT_EXPORT FluentAccentBorderTrace final : public QObject
 {
 public:
     explicit FluentAccentBorderTrace(QWidget *updateTarget, QObject *parent = nullptr)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QLineEdit>
 #include "Fluent/FluentQtCompat.h"
 
@@ -9,7 +11,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentLineEdit final : public QLineEdit
+class FLUENT_EXPORT FluentLineEdit final : public QLineEdit
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

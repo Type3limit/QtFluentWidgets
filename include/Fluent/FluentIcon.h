@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QColor>
 #include <QIcon>
 #include <QRectF>
@@ -65,14 +67,14 @@ enum class FluentIconType {
     ZoomOut,
 };
 
-struct FluentIconOptions {
+struct FLUENT_EXPORT FluentIconOptions {
     QColor color;
     bool autoTheme = true;
     bool reversed = false;
     qreal opacity = 1.0;
 };
 
-class FluentIcon final
+class FLUENT_EXPORT FluentIcon final
 {
 public:
     explicit FluentIcon(FluentIconType type = FluentIconType::Info);

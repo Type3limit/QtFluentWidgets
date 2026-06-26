@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QHash>
 #include <QPointer>
 #include <QSet>
@@ -15,7 +17,7 @@ namespace Fluent {
 class FluentMenu;
 class FluentToolButton;
 
-class FluentCommandBar final : public QWidget
+class FLUENT_EXPORT FluentCommandBar final : public QWidget
 {
     Q_OBJECT
 public:

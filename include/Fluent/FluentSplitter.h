@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QSplitter>
 
 namespace Fluent {
 
-class FluentSplitter final : public QSplitter
+class FLUENT_EXPORT FluentSplitter final : public QSplitter
 {
     Q_OBJECT
 public:

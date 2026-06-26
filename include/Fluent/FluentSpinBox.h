@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QSpinBox>
 #include "Fluent/FluentQtCompat.h"
 #include <QVariantAnimation>
@@ -10,7 +12,7 @@ class QLineEdit;
 
 namespace Fluent {
 
-class FluentSpinBox final : public QSpinBox
+class FLUENT_EXPORT FluentSpinBox final : public QSpinBox
 {
     Q_OBJECT
 public:
@@ -58,7 +60,7 @@ private:
     QLineEdit *m_editor = nullptr;
 };
 
-class FluentDoubleSpinBox final : public QDoubleSpinBox
+class FLUENT_EXPORT FluentDoubleSpinBox final : public QDoubleSpinBox
 {
     Q_OBJECT
 public:

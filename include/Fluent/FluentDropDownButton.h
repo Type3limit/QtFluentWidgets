@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentButton.h"
 
 #include <QPointer>
@@ -10,7 +12,7 @@ class QMenu;
 
 namespace Fluent {
 
-class FluentDropDownButton : public FluentButton
+class FLUENT_EXPORT FluentDropDownButton : public FluentButton
 {
     Q_OBJECT
 public:

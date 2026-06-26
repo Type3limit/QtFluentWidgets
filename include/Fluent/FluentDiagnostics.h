@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 namespace Fluent {
 
-class Diagnostics final
+class FLUENT_EXPORT Diagnostics final
 {
 public:
     Diagnostics() = delete;

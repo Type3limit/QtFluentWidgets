@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentBorderEffect.h"
 
 #include <QDate>
@@ -13,7 +15,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentCalendarPopup final : public QWidget
+class FLUENT_EXPORT FluentCalendarPopup final : public QWidget
 {
 	Q_OBJECT
 public:

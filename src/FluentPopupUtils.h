@@ -10,6 +10,7 @@
 #include <QScreen>
 #include <QVariantAnimation>
 #include <QWidget>
+#include <QtGlobal>
 
 #include <cmath>
 #include <functional>
@@ -114,13 +115,22 @@ inline QRect popupRevealMaskRect(const QRect &popupRect, int slideOffsetY, qreal
     return QRect(0, 0, popupRect.width(), revealHeight);
 }
 
+inline bool popupRevealMaskSupported()
+{
+#if defined(Q_OS_LINUX)
+    return false;
+#else
+    return true;
+#endif
+}
+
 inline void applyPopupRevealMask(QWidget *popup, int slideOffsetY, qreal progress, bool revealEnabled = true)
 {
     if (!popup) {
         return;
     }
 
-    if (!revealEnabled || slideOffsetY == 0 || progress >= 0.995) {
+    if (!revealEnabled || !popupRevealMaskSupported() || slideOffsetY == 0 || progress >= 0.995) {
         popup->clearMask();
         return;
     }

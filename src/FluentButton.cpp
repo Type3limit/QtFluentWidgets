@@ -6,6 +6,8 @@
 
 #include <QAbstractAnimation>
 #include <QEvent>
+#include <QFontMetrics>
+#include <QIcon>
 #include <QPainter>
 #include <QStyleOptionButton>
 #include <QVariantAnimation>
@@ -24,37 +26,38 @@ QSize logicalPixmapSize(const QPixmap &pixmap)
     return QSize(qRound(pixmap.width() / dpr), qRound(pixmap.height() / dpr));
 }
 
+QSize requestedIconSize(const QSize &iconSize, const ControlMetrics &metrics)
+{
+    return iconSize.isValid() ? iconSize : QSize(metrics.height - 12, metrics.height - 12);
+}
+
+bool isVerticalIconPosition(FluentButton::IconPosition position)
+{
+    return position == FluentButton::IconPosition::Top
+        || position == FluentButton::IconPosition::Bottom;
+}
+
 } // namespace
 
 FluentButton::FluentButton(QWidget *parent)
     : QPushButton(parent)
 {
-    setMouseTracking(true);
-    setAttribute(Qt::WA_Hover, true);
-    setAutoDefault(false);
-    setMinimumHeight(Style::metrics().height);
-
-    m_hoverAnim = new QVariantAnimation(this);
-    FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);
-    connect(m_hoverAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-        m_hoverLevel = value.toReal();
-        update();
-    });
-
-    m_pressAnim = new QVariantAnimation(this);
-    FluentMotion::configure(m_pressAnim, FluentMotionRole::Press);
-    connect(m_pressAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
-        m_pressLevel = value.toReal();
-        update();
-    });
-
-    applyTheme();
-    connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentButton::applyTheme);
-    connect(this, &QAbstractButton::toggled, this, QOverload<>::of(&FluentButton::update));
+    initialize();
 }
 
 FluentButton::FluentButton(const QString &text, QWidget *parent)
     : QPushButton(text, parent)
+{
+    initialize();
+}
+
+FluentButton::FluentButton(const QIcon &icon, const QString &text, QWidget *parent)
+    : QPushButton(icon, text, parent)
+{
+    initialize();
+}
+
+void FluentButton::initialize()
 {
     setMouseTracking(true);
     setAttribute(Qt::WA_Hover, true);
@@ -95,6 +98,39 @@ void FluentButton::setPrimary(bool primary)
     applyTheme();
 }
 
+FluentButton::IconPosition FluentButton::iconPosition() const
+{
+    return m_iconPosition;
+}
+
+void FluentButton::setIconPosition(IconPosition position)
+{
+    if (m_iconPosition == position) {
+        return;
+    }
+
+    m_iconPosition = position;
+    updateGeometry();
+    update();
+}
+
+int FluentButton::iconSpacing() const
+{
+    return m_iconSpacing;
+}
+
+void FluentButton::setIconSpacing(int spacing)
+{
+    spacing = qMax(0, spacing);
+    if (m_iconSpacing == spacing) {
+        return;
+    }
+
+    m_iconSpacing = spacing;
+    updateGeometry();
+    update();
+}
+
 qreal FluentButton::hoverLevel() const
 {
     return m_hoverLevel;
@@ -115,6 +151,44 @@ void FluentButton::setPressLevel(qreal value)
 {
     m_pressLevel = qBound(0.0, value, 1.0);
     update();
+}
+
+QSize FluentButton::sizeHint() const
+{
+    const auto metrics = Style::metrics();
+    const bool hasButtonIcon = !icon().isNull();
+    const bool hasText = !text().isEmpty();
+
+    if (!hasButtonIcon && !hasText) {
+        QSize size = QPushButton::sizeHint();
+        size.rheight() = qMax(size.height(), metrics.height);
+        return size;
+    }
+
+    const QFontMetrics fm(font());
+    const QSize iconExtent = hasButtonIcon ? requestedIconSize(iconSize(), metrics) : QSize();
+    const QSize textExtent(hasText ? fm.horizontalAdvance(text()) : 0,
+                           hasText ? fm.height() : 0);
+    const int gap = hasButtonIcon && hasText ? m_iconSpacing : 0;
+
+    QSize content;
+    if (hasButtonIcon && hasText && isVerticalIconPosition(m_iconPosition)) {
+        content = QSize(qMax(iconExtent.width(), textExtent.width()),
+                        iconExtent.height() + gap + textExtent.height());
+    } else {
+        content = QSize(iconExtent.width() + gap + textExtent.width(),
+                        qMax(iconExtent.height(), textExtent.height()));
+    }
+
+    QSize size(content.width() + metrics.paddingX * 2,
+               qMax(metrics.height, content.height() + metrics.paddingY * 2));
+    size = size.expandedTo(QSize(metrics.height, metrics.height));
+    return size.expandedTo(QPushButton::sizeHint());
+}
+
+QSize FluentButton::minimumSizeHint() const
+{
+    return sizeHint();
 }
 
 void FluentButton::changeEvent(QEvent *event)
@@ -189,19 +263,15 @@ void FluentButton::paintEvent(QPaintEvent *event)
         painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius - 1, radius - 1);
     }
 
-    // Draw text
     painter.setPen(textColor);
     painter.setFont(this->font());
-    
-    // Calculate text and icon layout
+
     QRect contentRect = rect.toRect();
-    
+
     if (!icon().isNull()) {
         const QIcon::Mode mode = isEnabled() ? QIcon::Normal : QIcon::Disabled;
         const QIcon::State state = (isCheckable() && isChecked()) ? QIcon::On : QIcon::Off;
-        const QSize requestedSize = iconSize().isValid()
-                                        ? iconSize()
-                                        : QSize(m.height - 12, m.height - 12);
+        const QSize requestedSize = requestedIconSize(iconSize(), m);
         const QSize actualSize = icon().actualSize(requestedSize, mode, state);
         const QPixmap pixmap = icon().pixmap(actualSize, mode, state);
         const QSize drawSize = logicalPixmapSize(pixmap);
@@ -220,25 +290,43 @@ void FluentButton::paintEvent(QPaintEvent *event)
             return;
         }
 
-        const int gap = 8;
+        const int gap = m_iconSpacing;
         const int textWidth = fontMetrics().horizontalAdvance(text());
+        const int textHeight = fontMetrics().height();
+
+        if (isVerticalIconPosition(m_iconPosition)) {
+            const int totalHeight = drawSize.height() + gap + textHeight;
+            const int startY = contentRect.center().y() - totalHeight / 2;
+            const bool iconFirst = m_iconPosition == IconPosition::Top;
+            const int iconY = iconFirst ? startY : startY + textHeight + gap;
+            const int textY = iconFirst ? startY + drawSize.height() + gap : startY;
+            const QRect iconRect(contentRect.center().x() - drawSize.width() / 2,
+                                 iconY,
+                                 drawSize.width(),
+                                 drawSize.height());
+            const QRect textRect(contentRect.left(), textY, contentRect.width(), textHeight);
+            painter.drawPixmap(iconRect, pixmap);
+            painter.drawText(textRect, Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextShowMnemonic, text());
+            return;
+        }
+
         const int totalWidth = drawSize.width() + gap + textWidth;
         const int startX = contentRect.center().x() - totalWidth / 2;
+        const bool iconFirst = m_iconPosition == IconPosition::Left;
+        const int iconX = iconFirst ? startX : startX + textWidth + gap;
+        const int textX = iconFirst ? startX + drawSize.width() + gap : startX;
 
-        const QRect iconRect(startX,
+        const QRect iconRect(iconX,
                              contentRect.center().y() - drawSize.height() / 2,
                              drawSize.width(),
                              drawSize.height());
-        painter.drawPixmap(iconRect, pixmap);
-
-        const int textLeft = startX + drawSize.width() + gap;
-        const QRect textRect(textLeft,
+        const QRect textRect(textX,
                              contentRect.top(),
-                             contentRect.right() - textLeft + 1,
+                             textWidth,
                              contentRect.height());
+        painter.drawPixmap(iconRect, pixmap);
         painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, text());
     } else {
-        // No icon - center text
         painter.drawText(contentRect, Qt::AlignCenter | Qt::AlignVCenter | Qt::TextShowMnemonic, text());
     }
 }

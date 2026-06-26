@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QEasingCurve>
 #include <QLayout>
 #include <QStyle>
@@ -13,7 +15,7 @@ class QElapsedTimer;
 
 namespace Fluent {
 
-class FluentFlowLayout final : public QLayout
+class FLUENT_EXPORT FluentFlowLayout final : public QLayout
 {
 public:
     explicit FluentFlowLayout(QWidget *parent = nullptr, int margin = 0, int hSpacing = 12, int vSpacing = 12);

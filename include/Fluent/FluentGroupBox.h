@@ -1,11 +1,13 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QGroupBox>
 #include <QRect>
 
 namespace Fluent {
 
-class FluentGroupBox final : public QGroupBox
+class FLUENT_EXPORT FluentGroupBox final : public QGroupBox
 {
     Q_OBJECT
 public:

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QDialog>
 #include <QPointer>
 
@@ -18,7 +20,7 @@ namespace Fluent {
 class FluentResizeHelper;
 class FluentToolButton;
 
-class FluentDialog : public QDialog
+class FLUENT_EXPORT FluentDialog : public QDialog
 {
     Q_OBJECT
 public:

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QString>
 #include <QTimeEdit>
 
@@ -17,7 +19,7 @@ namespace Detail {
 class FluentWheelPickerPopup;
 }
 
-class FluentTimePicker final : public QTimeEdit
+class FLUENT_EXPORT FluentTimePicker final : public QTimeEdit
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

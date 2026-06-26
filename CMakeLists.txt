@@ -57,6 +57,7 @@ else()
 endif()
 
 add_library(QtFluentWidgets
+    include/Fluent/FluentExport.h
     include/Fluent/FluentAnimatedButton.h
     include/Fluent/FluentAnimatedIcon.h
     include/Fluent/FluentAutoSuggestBox.h
@@ -198,6 +199,15 @@ add_library(QtFluentWidgets
 )
 
 target_include_directories(QtFluentWidgets PUBLIC include)
+get_target_property(_QTFLUENTWIDGETS_TARGET_TYPE QtFluentWidgets TYPE)
+if(_QTFLUENTWIDGETS_TARGET_TYPE STREQUAL "SHARED_LIBRARY")
+    target_compile_definitions(QtFluentWidgets
+        PUBLIC QTFLUENTWIDGETS_SHARED
+        PRIVATE QTFLUENTWIDGETS_BUILD_LIBRARY
+    )
+else()
+    target_compile_definitions(QtFluentWidgets PUBLIC QTFLUENTWIDGETS_STATIC)
+endif()
 target_link_libraries(QtFluentWidgets PUBLIC ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Svg rlottie::rlottie)
 if(MSVC)
     target_compile_options(QtFluentWidgets PRIVATE /utf-8)

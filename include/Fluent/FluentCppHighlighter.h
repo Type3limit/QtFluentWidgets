@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QSyntaxHighlighter>
 #include <QRegularExpression>
 #include <QTextCharFormat>
@@ -9,7 +11,7 @@ class QTextDocument;
 
 namespace Fluent {
 
-class FluentCppHighlighter final : public QSyntaxHighlighter
+class FLUENT_EXPORT FluentCppHighlighter final : public QSyntaxHighlighter
 {
     Q_OBJECT
 public:

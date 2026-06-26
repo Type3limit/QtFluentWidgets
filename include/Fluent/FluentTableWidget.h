@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QMetaObject>
 #include <QTableWidget>
 
@@ -10,7 +12,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentTableWidget final : public QTableWidget
+class FLUENT_EXPORT FluentTableWidget final : public QTableWidget
 {
     Q_OBJECT
 public:

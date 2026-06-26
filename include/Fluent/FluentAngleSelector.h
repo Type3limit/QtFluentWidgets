@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QWidget>
 
 class QString;
@@ -10,7 +12,7 @@ class FluentDial;
 class FluentSpinBox;
 class FluentLabel;
 
-class FluentAngleSelector final : public QWidget
+class FLUENT_EXPORT FluentAngleSelector final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(int value READ value WRITE setValue NOTIFY valueChanged USER true)

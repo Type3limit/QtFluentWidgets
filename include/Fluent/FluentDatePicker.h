@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QDate>
 #include <QFlags>
 #include <QString>
@@ -16,7 +18,7 @@ namespace Detail {
 class FluentWheelPickerPopup;
 }
 
-class FluentDatePicker final : public QWidget
+class FLUENT_EXPORT FluentDatePicker final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

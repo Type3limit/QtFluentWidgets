@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentFlyout.h"
 
 #include <QList>
@@ -17,7 +19,7 @@ class FluentButton;
 class FluentLabel;
 class FluentToolButton;
 
-class FluentTeachingTip final : public FluentFlyout
+class FLUENT_EXPORT FluentTeachingTip final : public FluentFlyout
 {
     Q_OBJECT
     Q_PROPERTY(QString title READ title WRITE setTitle)

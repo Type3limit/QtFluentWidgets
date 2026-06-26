@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QMenuBar>
 
 #include <QHash>
@@ -19,7 +21,7 @@ class QWidget;
 
 namespace Fluent {
 
-class FluentMenuBar final : public QMenuBar
+class FLUENT_EXPORT FluentMenuBar final : public QMenuBar
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

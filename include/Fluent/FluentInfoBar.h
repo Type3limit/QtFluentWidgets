@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QWidget>
 
 class QHBoxLayout;
@@ -14,7 +16,7 @@ class FluentButton;
 class FluentLabel;
 class FluentToolButton;
 
-class FluentInfoBar final : public QWidget
+class FLUENT_EXPORT FluentInfoBar final : public QWidget
 {
     Q_OBJECT
 public:

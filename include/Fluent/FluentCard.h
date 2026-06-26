@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentQtCompat.h"
 
 #include <QByteArray>
@@ -14,7 +16,7 @@ namespace Fluent {
 
 class FluentCardContentClip;
 
-class FluentCard final : public QWidget
+class FLUENT_EXPORT FluentCard final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(bool collapsible READ isCollapsible WRITE setCollapsible)

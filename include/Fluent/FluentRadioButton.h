@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QRadioButton>
 #include "Fluent/FluentQtCompat.h"
 
@@ -8,7 +10,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentRadioButton final : public QRadioButton
+class FLUENT_EXPORT FluentRadioButton final : public QRadioButton
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QPlainTextEdit>
 #include "Fluent/FluentQtCompat.h"
 
@@ -14,7 +16,7 @@ class FluentCppHighlighter;
 class FluentCodeEditorLineNumberArea;
 class FluentCodeEditorBorderOverlay;
 
-class FluentCodeEditor : public QPlainTextEdit
+class FLUENT_EXPORT FluentCodeEditor : public QPlainTextEdit
 {
     Q_OBJECT
     Q_PROPERTY(QString clangFormatPath READ clangFormatPath WRITE setClangFormatPath)

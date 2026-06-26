@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QStringList>
 #include <QWidget>
 
@@ -11,7 +13,7 @@ class FluentAutoSuggestPopup;
 class FluentLineEdit;
 class FluentToolButton;
 
-class FluentAutoSuggestBox : public QWidget
+class FLUENT_EXPORT FluentAutoSuggestBox : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
@@ -66,7 +68,7 @@ private:
     QStringList m_suggestions;
 };
 
-class FluentSearchBox final : public FluentAutoSuggestBox
+class FLUENT_EXPORT FluentSearchBox final : public FluentAutoSuggestBox
 {
     Q_OBJECT
 public:

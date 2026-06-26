@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QCheckBox>
 #include "Fluent/FluentQtCompat.h"
 
@@ -9,7 +11,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentCheckBox final : public QCheckBox
+class FLUENT_EXPORT FluentCheckBox final : public QCheckBox
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

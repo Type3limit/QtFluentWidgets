@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QLabel>
 
 namespace Fluent {
 
-class FluentLabel final : public QLabel
+class FLUENT_EXPORT FluentLabel final : public QLabel
 {
     Q_OBJECT
 public:

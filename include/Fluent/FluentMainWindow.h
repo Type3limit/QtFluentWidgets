@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QIcon>
 #include <QMainWindow>
 #include <QPointer>
@@ -19,7 +21,7 @@ namespace Fluent { class FluentMenuBar; class FluentToolButton; class FluentResi
 
 namespace Fluent {
 
-class FluentMainWindow : public QMainWindow
+class FLUENT_EXPORT FluentMainWindow : public QMainWindow
 {
     Q_OBJECT
 public:

@@ -17,3 +17,11 @@ visual-smoke-output/
 *.ilk
 *.obj
 *.tlog
+
+# Agent knowledge base (local-only; works off disk, not shared via git)
+/.rules/
+/AGENTS.md
+CLAUDE.md
+CMakePresets.json
+CMakeUserPresets.json
+/.vs/

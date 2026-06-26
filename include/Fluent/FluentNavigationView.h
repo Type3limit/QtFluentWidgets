@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentIcon.h"
 #include "Fluent/FluentQtCompat.h"
 
@@ -21,7 +23,7 @@ namespace Fluent {
 // Data model for navigation items
 // ---------------------------------------------------------------------------
 
-struct FluentNavigationItem
+struct FLUENT_EXPORT FluentNavigationItem
 {
     QString key;           // unique identifier
     QString text;          // display label
@@ -45,7 +47,7 @@ struct FluentNavigationItem
 // FluentNavigationView – hierarchical navigation sidebar
 // ---------------------------------------------------------------------------
 
-class FluentNavigationView : public QWidget
+class FLUENT_EXPORT FluentNavigationView : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(int expandedWidth READ expandedWidth WRITE setExpandedWidth)

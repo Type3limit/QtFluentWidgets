@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QSlider>
 #include "Fluent/FluentQtCompat.h"
 
@@ -7,7 +9,7 @@ class QPropertyAnimation;
 
 namespace Fluent {
 
-class FluentSlider final : public QSlider
+class FLUENT_EXPORT FluentSlider final : public QSlider
 {
     Q_OBJECT
     Q_PROPERTY(qreal handlePos READ handlePos WRITE setHandlePos)

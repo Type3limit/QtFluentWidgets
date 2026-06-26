@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentAccentBorderTrace.h"
 #include "Fluent/FluentFramePainter.h"
 #include "Fluent/FluentTheme.h"
@@ -29,7 +31,7 @@ namespace Fluent {
 //       paintFluentFrame(p, rect(), ThemeManager::instance().colors(), frame);
 //     }
 //   };
-class FluentBorderEffect final
+class FLUENT_EXPORT FluentBorderEffect final
 {
 public:
     explicit FluentBorderEffect(QWidget *updateTarget, QObject *parent = nullptr)

@@ -4,6 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 QtFluentWidgets is a Fluent Design widget library built on **Qt Widgets** (Qt5 or Qt6), with a demo app and an optional Qt Designer plugin. The monorepo-level `G:\Code\CLAUDE.md` covers cross-project guidelines — only QtFluent-specific notes belong here.
 
+## Doc navigation (agent knowledge base)
+
+A progressive-disclosure engineering knowledge base for agents lives in `.rules/` (local, git-ignored). **Start at [`.rules/README.md`](.rules/README.md)** — it has a "我要做 X → 读哪些" routing table so you can jump straight to the right module doc instead of re-reading the whole repo. High-value entry points:
+
+- Global mental model → [`.rules/overview.md`](.rules/overview.md)
+- Code style + hard conventions (CMake explicit source list, theming rules) → [`.rules/conventions.md`](.rules/conventions.md)
+- Theming/tokens & control-surface painting → [`.rules/architecture/theme-style.md`](.rules/architecture/theme-style.md)
+- Build / run / test / visual baselines → [`.rules/workflows/build-verify.md`](.rules/workflows/build-verify.md)
+
+`.rules/` cites code by symbol name (never line numbers) and links to (does not duplicate) the user-facing `docs/`. Keep it in sync when you change the symbols it references.
+
 ## First-time setup
 
 The `third_party/rlottie` git submodule is required — CMake configure fails with `FATAL_ERROR` if it is missing. After cloning without `--recursive`, run once:

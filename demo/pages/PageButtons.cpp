@@ -5,6 +5,7 @@
 #include <QAction>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QVBoxLayout>
 
 #include "Fluent/FluentAnimatedButton.h"
@@ -14,6 +15,7 @@
 #include "Fluent/FluentCheckBox.h"
 #include "Fluent/FluentCommandBar.h"
 #include "Fluent/FluentDropDownButton.h"
+#include "Fluent/FluentIcon.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentMainWindow.h"
 #include "Fluent/FluentMenu.h"
@@ -158,7 +160,24 @@ QWidget *createButtonsPage(FluentMainWindow *window)
     X(btnRow->addWidget(sec);) \
     X(btnRow->addWidget(secChecked);) \
     X(btnRow->addStretch(1);) \
-    X(body->addLayout(btnRow);)
+    X(body->addLayout(btnRow);) \
+    X(auto *iconRow = new QHBoxLayout();) \
+    X(iconRow->setContentsMargins(0, 0, 0, 0);) \
+    X(iconRow->setSpacing(10);) \
+    X(const QIcon searchIcon = FluentIcon::icon(FluentIconType::Search);) \
+    X(auto *iconLeft = new FluentButton(searchIcon, QStringLiteral("Left"));) \
+    X(auto *iconRight = new FluentButton(searchIcon, QStringLiteral("Right"));) \
+    X(iconRight->setIconPosition(FluentButton::IconPosition::Right);) \
+    X(auto *iconTop = new FluentButton(searchIcon, QStringLiteral("Top"));) \
+    X(iconTop->setIconPosition(FluentButton::IconPosition::Top);) \
+    X(auto *iconBottom = new FluentButton(searchIcon, QStringLiteral("Bottom"));) \
+    X(iconBottom->setIconPosition(FluentButton::IconPosition::Bottom);) \
+    X(iconRow->addWidget(iconLeft);) \
+    X(iconRow->addWidget(iconRight);) \
+    X(iconRow->addWidget(iconTop);) \
+    X(iconRow->addWidget(iconBottom);) \
+    X(iconRow->addStretch(1);) \
+    X(body->addLayout(iconRow);)
 
 #define X(line) code += QStringLiteral(#line "\n");
             BUTTONS_FLUENT_BUTTON(X)
@@ -166,15 +185,18 @@ QWidget *createButtonsPage(FluentMainWindow *window)
 
             page->addWidget(Demo::makeCollapsedExample(
                 QStringLiteral("FluentButton"),
-                DEMO_TEXT("Primary/Secondary、禁用、可勾选状态", "Primary / secondary, disabled, and checkable states"),
+                DEMO_TEXT("Primary/Secondary、禁用、可勾选状态与图标位置",
+                          "Primary / secondary, disabled, checkable states, and icon placement"),
                 DEMO_TEXT("要点：\n"
                           "-setPrimary(true) 切换主按钮样式\n"
                           "-setDisabled(true) 展示禁用态\n"
-                          "-setCheckable(true) + setChecked(true) 展示 Checked",
+                          "-setCheckable(true) + setChecked(true) 展示 Checked\n"
+                          "-setIconPosition(...) 调整图标位置",
                           "Highlights:\n"
                           "-Use setPrimary(true) to switch to the primary button style\n"
                           "-Use setDisabled(true) to show the disabled state\n"
-                          "-Use setCheckable(true) + setChecked(true) to show the checked state"),
+                          "-Use setCheckable(true) + setChecked(true) to show the checked state\n"
+                          "-Use setIconPosition(...) to adjust icon placement"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line

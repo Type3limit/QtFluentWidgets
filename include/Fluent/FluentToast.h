@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QWidget>
 
 #include "Fluent/FluentBorderEffect.h"
@@ -10,7 +12,7 @@ class QMouseEvent;
 
 namespace Fluent {
 
-class FluentToast final : public QWidget
+class FLUENT_EXPORT FluentToast final : public QWidget
 {
     Q_OBJECT
 public:

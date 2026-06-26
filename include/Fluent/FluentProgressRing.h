@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QBasicTimer>
 #include <QProgressBar>
 
@@ -7,7 +9,7 @@ class QPropertyAnimation;
 
 namespace Fluent {
 
-class FluentProgressRing final : public QProgressBar
+class FLUENT_EXPORT FluentProgressRing final : public QProgressBar
 {
     Q_OBJECT
     Q_PROPERTY(qreal displayValue READ displayValue WRITE setDisplayValue)

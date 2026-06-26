@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QTabWidget>
 
 namespace Fluent {
 
-class FluentTabWidget final : public QTabWidget
+class FLUENT_EXPORT FluentTabWidget final : public QTabWidget
 {
     Q_OBJECT
 public:

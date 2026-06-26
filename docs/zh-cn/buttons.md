@@ -107,7 +107,7 @@ connect(button, &QPushButton::clicked, this, [] {
 继承与构造：
 
 - `class FluentButton : public QPushButton`
-- 构造：`FluentButton(QWidget*)`、`FluentButton(const QString&, QWidget*)`
+- 构造：`FluentButton(QWidget*)`、`FluentButton(const QString&, QWidget*)`、`FluentButton(const QIcon&, const QString&, QWidget*)`
 
 外观/交互要点：
 
@@ -116,7 +116,7 @@ connect(button, &QPushButton::clicked, this, [] {
 - Primary：使用 accent ramp，normal 为 `accent.base`、hover 为 `accent.light1`，pressed 在浅色模式使用 `accent.dark1`、暗色模式使用 `accent.light3`；图标/文字使用 `onAccent`。
 - Focus ring 使用当前 `accent.base` token；按钮族不会再直接使用旧 `focus` 色绘制焦点描边。
 - Disabled：使用 neutral disabled surface/stroke 与 `disabledText`，不再由旧的 surface/hover 颜色混合直接决定。
-- 有图标时：图标绘制在左侧，文本居中对齐图标组（icon + gap + text）。
+- 有图标时：默认绘制在左侧，文本居中对齐图标组（icon + gap + text）；也可以把图标放到右侧、上方或下方。
 
 主题联动：控件会监听 `ThemeManager::themeChanged`，以及自身 `EnabledChange`，自动触发重绘。
 
@@ -125,6 +125,8 @@ connect(button, &QPushButton::clicked, this, [] {
 - `setPrimary(bool)` / `isPrimary()`：切换 Primary 样式。
 - `setCheckable(bool)` / `setChecked(bool)` / `toggled(bool)`：继承自 `QAbstractButton` 的原生能力；本控件对 checked 状态有额外绘制细节。
 - `setIcon(const QIcon&)` / `setIconSize(const QSize&)`：原生 API；本控件会使用 `icon()` + `iconSize()` 参与布局。
+- `setIconPosition(FluentButton::IconPosition)` / `iconPosition()`：控制图标位置，支持 `Left`（默认）、`Right`、`Top`、`Bottom`。
+- `setIconSpacing(int)` / `iconSpacing()`：控制图标与文本间距，默认 8px。
 - `hoverLevel` / `pressLevel`（Q_PROPERTY）：动效层（通常由控件内部动画驱动；仅在你要做自定义动画/测试时手动设置）。
 
 Demo：Buttons / Containers / Pickers / Windows / Overview。
@@ -145,6 +147,7 @@ auto *toggle = new Fluent::FluentButton(QStringLiteral("Pin"));
 toggle->setCheckable(true);
 toggle->setIcon(QIcon(":/icons/pin.svg"));
 toggle->setIconSize(QSize(16, 16));
+toggle->setIconPosition(Fluent::FluentButton::IconPosition::Left);
 connect(toggle, &QAbstractButton::toggled, this, [](bool on) {
 	qDebug() << "Pinned:" << on;
 });

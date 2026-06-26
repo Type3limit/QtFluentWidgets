@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QWidget>
 #include "Fluent/FluentQtCompat.h"
 
@@ -7,7 +9,7 @@ class QPropertyAnimation;
 
 namespace Fluent {
 
-class FluentToggleSwitch final : public QWidget
+class FLUENT_EXPORT FluentToggleSwitch final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(qreal progress READ progress WRITE setProgress)

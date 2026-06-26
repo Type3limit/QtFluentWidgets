@@ -12,12 +12,16 @@
 #include <QSvgRenderer>
 #include <QtGlobal>
 
+QT_BEGIN_NAMESPACE
+extern int qInitResources_fluent_icons();
+QT_END_NAMESPACE
+
 namespace {
 
 void ensureFluentIconResourcesInitialized()
 {
     static const bool initialized = []() {
-        Q_INIT_RESOURCE(fluent_icons);
+        QT_PREPEND_NAMESPACE(qInitResources_fluent_icons)();
         return true;
     }();
     Q_UNUSED(initialized);

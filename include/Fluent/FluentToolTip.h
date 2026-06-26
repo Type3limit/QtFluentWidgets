@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QPoint>
 #include <QString>
 
@@ -7,7 +9,7 @@ class QWidget;
 
 namespace Fluent {
 
-class FluentToolTip final
+class FLUENT_EXPORT FluentToolTip final
 {
 public:
     static void ensureInstalled();

@@ -1,12 +1,14 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QIcon>
 
 #include "Fluent/FluentButton.h"
 
 namespace Fluent {
 
-class FluentIconButton final : public FluentButton
+class FLUENT_EXPORT FluentIconButton final : public FluentButton
 {
     Q_OBJECT
     Q_PROPERTY(int buttonExtent READ buttonExtent WRITE setButtonExtent)

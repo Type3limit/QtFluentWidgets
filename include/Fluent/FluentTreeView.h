@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QMetaObject>
 #include <QTreeView>
 
@@ -10,7 +12,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentTreeView final : public QTreeView
+class FLUENT_EXPORT FluentTreeView final : public QTreeView
 {
     Q_OBJECT
 public:

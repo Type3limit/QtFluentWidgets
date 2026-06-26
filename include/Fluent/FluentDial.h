@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QWidget>
 #include "Fluent/FluentQtCompat.h"
 
@@ -19,7 +21,7 @@ namespace Fluent {
  * values increase clockwise (same as Qt / CSS coordinate system).
  * The filled arc visualises the current angle from the 3-o'clock position.
  */
-class FluentDial final : public QWidget
+class FLUENT_EXPORT FluentDial final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(int value READ value WRITE setValue NOTIFY valueChanged USER true)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QScrollArea>
 
 class QEvent;
@@ -9,7 +11,7 @@ namespace Fluent {
 
 class FluentScrollBar;
 
-class FluentScrollArea : public QScrollArea
+class FLUENT_EXPORT FluentScrollArea : public QScrollArea
 {
     Q_OBJECT
 public:

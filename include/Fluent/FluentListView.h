@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QListView>
 #include <QMetaObject>
 
@@ -10,7 +12,7 @@ class QVariantAnimation;
 
 namespace Fluent {
 
-class FluentListView final : public QListView
+class FLUENT_EXPORT FluentListView final : public QListView
 {
     Q_OBJECT
 public:

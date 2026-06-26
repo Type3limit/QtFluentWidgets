@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QDate>
 #include "Fluent/FluentQtCompat.h"
 #include <QString>
@@ -20,7 +22,7 @@ class FluentCalendarPopup;
 ///
 /// All text pieces are configurable; defaults produce:   yyyy-MM-dd  →  yyyy-MM-dd
 ///
-class FluentDateRangePicker final : public QWidget
+class FLUENT_EXPORT FluentDateRangePicker final : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include "Fluent/FluentLottieWidget.h"
 #include "Fluent/FluentQtCompat.h"
 
@@ -7,7 +9,7 @@ class QMouseEvent;
 
 namespace Fluent {
 
-class FluentAnimatedIcon final : public FluentLottieWidget
+class FLUENT_EXPORT FluentAnimatedIcon final : public FluentLottieWidget
 {
     Q_OBJECT
     Q_PROPERTY(QString state READ state WRITE setState NOTIFY stateChanged)

@@ -80,6 +80,7 @@
 #include <QCheckBox>
 #include <QDate>
 #include <QDateEdit>
+#include <QDialog>
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
@@ -4081,6 +4082,53 @@ private slots:
         widget.pause();
     }
 
+    void lottiePlaybackContinuesInOwnedTopLevelDialog()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        const bool oldAnimationsEnabled = ThemeManager::instance().animationsEnabled();
+        struct RestoreAnimations {
+            bool enabled = true;
+            ~RestoreAnimations()
+            {
+                ThemeManager::instance().setAnimationsEnabled(enabled);
+                QCoreApplication::processEvents();
+            }
+        } restore{oldAnimationsEnabled};
+
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        QWidget owner;
+        owner.resize(64, 64);
+        owner.show();
+        QTRY_VERIFY(owner.isVisible());
+
+        QDialog dialog(&owner);
+        dialog.resize(96, 96);
+        dialog.move(owner.geometry().bottomRight() + QPoint(180, 120));
+
+        FluentLottieWidget widget(&dialog);
+        QVERIFY2(widget.loadData(visualSmokeLottieJson(), QStringLiteral("visual-smoke-lottie-owned-dialog")),
+                 "Visual smoke Lottie fixture should parse for owned dialog playback");
+        widget.setLooping(true);
+        widget.setSpeed(8.0);
+        widget.resize(48, 48);
+        widget.move(12, 12);
+
+        dialog.show();
+        QTRY_VERIFY(dialog.isVisible());
+        widget.show();
+        QTRY_VERIFY(widget.isVisible());
+
+        widget.play();
+        QVERIFY2(widget.isPlaying(), "Owned top-level dialog should not suspend visible Lottie playback");
+        const int visibleFrame = widget.currentFrame();
+        QTRY_VERIFY2(widget.currentFrame() != visibleFrame,
+                     "Lottie playback should advance inside an owned top-level dialog even when outside the owner rect");
+        widget.pause();
+    }
+
     void lottiePreShowPlaybackStartsWhenVisibleInScrollViewport()
     {
         syncTheme(false, QColor(QStringLiteral("#0066B4")));
@@ -4196,6 +4244,47 @@ private slots:
         QCoreApplication::processEvents();
         QVERIFY2(qAbs(ring->rotationAngle() - resumedAngle) >= 15.0,
                  "Indeterminate ProgressRing should restore the normal spin interval after becoming visible again");
+    }
+
+    void progressRingIndeterminateSpinsInOwnedTopLevelDialog()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        const bool oldAnimationsEnabled = ThemeManager::instance().animationsEnabled();
+        struct RestoreAnimations {
+            bool enabled = true;
+            ~RestoreAnimations()
+            {
+                ThemeManager::instance().setAnimationsEnabled(enabled);
+                QCoreApplication::processEvents();
+            }
+        } restore{oldAnimationsEnabled};
+
+        ThemeManager::instance().setAnimationsEnabled(true);
+        QCoreApplication::processEvents();
+
+        QWidget owner;
+        owner.resize(64, 64);
+        owner.show();
+        QTRY_VERIFY(owner.isVisible());
+
+        QDialog dialog(&owner);
+        dialog.resize(96, 96);
+        dialog.move(owner.geometry().bottomRight() + QPoint(180, 120));
+
+        FluentProgressRing ring(&dialog);
+        ring.setFixedSize(48, 48);
+        ring.setIndeterminate(true);
+        ring.move(12, 12);
+
+        dialog.show();
+        QTRY_VERIFY(dialog.isVisible());
+        ring.show();
+        QTRY_VERIFY(ring.isVisible());
+
+        const qreal visibleAngle = ring.rotationAngle();
+        QTRY_VERIFY2(!qFuzzyCompare(ring.rotationAngle(), visibleAngle),
+                     "Owned top-level dialog should not suspend visible ProgressRing animation");
     }
 
     void animatedIconMarkerResolutionFollowsDocumentation()
@@ -13989,6 +14078,35 @@ private slots:
                  qPrintable(QStringLiteral("FluentButton icon+text group should be centered: group=%1 button=%2")
                                 .arg(groupCenter)
                                 .arg(buttonCenter)));
+    }
+
+    void buttonIconPositionApiUpdatesLayoutHints()
+    {
+        QPixmap iconPixmap(16, 16);
+        iconPixmap.fill(Qt::red);
+
+        FluentButton button(QIcon(iconPixmap), QStringLiteral("Search"));
+        button.setIconSize(QSize(16, 16));
+
+        QCOMPARE(static_cast<int>(button.iconPosition()),
+                 static_cast<int>(FluentButton::IconPosition::Left));
+        QCOMPARE(button.iconSpacing(), 8);
+
+        const QSize horizontalHint = button.sizeHint();
+        button.setIconPosition(FluentButton::IconPosition::Top);
+        QCOMPARE(static_cast<int>(button.iconPosition()),
+                 static_cast<int>(FluentButton::IconPosition::Top));
+        QVERIFY2(button.sizeHint().height() > horizontalHint.height(),
+                 "Top icon placement should reserve vertical icon+text space");
+
+        button.setIconPosition(FluentButton::IconPosition::Right);
+        QCOMPARE(static_cast<int>(button.iconPosition()),
+                 static_cast<int>(FluentButton::IconPosition::Right));
+
+        button.setIconSpacing(13);
+        QCOMPARE(button.iconSpacing(), 13);
+        button.setIconSpacing(-4);
+        QCOMPARE(button.iconSpacing(), 0);
     }
 
     void toolButtonCaptionChromeUsesThemeTokens()

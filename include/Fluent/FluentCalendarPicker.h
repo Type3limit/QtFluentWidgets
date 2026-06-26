@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QDateEdit>
 #include <QString>
 #include "Fluent/FluentQtCompat.h"
@@ -14,7 +16,7 @@ namespace Fluent {
 
 class FluentCalendarPopup;
 
-class FluentCalendarPicker final : public QDateEdit
+class FLUENT_EXPORT FluentCalendarPicker final : public QDateEdit
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)

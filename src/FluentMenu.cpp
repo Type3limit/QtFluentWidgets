@@ -191,6 +191,44 @@ static int popupOpenSlideOffsetY(const QMenu *menu, const QPoint &finalPos, int 
     return -preferredOffset;
 }
 
+QPoint clampedPopupContentTopLeft(const QPoint &contentTopLeft, const QSize &popupSize)
+{
+    if (!popupSize.isValid()) {
+        return contentTopLeft;
+    }
+
+    QScreen *screen = QApplication::screenAt(contentTopLeft);
+    if (!screen) {
+        screen = QApplication::primaryScreen();
+    }
+
+    const QRect available = screen ? screen->availableGeometry() : QRect();
+    if (!available.isValid()) {
+        return contentTopLeft;
+    }
+
+    const QMargins popupMargins = PopupSurface::shadowMargins();
+    QPoint adjusted = contentTopLeft;
+    auto popupGeometry = [&popupSize](const QPoint &pos) {
+        return QRect(PopupSurface::topLeftForContentTopLeft(pos), popupSize);
+    };
+
+    if (popupGeometry(adjusted).right() > available.right()) {
+        adjusted.setX(available.right() - popupSize.width() + popupMargins.left());
+    }
+    if (popupGeometry(adjusted).left() < available.left()) {
+        adjusted.setX(available.left() + popupMargins.left());
+    }
+    if (popupGeometry(adjusted).bottom() > available.bottom()) {
+        adjusted.setY(available.bottom() - popupSize.height() + popupMargins.top());
+    }
+    if (popupGeometry(adjusted).top() < available.top()) {
+        adjusted.setY(available.top() + popupMargins.top());
+    }
+
+    return adjusted;
+}
+
 QRegion roundedPopupRegion(const QRect &rect)
 {
     if (!rect.isValid()) {
@@ -396,7 +434,7 @@ void FluentMenu::popup(const QPoint &pos, QAction *atAction)
         m_popupHost = nullptr;
     });
 
-    popup->popupAt(pos, atAction);
+    popup->popupAt(clampedPopupContentTopLeft(pos, popup->sizeHint()), atAction);
 }
 
 QAction *FluentMenu::exec(const QPoint &pos, QAction *atAction)
@@ -421,7 +459,7 @@ QAction *FluentMenu::exec(const QPoint &pos, QAction *atAction)
     popup->onActionTriggered = [&chosenAction](QAction *action) {
         chosenAction = action;
     };
-    popup->popupAt(pos, atAction);
+    popup->popupAt(clampedPopupContentTopLeft(pos, popup->sizeHint()), atAction);
     loop.exec();
     return chosenAction;
 }

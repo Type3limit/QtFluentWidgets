@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QByteArray>
 #include <QColor>
 #include <QIcon>
@@ -12,7 +14,7 @@
 
 namespace Fluent {
 
-class FluentLottieWidget : public QWidget
+class FLUENT_EXPORT FluentLottieWidget : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(QString source READ source WRITE setSource NOTIFY sourceChanged)

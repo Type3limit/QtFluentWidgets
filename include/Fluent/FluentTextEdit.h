@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Fluent/FluentExport.h"
+
 #include <QTextEdit>
 #include "Fluent/FluentQtCompat.h"
 
@@ -12,7 +14,7 @@ class QWidget;
 
 namespace Fluent {
 
-class FluentTextEdit final : public QTextEdit
+class FLUENT_EXPORT FluentTextEdit final : public QTextEdit
 {
     Q_OBJECT
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)
