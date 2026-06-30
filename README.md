@@ -68,12 +68,34 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 
+默认会构建动态库；如果需要静态库，可显式关闭标准 CMake 选项：
+
+```bash
+cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+cmake --build build --config Release
+```
+
 如果你的 Qt 没有在默认搜索路径中，可传入 `CMAKE_PREFIX_PATH`（示例：Windows）：
 
 ```bash
 cmake -S . -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.6.0/msvc2019_64"
 cmake --build build --config Release
 ```
+
+### 安装
+
+根项目使用 `GNUInstallDirs` 安装标准目录结构：
+
+```bash
+cmake --install build --config Release --prefix install
+```
+
+安装后主要目录为：
+
+- `include/Fluent/`：公共头文件
+- `bin/`：Windows 动态库运行时（如 `QtFluentWidgets.dll`、`rlottie.dll`）
+- `lib/`：库文件 / import library
+- `lib/cmake/QtFluentWidgets/`：CMake package 文件
 
 ### 运行 Demo
 
@@ -89,7 +111,7 @@ cmake --build build --config Release
 ```cmake
 add_subdirectory(path/to/QtFluent)
 
-target_link_libraries(your_app PRIVATE QtFluentWidgets)
+target_link_libraries(your_app PRIVATE QtFluentWidgets::QtFluentWidgets)
 ```
 
 然后在代码里包含头文件（均位于 `include/Fluent/`）：
@@ -111,6 +133,14 @@ rangePicker->setEndPrefix(QStringLiteral("结束："));
 ### 方式 B：作为源码依赖
 
 直接把 `include/`、`src/` 和 `CMakeLists.txt` 作为子模块/源码依赖引入即可。
+
+### 方式 C：find_package（安装后）
+
+```cmake
+find_package(QtFluentWidgets CONFIG REQUIRED)
+
+target_link_libraries(your_app PRIVATE QtFluentWidgets::QtFluentWidgets)
+```
 
 ## 文档（按模块拆分）
 

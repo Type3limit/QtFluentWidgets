@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(QtFluentWidgets LANGUAGES CXX)
+project(QtFluentWidgets VERSION 1.2.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,6 +7,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+include(GNUInstallDirs)
+
+option(BUILD_SHARED_LIBS "Build QtFluentWidgets as a shared library" ON)
 option(FLUENT_BUILD_DESIGNER_PLUGIN "Build Qt Designer plugin" ON)
 option(FLUENT_BUILD_TESTS "Build QtFluent widget tests" OFF)
 
@@ -32,13 +35,11 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/rlottie/CMakeLists.txt")
     message(FATAL_ERROR "rlottie submodule is missing. Run: git submodule update --init --recursive")
 endif()
 
-set(_QTFLUENT_BUILD_SHARED_LIBS_WAS_DEFINED FALSE)
-if(DEFINED BUILD_SHARED_LIBS)
-    set(_QTFLUENT_BUILD_SHARED_LIBS_WAS_DEFINED TRUE)
-    set(_QTFLUENT_BUILD_SHARED_LIBS_VALUE "${BUILD_SHARED_LIBS}")
-endif()
-
+set(_QTFLUENT_BUILD_SHARED_LIBS_VALUE "${BUILD_SHARED_LIBS}")
 set(BUILD_SHARED_LIBS ON)
+if(NOT DEFINED LIB_INSTALL_DIR)
+    set(LIB_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
+endif()
 set(LOTTIE_MODULE OFF CACHE BOOL "Build rlottie image loader into the rlottie library" FORCE)
 set(LOTTIE_TEST OFF CACHE BOOL "Build rlottie tests" FORCE)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
@@ -49,12 +50,7 @@ set_target_properties(rlottie PROPERTIES
     AUTOUIC OFF
     FOLDER "third_party"
 )
-
-if(_QTFLUENT_BUILD_SHARED_LIBS_WAS_DEFINED)
-    set(BUILD_SHARED_LIBS "${_QTFLUENT_BUILD_SHARED_LIBS_VALUE}")
-else()
-    unset(BUILD_SHARED_LIBS)
-endif()
+set(BUILD_SHARED_LIBS "${_QTFLUENT_BUILD_SHARED_LIBS_VALUE}")
 
 add_library(QtFluentWidgets
     include/Fluent/FluentExport.h
@@ -198,7 +194,13 @@ add_library(QtFluentWidgets
     resources/icons/fluent_icons.qrc
 )
 
-target_include_directories(QtFluentWidgets PUBLIC include)
+add_library(QtFluentWidgets::QtFluentWidgets ALIAS QtFluentWidgets)
+
+target_include_directories(QtFluentWidgets
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 get_target_property(_QTFLUENTWIDGETS_TARGET_TYPE QtFluentWidgets TYPE)
 if(_QTFLUENTWIDGETS_TARGET_TYPE STREQUAL "SHARED_LIBRARY")
     target_compile_definitions(QtFluentWidgets
@@ -208,9 +210,60 @@ if(_QTFLUENTWIDGETS_TARGET_TYPE STREQUAL "SHARED_LIBRARY")
 else()
     target_compile_definitions(QtFluentWidgets PUBLIC QTFLUENTWIDGETS_STATIC)
 endif()
-target_link_libraries(QtFluentWidgets PUBLIC ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Svg rlottie::rlottie)
+target_link_libraries(QtFluentWidgets
+    PUBLIC ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Svg
+    PRIVATE rlottie::rlottie
+)
 if(MSVC)
     target_compile_options(QtFluentWidgets PRIVATE /utf-8)
+endif()
+
+set(QTFLUENT_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/QtFluentWidgets"
+    CACHE STRING "Install directory for QtFluentWidgets CMake package files"
+)
+
+install(TARGETS QtFluentWidgets
+    EXPORT QtFluentWidgetsTargets
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(EXPORT QtFluentWidgetsTargets
+    FILE QtFluentWidgetsTargets.cmake
+    NAMESPACE QtFluentWidgets::
+    DESTINATION ${QTFLUENT_INSTALL_CMAKEDIR}
+)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    cmake/QtFluentWidgetsConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/QtFluentWidgetsConfig.cmake
+    INSTALL_DESTINATION ${QTFLUENT_INSTALL_CMAKEDIR}
+    PATH_VARS CMAKE_INSTALL_BINDIR CMAKE_INSTALL_LIBDIR
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/QtFluentWidgetsConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/QtFluentWidgetsConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/QtFluentWidgetsConfigVersion.cmake
+    DESTINATION ${QTFLUENT_INSTALL_CMAKEDIR}
+)
+
+if(TARGET rlottie)
+    install(TARGETS rlottie
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
 endif()
 
 add_executable(QtFluentDemo WIN32
