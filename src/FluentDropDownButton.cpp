@@ -116,16 +116,18 @@ void FluentDropDownButton::paintEvent(QPaintEvent *event)
 
     const auto metrics = Style::metrics();
     const QRectF buttonRect = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-    const qreal radius = metrics.radius;
+    const qreal radius = controlRadiusForRect(buttonRect);
 
-    ButtonVisuals::paintRoundedControl(p, buttonRect, radius, fill, state.border, state.bottomBorder);
+    const QColor bottomBorder = shape() == Shape::Rounded ? state.bottomBorder : QColor(0, 0, 0, 0);
+    ButtonVisuals::paintRoundedControl(p, buttonRect, radius, fill, state.border, bottomBorder);
 
     if (checked && isPrimary() && isEnabled()) {
         QColor inner = tokens.onAccent;
         inner.setAlpha(115);
         p.setPen(QPen(inner, 1.0));
         p.setBrush(Qt::NoBrush);
-        p.drawRoundedRect(buttonRect.adjusted(1.0, 1.0, -1.0, -1.0), radius - 1, radius - 1);
+        const qreal innerRadius = qMax<qreal>(0.0, radius - 1.0);
+        p.drawRoundedRect(buttonRect.adjusted(1.0, 1.0, -1.0, -1.0), innerRadius, innerRadius);
     }
 
     if (hasFocus() && isEnabled()) {
@@ -133,7 +135,8 @@ void FluentDropDownButton::paintEvent(QPaintEvent *event)
         focus.setAlpha(230);
         p.setPen(QPen(focus, 2.0));
         p.setBrush(Qt::NoBrush);
-        p.drawRoundedRect(buttonRect.adjusted(1, 1, -1, -1), radius - 1, radius - 1);
+        const qreal focusRadius = qMax<qreal>(0.0, radius - 1.0);
+        p.drawRoundedRect(buttonRect.adjusted(1, 1, -1, -1), focusRadius, focusRadius);
     }
 
     const QRect contentRect = buttonRect.toRect().adjusted(kHorizontalPadding, 0, -(kArrowSlotWidth + kTextArrowGap), 0);

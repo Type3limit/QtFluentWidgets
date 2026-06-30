@@ -5,6 +5,7 @@
 ## 控件清单（对应公开头文件）
 
 - `FluentButton`（include: `Fluent/FluentButton.h`）
+- `FluentIconButton`（include: `Fluent/FluentIconButton.h`）
 - `FluentAnimatedButton`（include: `Fluent/FluentAnimatedButton.h`）
 - `FluentAnimatedIcon`（include: `Fluent/FluentAnimatedIcon.h`）
 - `FluentLottieWidget`（include: `Fluent/FluentLottieWidget.h`）
@@ -127,6 +128,7 @@ connect(button, &QPushButton::clicked, this, [] {
 - `setIcon(const QIcon&)` / `setIconSize(const QSize&)`：原生 API；本控件会使用 `icon()` + `iconSize()` 参与布局。
 - `setIconPosition(FluentButton::IconPosition)` / `iconPosition()`：控制图标位置，支持 `Left`（默认）、`Right`、`Top`、`Bottom`。
 - `setIconSpacing(int)` / `iconSpacing()`：控制图标与文本间距，默认 8px。
+- `setShape(FluentButton::Shape)` / `shape()`：控制外轮廓，支持 `Rounded`（默认）、`Pill`、`Circular`；`Circular` 会让 `sizeHint()` 保持方形，适合纯图标按钮。
 - `hoverLevel` / `pressLevel`（Q_PROPERTY）：动效层（通常由控件内部动画驱动；仅在你要做自定义动画/测试时手动设置）。
 
 Demo：Buttons / Containers / Pickers / Windows / Overview。
@@ -153,6 +155,18 @@ connect(toggle, &QAbstractButton::toggled, this, [](bool on) {
 });
 ```
 
+胶囊按钮 / 圆形图标按钮：
+
+```cpp
+auto *pill = new Fluent::FluentButton(QIcon(":/icons/tag.svg"), QStringLiteral("Tag"));
+pill->setPrimary(true);
+pill->setShape(Fluent::FluentButton::Shape::Pill);
+
+auto *round = new Fluent::FluentIconButton(QIcon(":/icons/search.svg"));
+round->setShape(Fluent::FluentButton::Shape::Circular);
+round->setButtonExtent(36);
+```
+
 注意事项：
 
 - 这是自绘按钮（重载 `paintEvent`），如果你依赖复杂的 QSS 对按钮背景/边框进行覆盖，可能不会生效；推荐通过 `ThemeManager`/`ThemeColors` 调整整体配色。
@@ -172,6 +186,8 @@ connect(toggle, &QAbstractButton::toggled, this, [](bool on) {
 
 - 默认 `setAutoRaise(true)`，并使用 `Style::metrics().height` 作为最小高度。
 - 普通、checked、disabled 状态复用按钮 neutral token 规则；若 `setCheckable(true)` 且 checked，会使用“轻微 accent tint + accent 边框”的方式表现选中状态，并自动选择可读 label 色。
+- 可通过 `setPrimary(true)` 使用 accent 填充，适合高优先级工具命令；图标建议使用 `FluentIconOptions::reversed=true` 以获得 `onAccent` 前景色。
+- 可通过 `setShape(FluentToolButton::Shape::Pill/Circular)` 使用胶囊或圆形轮廓；`Circular` 会让 `sizeHint()` 保持方形，适合纯图标工具按钮。
 - focus ring 使用当前 `accent.base` token；标题栏 caption 按钮的普通 hover/press 反馈来自 neutral token，不再直接使用旧 `hover` / `pressed` 色。
 
 标题栏窗口按钮（内部约定）：
@@ -188,6 +204,9 @@ connect(toggle, &QAbstractButton::toggled, this, [](bool on) {
 关键 API：
 
 - `setCheckable(bool)` / `setChecked(bool)`：使用 Qt 原生 API。
+- `setPrimary(bool)` / `isPrimary()`：切换 accent 填充的工具按钮样式。
+- `setShape(FluentToolButton::Shape)` / `shape()`：`Rounded`（默认）、`Pill`、`Circular`。
+- `setMenu(QMenu*)`：设置菜单；当传入 `FluentMenu` 时会使用统一的 Fluent 弹层宿主弹出。
 - `hoverLevel` / `pressLevel`（Q_PROPERTY）：动效层（内部动画驱动）。
 
 Demo：Buttons / Overview（也用于若干容器控件内部）。
@@ -315,7 +334,7 @@ Demo：Buttons / Containers / Windows / Overview。
 
 用途：复选框（`QCheckBox`），包含 hover 行高亮、focus ring，以及勾选动画（checkmark 渐入）。
 
-外观语义：unchecked / disabled 的框体 surface 与边框来自当前 neutral token；enabled checked 填充和 focus ring 使用 `accent.base`，checkmark 使用 `onAccent`；disabled checked 保持 neutral disabled surface，并用 `disabledText` 表示勾选状态。
+外观语义：unchecked / disabled 的框体 surface 与边框来自当前 neutral token；enabled checked / partially checked 填充和 focus ring 使用 `accent.base`，checkmark / indeterminate 横杠使用 `onAccent`；disabled selected 保持 neutral disabled surface，并用 `disabledText` 表示选中或中间态标记。
 
 继承与构造：
 
@@ -325,7 +344,8 @@ Demo：Buttons / Containers / Windows / Overview。
 关键 API：
 
 - `setChecked(bool)` / `isChecked()`：使用 Qt 原生 API。
-- `stateChanged(int)`：原生信号（`Qt::Unchecked/Checked/PartiallyChecked`）；控件内部也用它驱动 check 动画。
+- `setTristate(bool)` / `setCheckState(Qt::CheckState)`：使用 Qt 原生 API，支持 `Qt::PartiallyChecked` 中间态。
+- `stateChanged(int)`：原生信号（`Qt::Unchecked/Checked/PartiallyChecked`）；控件内部也用它驱动 selected 动画。
 - `hoverLevel` / `focusLevel`（Q_PROPERTY）：动效层（内部动画驱动）。
 
 尺寸策略：重载了 `sizeHint()`/`minimumSizeHint()`，会基于文本宽度给出更贴近 Win11 的占位。

@@ -5,6 +5,7 @@ This module contains common clickable/toggle controls with Fluent-style rounded 
 ## Widget list (public headers)
 
 - `FluentButton` (include: `Fluent/FluentButton.h`)
+- `FluentIconButton` (include: `Fluent/FluentIconButton.h`)
 - `FluentAnimatedButton` (include: `Fluent/FluentAnimatedButton.h`)
 - `FluentAnimatedIcon` (include: `Fluent/FluentAnimatedIcon.h`)
 - `FluentLottieWidget` (include: `Fluent/FluentLottieWidget.h`)
@@ -129,6 +130,7 @@ Key APIs:
 - `setIcon(const QIcon&)` / `setIconSize(const QSize&)`
 - `setIconPosition(FluentButton::IconPosition)` / `iconPosition()`: `Left` (default), `Right`, `Top`, or `Bottom`.
 - `setIconSpacing(int)` / `iconSpacing()`: icon/text spacing, default 8 px.
+- `setShape(FluentButton::Shape)` / `shape()`: `Rounded` (default), `Pill`, or `Circular`; `Circular` keeps `sizeHint()` square and is intended for icon-only buttons.
 - `hoverLevel` / `pressLevel` (Q_PROPERTY): animation layers (normally driven internally)
 
 Demo: Buttons / Containers / Pickers / Windows / Overview.
@@ -155,6 +157,18 @@ connect(toggle, &QAbstractButton::toggled, this, [](bool on) {
 });
 ```
 
+Pill button / circular icon button:
+
+```cpp
+auto *pill = new Fluent::FluentButton(QIcon(QStringLiteral(":/icons/tag.svg")), QStringLiteral("Tag"));
+pill->setPrimary(true);
+pill->setShape(Fluent::FluentButton::Shape::Pill);
+
+auto *round = new Fluent::FluentIconButton(QIcon(QStringLiteral(":/icons/search.svg")));
+round->setShape(Fluent::FluentButton::Shape::Circular);
+round->setButtonExtent(36);
+```
+
 Caveat:
 
 - This is a custom-painted button (overrides `paintEvent`). Heavy QSS overrides for background/border may not apply; prefer adjusting palette via `ThemeManager` / `ThemeColors`.
@@ -174,6 +188,8 @@ Visual / interaction notes:
 
 - Defaults to `setAutoRaise(true)` and uses `Style::metrics().height` as minimum height.
 - Normal, checked, and disabled states reuse the button neutral token rules. If `setCheckable(true)` and checked, it shows a subtle accent tint + accent border and picks a readable label color automatically.
+- `setPrimary(true)` switches the tool button to an accent-filled surface for high-priority tool commands; icons should use `FluentIconOptions::reversed=true` when they need the `onAccent` foreground color.
+- `setShape(FluentToolButton::Shape::Pill/Circular)` switches to pill or circular geometry; `Circular` keeps `sizeHint()` square for icon-only tool buttons.
 - The focus ring uses the current `accent.base` token; title-bar caption button hover/press feedback comes from neutral tokens instead of direct legacy `hover` / `pressed` colors.
 
 Title-bar window button convention (internal):
@@ -190,6 +206,9 @@ This is mainly used by `FluentMainWindow`; typical app code does not need to set
 Key APIs:
 
 - Standard Qt APIs: `setCheckable(bool)` / `setChecked(bool)`
+- `setPrimary(bool)` / `isPrimary()`: accent-filled tool button styling.
+- `setShape(FluentToolButton::Shape)` / `shape()`: `Rounded` (default), `Pill`, or `Circular`.
+- `setMenu(QMenu*)`: attach a menu; `FluentMenu` instances are opened through the shared Fluent popup host.
 - `hoverLevel` / `pressLevel` (Q_PROPERTY)
 
 Demo: Buttons / Overview (also used internally by other widgets).
@@ -317,7 +336,7 @@ Demo: Buttons / Containers / Windows / Overview.
 
 Purpose: a `QCheckBox` with hover row highlight, focus ring, and a checkmark fade-in animation.
 
-Visual semantics: unchecked / disabled box surfaces and borders come from the current neutral tokens; enabled checked fill and the focus ring use `accent.base`, while the checkmark uses `onAccent`; disabled checked keeps the neutral disabled surface and uses `disabledText` for the checkmark.
+Visual semantics: unchecked / disabled box surfaces and borders come from the current neutral tokens; enabled checked / partially checked fill and the focus ring use `accent.base`, while the checkmark / indeterminate mark uses `onAccent`; disabled selected states keep the neutral disabled surface and use `disabledText` for the selected mark.
 
 Inheritance & construction:
 
@@ -327,7 +346,8 @@ Inheritance & construction:
 Key APIs:
 
 - Standard Qt APIs: `setChecked(bool)` / `isChecked()`
-- `stateChanged(int)` (drives the internal check animation)
+- Standard Qt tristate APIs: `setTristate(bool)` / `setCheckState(Qt::CheckState)`, including `Qt::PartiallyChecked`.
+- `stateChanged(int)` (drives the internal selected animation)
 - `hoverLevel` / `focusLevel` (Q_PROPERTY)
 
 Sizing: overrides `sizeHint()` / `minimumSizeHint()` to be closer to Win11 spacing based on text width.

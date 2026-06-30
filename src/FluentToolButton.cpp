@@ -1,4 +1,5 @@
 #include "Fluent/FluentToolButton.h"
+#include "Fluent/FluentMenu.h"
 #include "Fluent/FluentMotion.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -6,11 +7,166 @@
 
 #include <QAbstractAnimation>
 #include <QEvent>
+#include <QFontMetrics>
+#include <QIcon>
+#include <QMenu>
+#include <QMouseEvent>
 #include <QPainter>
-#include <QStyleOptionToolButton>
+#include <QPixmap>
 #include <QVariantAnimation>
 
 namespace Fluent {
+
+namespace {
+
+constexpr int kMenuArrowSlotWidth = 22;
+
+QSize applyToolButtonShapeToSize(QSize size, FluentToolButton::Shape shape)
+{
+    if (shape != FluentToolButton::Shape::Circular) {
+        return size;
+    }
+
+    const int extent = qMax(size.width(), size.height());
+    return QSize(extent, extent);
+}
+
+QSize logicalPixmapSize(const QPixmap &pixmap)
+{
+    if (pixmap.isNull()) {
+        return {};
+    }
+
+    const qreal dpr = pixmap.devicePixelRatio();
+    return QSize(qRound(pixmap.width() / dpr), qRound(pixmap.height() / dpr));
+}
+
+QSize requestedToolIconSize(const QToolButton *button)
+{
+    const auto metrics = Style::metrics();
+    return button->iconSize().isValid() ? button->iconSize() : QSize(metrics.height - 12, metrics.height - 12);
+}
+
+Qt::ToolButtonStyle effectiveToolButtonStyle(const QToolButton *button, bool hasIcon, bool hasText)
+{
+    if (!hasIcon && hasText) {
+        return Qt::ToolButtonTextOnly;
+    }
+    if (hasIcon && !hasText) {
+        return Qt::ToolButtonIconOnly;
+    }
+
+    const Qt::ToolButtonStyle style = button->toolButtonStyle();
+    if (style == Qt::ToolButtonTextOnly
+        || style == Qt::ToolButtonTextBesideIcon
+        || style == Qt::ToolButtonTextUnderIcon) {
+        return style;
+    }
+    return Qt::ToolButtonTextBesideIcon;
+}
+
+void drawToolButtonContent(QPainter &painter,
+                           QToolButton *button,
+                           const QRectF &contentRect,
+                           const QColor &textColor)
+{
+    const bool hasIcon = !button->icon().isNull();
+    const bool hasText = !button->text().isEmpty();
+    if (!hasIcon && !hasText) {
+        return;
+    }
+
+    const QFontMetrics fm(button->font());
+    const Qt::ToolButtonStyle style = effectiveToolButtonStyle(button, hasIcon, hasText);
+    const int gap = hasIcon && hasText ? 8 : 0;
+
+    QPixmap pixmap;
+    QSize drawSize;
+    if (hasIcon) {
+        const QIcon::Mode mode = button->isEnabled() ? QIcon::Normal : QIcon::Disabled;
+        const QIcon::State state = button->isChecked() ? QIcon::On : QIcon::Off;
+        const QSize requestedSize = requestedToolIconSize(button);
+        const QSize actualSize = button->icon().actualSize(requestedSize, mode, state);
+        pixmap = button->icon().pixmap(actualSize, mode, state);
+        drawSize = logicalPixmapSize(pixmap);
+    }
+
+    painter.setPen(textColor);
+    painter.setFont(button->font());
+
+    if (style == Qt::ToolButtonIconOnly || !hasText) {
+        if (!pixmap.isNull() && drawSize.isValid()) {
+            const QRect iconRect(contentRect.center().x() - drawSize.width() / 2.0,
+                                 contentRect.center().y() - drawSize.height() / 2.0,
+                                 drawSize.width(),
+                                 drawSize.height());
+            painter.drawPixmap(iconRect, pixmap);
+        }
+        return;
+    }
+
+    if (style == Qt::ToolButtonTextOnly || pixmap.isNull() || !drawSize.isValid()) {
+        const QString label = fm.elidedText(button->text(), Qt::ElideRight, qMax(0, qRound(contentRect.width())));
+        painter.drawText(contentRect.toRect(), Qt::AlignCenter | Qt::AlignVCenter | Qt::TextShowMnemonic, label);
+        return;
+    }
+
+    if (style == Qt::ToolButtonTextUnderIcon) {
+        const int textHeight = fm.height();
+        const int availableTextWidth = qMax(0, qRound(contentRect.width()));
+        const QString label = fm.elidedText(button->text(), Qt::ElideRight, availableTextWidth);
+        const int textWidth = fm.horizontalAdvance(label);
+        const int totalHeight = drawSize.height() + gap + textHeight;
+        const int startY = qRound(contentRect.center().y() - totalHeight / 2.0);
+        const QRect iconRect(qRound(contentRect.center().x() - drawSize.width() / 2.0),
+                             startY,
+                             drawSize.width(),
+                             drawSize.height());
+        const QRect textRect(qRound(contentRect.center().x() - textWidth / 2.0),
+                             startY + drawSize.height() + gap,
+                             textWidth,
+                             textHeight);
+        painter.drawPixmap(iconRect, pixmap);
+        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter | Qt::TextShowMnemonic, label);
+        return;
+    }
+
+    const int availableTextWidth = qMax(0, qRound(contentRect.width()) - drawSize.width() - gap);
+    const QString label = fm.elidedText(button->text(), Qt::ElideRight, availableTextWidth);
+    const int textWidth = fm.horizontalAdvance(label);
+    const int totalWidth = drawSize.width() + gap + textWidth;
+    const int startX = qRound(contentRect.center().x() - totalWidth / 2.0);
+    const QRect iconRect(startX,
+                         qRound(contentRect.center().y() - drawSize.height() / 2.0),
+                         drawSize.width(),
+                         drawSize.height());
+    const QRect textRect(startX + drawSize.width() + gap,
+                         qRound(contentRect.top()),
+                         textWidth,
+                         qRound(contentRect.height()));
+    painter.drawPixmap(iconRect, pixmap);
+    painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, label);
+}
+
+bool shouldHandleMenuPress(const QToolButton *button, const QMouseEvent *event)
+{
+    if (!event || event->button() != Qt::LeftButton || !button->menu() || !button->rect().contains(event->pos())) {
+        return false;
+    }
+
+    if (button->popupMode() == QToolButton::InstantPopup) {
+        return true;
+    }
+
+    if (button->popupMode() != QToolButton::MenuButtonPopup) {
+        return false;
+    }
+
+    const QRect arrowRect(button->width() - kMenuArrowSlotWidth, 0, kMenuArrowSlotWidth, button->height());
+    return arrowRect.contains(event->pos());
+}
+
+} // namespace
 
 FluentToolButton::FluentToolButton(QWidget *parent)
     : QToolButton(parent)
@@ -67,6 +223,37 @@ FluentToolButton::FluentToolButton(const QString &text, QWidget *parent)
     connect(this, &QAbstractButton::toggled, this, QOverload<>::of(&FluentToolButton::update));
 }
 
+bool FluentToolButton::isPrimary() const
+{
+    return m_primary;
+}
+
+void FluentToolButton::setPrimary(bool primary)
+{
+    if (m_primary == primary) {
+        return;
+    }
+
+    m_primary = primary;
+    applyTheme();
+}
+
+FluentToolButton::Shape FluentToolButton::shape() const
+{
+    return m_shape;
+}
+
+void FluentToolButton::setShape(Shape shape)
+{
+    if (m_shape == shape) {
+        return;
+    }
+
+    m_shape = shape;
+    updateGeometry();
+    update();
+}
+
 qreal FluentToolButton::hoverLevel() const
 {
     return m_hoverLevel;
@@ -86,6 +273,58 @@ qreal FluentToolButton::pressLevel() const
 void FluentToolButton::setPressLevel(qreal value)
 {
     m_pressLevel = qBound(0.0, value, 1.0);
+    update();
+}
+
+QSize FluentToolButton::sizeHint() const
+{
+    const auto metrics = Style::metrics();
+    const bool hasIcon = !icon().isNull();
+    const bool hasText = !text().isEmpty();
+    if (!hasIcon && !hasText) {
+        const QSize base = QToolButton::sizeHint().expandedTo(QSize(metrics.height, metrics.height));
+        return applyToolButtonShapeToSize(base, m_shape);
+    }
+
+    const Qt::ToolButtonStyle style = effectiveToolButtonStyle(this, hasIcon, hasText);
+    const QSize iconExtent = hasIcon ? requestedToolIconSize(this) : QSize();
+    const QFontMetrics fm(font());
+    const QSize textExtent(hasText ? fm.horizontalAdvance(text()) : 0,
+                           hasText ? fm.height() : 0);
+    const int gap = hasIcon && hasText ? 8 : 0;
+    const int arrowSlotWidth = menu() && popupMode() != QToolButton::DelayedPopup ? kMenuArrowSlotWidth : 0;
+
+    QSize content;
+    if (style == Qt::ToolButtonIconOnly) {
+        content = iconExtent;
+    } else if (style == Qt::ToolButtonTextOnly) {
+        content = textExtent;
+    } else if (style == Qt::ToolButtonTextUnderIcon) {
+        content = QSize(qMax(iconExtent.width(), textExtent.width()),
+                        iconExtent.height() + gap + textExtent.height());
+    } else {
+        content = QSize(iconExtent.width() + gap + textExtent.width(),
+                        qMax(iconExtent.height(), textExtent.height()));
+    }
+
+    QSize size(content.width() + metrics.paddingX * 2 + arrowSlotWidth,
+               qMax(metrics.height, content.height() + metrics.paddingY * 2));
+    size = size.expandedTo(QSize(metrics.height, metrics.height));
+    return applyToolButtonShapeToSize(size, m_shape);
+}
+
+QSize FluentToolButton::minimumSizeHint() const
+{
+    return sizeHint();
+}
+
+void FluentToolButton::setMenu(QMenu *menu)
+{
+    if (menu && !menu->parent()) {
+        menu->setParent(this);
+    }
+    QToolButton::setMenu(menu);
+    updateGeometry();
     update();
 }
 
@@ -122,8 +361,6 @@ void FluentToolButton::paintEvent(QPaintEvent *event)
     Q_UNUSED(event)
     const auto &colors = ThemeManager::instance().colors();
     const auto &tokens = ThemeManager::instance().tokens();
-
-    const auto m = Style::metrics();
 
     QPainter painter(this);
     if (!painter.isActive()) {
@@ -219,40 +456,41 @@ void FluentToolButton::paintEvent(QPaintEvent *event)
 
     const bool checked = isCheckable() && isChecked();
     const ButtonVisuals::StateColors state =
-        ButtonVisuals::resolve(colors, tokens, false, checked, isEnabled(), subtleCommandButton, 0.16);
+        ButtonVisuals::resolve(colors, tokens, m_primary, checked, isEnabled(), subtleCommandButton, 0.16);
     const QColor fill = ButtonVisuals::fillForState(state, m_hoverLevel, m_pressLevel);
+    const qreal radius = controlRadiusForRect(QRectF(rect));
 
-    ButtonVisuals::paintRoundedControl(
-        painter, QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5), m.radius, fill, state.border, state.bottomBorder);
+    const QColor bottomBorder = m_shape == Shape::Rounded ? state.bottomBorder : QColor(0, 0, 0, 0);
+    const QRectF buttonRect = QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5);
+    ButtonVisuals::paintRoundedControl(painter, buttonRect, radius, fill, state.border, bottomBorder);
 
     if (hasFocus() && isEnabled()) {
         QColor focus = tokens.accent.base;
         focus.setAlpha(230);
         painter.setPen(QPen(focus, 2.0));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(QRectF(rect).adjusted(1.0, 1.0, -1.0, -1.0), m.radius - 1, m.radius - 1);
+        const qreal focusRadius = qMax<qreal>(0.0, radius - 1.0);
+        painter.drawRoundedRect(QRectF(rect).adjusted(1.0, 1.0, -1.0, -1.0), focusRadius, focusRadius);
     }
 
-    QStyleOptionToolButton opt;
-    initStyleOption(&opt);
-    opt.state &= ~QStyle::State_MouseOver;
-    opt.state &= ~QStyle::State_Sunken;
-    opt.state &= ~QStyle::State_On;
     const QColor labelColor = isEnabled()
         ? ButtonVisuals::textForState(state.text, m_pressLevel, true)
         : colors.disabledText;
-    opt.palette.setColor(QPalette::ButtonText, labelColor);
-    opt.palette.setColor(QPalette::Text, labelColor);
-    opt.palette.setColor(QPalette::WindowText, labelColor);
-    opt.palette.setColor(QPalette::Disabled, QPalette::ButtonText, colors.disabledText);
-    opt.palette.setColor(QPalette::Disabled, QPalette::Text, colors.disabledText);
-    opt.palette.setColor(QPalette::Disabled, QPalette::WindowText, colors.disabledText);
-    if (checked && isEnabled()) {
-        // Make the checked state more obvious by tinting label color.
-        opt.palette.setColor(QPalette::ButtonText, labelColor);
-        opt.palette.setColor(QPalette::Text, labelColor);
+
+    const bool hasMenuArrow = menu() && popupMode() != QToolButton::DelayedPopup;
+    const qreal arrowSlotWidth = hasMenuArrow ? qreal(kMenuArrowSlotWidth) : 0.0;
+    QRectF contentRect = buttonRect.adjusted(Style::metrics().paddingX, Style::metrics().paddingY,
+                                             -Style::metrics().paddingX - arrowSlotWidth,
+                                             -Style::metrics().paddingY);
+    if (contentRect.width() < 0.0) {
+        contentRect.setWidth(0.0);
     }
-    style()->drawControl(QStyle::CE_ToolButtonLabel, &opt, &painter, this);
+    drawToolButtonContent(painter, this, contentRect, labelColor);
+
+    if (hasMenuArrow) {
+        const QPointF center(buttonRect.right() - arrowSlotWidth / 2.0, buttonRect.center().y() + 0.5);
+        Style::drawChevronDown(painter, center, labelColor, 6.5, 1.5);
+    }
 }
 
 void FluentToolButton::enterEvent(FluentEnterEvent *event)
@@ -270,13 +508,59 @@ void FluentToolButton::leaveEvent(QEvent *event)
 void FluentToolButton::mousePressEvent(QMouseEvent *event)
 {
     startPressAnimation(1.0);
+    if (shouldHandleMenuPress(this, event)) {
+        m_menuPressArmed = true;
+        setDown(true);
+        event->accept();
+        return;
+    }
+
+    m_menuPressArmed = false;
     QToolButton::mousePressEvent(event);
 }
 
 void FluentToolButton::mouseReleaseEvent(QMouseEvent *event)
 {
     startPressAnimation(0.0);
+    if (m_menuPressArmed) {
+        const bool trigger = event
+            && event->button() == Qt::LeftButton
+            && rect().contains(event->pos())
+            && isEnabled();
+        m_menuPressArmed = false;
+        setDown(false);
+        event->accept();
+        if (trigger) {
+            showFluentMenu();
+        }
+        return;
+    }
+
     QToolButton::mouseReleaseEvent(event);
+}
+
+void FluentToolButton::showFluentMenu()
+{
+    QMenu *buttonMenu = menu();
+    if (!buttonMenu) {
+        return;
+    }
+
+    const QPoint pos = mapToGlobal(QPoint(0, height() + 4));
+    if (auto *fluentMenu = qobject_cast<FluentMenu *>(buttonMenu)) {
+        fluentMenu->popup(pos);
+    } else {
+        buttonMenu->popup(pos);
+    }
+}
+
+qreal FluentToolButton::controlRadiusForRect(const QRectF &rect) const
+{
+    if (m_shape == Shape::Pill || m_shape == Shape::Circular) {
+        return qMin(rect.width(), rect.height()) / 2.0;
+    }
+
+    return Style::metrics().radius;
 }
 
 void FluentToolButton::startHoverAnimation(qreal endValue)

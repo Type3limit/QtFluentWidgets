@@ -11697,6 +11697,50 @@ private slots:
         closeFluentPopup();
     }
 
+    void toolButtonUsesFluentMenuPopupForMenuButton()
+    {
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        QWidget window;
+        auto *layout = new QHBoxLayout(&window);
+        layout->setContentsMargins(18, 18, 18, 18);
+
+        auto *tool = new FluentToolButton(QStringLiteral("Mail"), &window);
+        tool->setPopupMode(QToolButton::MenuButtonPopup);
+        auto *mailMenu = new FluentMenu(tool);
+        mailMenu->addAction(QStringLiteral("Save"));
+        mailMenu->addAction(QStringLiteral("Send"));
+        tool->setMenu(mailMenu);
+        layout->addWidget(tool);
+
+        window.show();
+        QTRY_VERIFY(window.isVisible());
+        QTRY_VERIFY(tool->isVisible());
+
+        auto closeFluentPopup = []() {
+            if (QWidget *popup = findVisibleTopLevelByObjectName(QStringLiteral("FluentMenuPopupHost"))) {
+                popup->close();
+            }
+            QCoreApplication::processEvents();
+            QTRY_COMPARE(visibleTopLevelCountByObjectName(QStringLiteral("FluentMenuPopupHost")), 0);
+        };
+
+        QSignalSpy clickedSpy(tool, &QToolButton::clicked);
+        const QPoint arrowPoint(tool->width() - 10, tool->height() / 2);
+        QTest::mouseClick(tool, Qt::LeftButton, Qt::NoModifier, arrowPoint);
+        QCoreApplication::processEvents();
+        QTRY_COMPARE(visibleTopLevelCountByObjectName(QStringLiteral("FluentMenuPopupHost")), 1);
+        QCOMPARE(visibleNativeMenuPopupCount(), 0);
+        QVERIFY2(!mailMenu->isVisible(), "FluentToolButton should not show the source QMenu widget directly");
+        QCOMPARE(clickedSpy.count(), 0);
+        closeFluentPopup();
+
+        QTest::mouseClick(tool, Qt::LeftButton, Qt::NoModifier, QPoint(8, tool->height() / 2));
+        QCoreApplication::processEvents();
+        QCOMPARE(clickedSpy.count(), 1);
+        QCOMPARE(visibleTopLevelCountByObjectName(QStringLiteral("FluentMenuPopupHost")), 0);
+    }
+
     void navigationSelectionStaysInsideScrollableViewport()
     {
         syncTheme(false, QColor(QStringLiteral("#0066B4")));
@@ -14193,6 +14237,74 @@ private slots:
         QCOMPARE(button.iconSpacing(), 0);
     }
 
+    void buttonShapeAndPrimaryToolButtonApiPaintExpectedSurfaces()
+    {
+        struct ThemeGuard {
+            ThemeManager::ThemeMode mode = ThemeManager::instance().themeMode();
+            ThemeColors colors = ThemeManager::instance().colors();
+            bool animationsEnabled = ThemeManager::instance().animationsEnabled();
+
+            ~ThemeGuard()
+            {
+                ThemeManager::instance().setAnimationsEnabled(animationsEnabled);
+                ThemeManager::instance().setColors(colors);
+                ThemeManager::instance().setThemeMode(mode);
+                QCoreApplication::processEvents();
+            }
+        } guard;
+
+        ThemeManager::instance().setAnimationsEnabled(false);
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        FluentButton pill(QStringLiteral("Tag"));
+        pill.setShape(FluentButton::Shape::Pill);
+        QCOMPARE(static_cast<int>(pill.shape()), static_cast<int>(FluentButton::Shape::Pill));
+
+        QPixmap iconPixmap(16, 16);
+        iconPixmap.fill(Qt::red);
+        FluentButton circle{QIcon(iconPixmap), QString()};
+        circle.setShape(FluentButton::Shape::Circular);
+        const QSize circleHint = circle.sizeHint();
+        QCOMPARE(circleHint.width(), circleHint.height());
+        QVERIFY2(circleHint.width() >= Style::metrics().height,
+                 "Circular FluentButton size hint should remain square and at least one control high");
+
+        FluentToolButton tool(QStringLiteral("Mail"));
+        tool.setPrimary(true);
+        tool.setShape(FluentToolButton::Shape::Pill);
+        QCOMPARE(tool.isPrimary(), true);
+        QCOMPARE(static_cast<int>(tool.shape()), static_cast<int>(FluentToolButton::Shape::Pill));
+
+        FluentToolButton roundTool;
+        roundTool.setIcon(QIcon(iconPixmap));
+        roundTool.setShape(FluentToolButton::Shape::Circular);
+        const QSize roundHint = roundTool.sizeHint();
+        QCOMPARE(roundHint.width(), roundHint.height());
+
+        tool.resize(92, 32);
+        tool.show();
+        QTRY_VERIFY(tool.isVisible());
+        QCoreApplication::processEvents();
+
+        const FluentThemeTokens tokens = ThemeManager::instance().tokens();
+        const QImage image = renderWidgetImage(&tool);
+        QVERIFY2(nearColorPixelCount(image, tokens.accent.base, QRect(12, 8, 28, 16), 72) > 30,
+                 "Primary FluentToolButton should paint the accent fill");
+        QVERIFY2(nearColorPixelCount(image, tokens.onAccent, QRect(24, 7, 52, 18), 72) > 8,
+                 "Primary text-only FluentToolButton should paint its text");
+
+        FluentToolButton iconTextTool(QStringLiteral("Mail"));
+        iconTextTool.setIcon(QIcon(iconPixmap));
+        iconTextTool.resize(104, 32);
+        iconTextTool.show();
+        QTRY_VERIFY(iconTextTool.isVisible());
+        QCoreApplication::processEvents();
+
+        const QImage iconTextImage = renderWidgetImage(&iconTextTool);
+        QVERIFY2(nearColorPixelCount(iconTextImage, ThemeManager::instance().colors().text, QRect(36, 7, 56, 18), 72) > 8,
+                 "Icon+text FluentToolButton should paint centered text by default");
+    }
+
     void toolButtonCaptionChromeUsesThemeTokens()
     {
         struct ThemeGuard {
@@ -16200,6 +16312,43 @@ private slots:
                  "Focused FluentCheckBox should not use the legacy focus color");
         QVERIFY2(nearColorPixelCount(image, colors.focus, focusRadioRing, 42) <= 2,
                  "Focused FluentRadioButton should not use the legacy focus color");
+    }
+
+    void checkBoxPartiallyCheckedPaintsIndeterminateMark()
+    {
+        struct ThemeGuard {
+            ThemeManager::ThemeMode mode = ThemeManager::instance().themeMode();
+            ThemeColors colors = ThemeManager::instance().colors();
+            bool animationsEnabled = ThemeManager::instance().animationsEnabled();
+
+            ~ThemeGuard()
+            {
+                ThemeManager::instance().setAnimationsEnabled(animationsEnabled);
+                ThemeManager::instance().setColors(colors);
+                ThemeManager::instance().setThemeMode(mode);
+                QCoreApplication::processEvents();
+            }
+        } guard;
+
+        ThemeManager::instance().setAnimationsEnabled(false);
+        syncTheme(false, QColor(QStringLiteral("#0066B4")));
+
+        FluentCheckBox check(QStringLiteral("Mixed"));
+        check.setTristate(true);
+        check.setCheckState(Qt::PartiallyChecked);
+        check.resize(88, 32);
+        check.show();
+        QTRY_VERIFY(check.isVisible());
+        QCoreApplication::processEvents();
+
+        const FluentThemeTokens tokens = ThemeManager::instance().tokens();
+        const QImage image = renderWidgetImage(&check);
+        const QRect indicator(4, check.height() / 2 - 8, 18, 16);
+        const QRect mark(8, check.height() / 2 - 2, 10, 5);
+        QVERIFY2(nearColorPixelCount(image, tokens.accent.base, indicator, 72) > 25,
+                 "Partially checked FluentCheckBox should use the accent fill");
+        QVERIFY2(nearColorPixelCount(image, tokens.onAccent, mark, 72) > 4,
+                 "Partially checked FluentCheckBox should draw an onAccent indeterminate mark");
     }
 
     void progressControlsDisabledUseMutedTokenFills()

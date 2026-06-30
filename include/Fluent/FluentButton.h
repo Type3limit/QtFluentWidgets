@@ -7,6 +7,7 @@
 
 class QIcon;
 class QMouseEvent;
+class QRectF;
 class QVariantAnimation;
 
 namespace Fluent {
@@ -23,8 +24,16 @@ public:
     };
     Q_ENUM(IconPosition)
 
+    enum class Shape {
+        Rounded,
+        Pill,
+        Circular
+    };
+    Q_ENUM(Shape)
+
     Q_PROPERTY(IconPosition iconPosition READ iconPosition WRITE setIconPosition)
     Q_PROPERTY(int iconSpacing READ iconSpacing WRITE setIconSpacing)
+    Q_PROPERTY(Shape shape READ shape WRITE setShape)
     Q_PROPERTY(qreal hoverLevel READ hoverLevel WRITE setHoverLevel)
     Q_PROPERTY(qreal pressLevel READ pressLevel WRITE setPressLevel)
 
@@ -40,6 +49,9 @@ public:
 
     int iconSpacing() const;
     void setIconSpacing(int spacing);
+
+    Shape shape() const;
+    void setShape(Shape shape);
 
     qreal hoverLevel() const;
     void setHoverLevel(qreal value);
@@ -58,6 +70,8 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
 
+    qreal controlRadiusForRect(const QRectF &rect) const;
+
 private:
     void initialize();
     void applyTheme();
@@ -66,6 +80,7 @@ private:
 
     bool m_primary = false;
     IconPosition m_iconPosition = IconPosition::Left;
+    Shape m_shape = Shape::Rounded;
     int m_iconSpacing = 8;
     qreal m_hoverLevel = 0.0;
     qreal m_pressLevel = 0.0;

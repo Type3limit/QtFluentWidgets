@@ -37,7 +37,8 @@ FluentCheckBox::FluentCheckBox(QWidget *parent)
     connect(this, &QCheckBox::stateChanged, this, [this](int state) {
         FluentMotion::configure(m_checkAnim, FluentMotionRole::Selection);
         m_checkAnim->stop();
-        const qreal target = state == Qt::Checked ? 1.0 : 0.0;
+        const Qt::CheckState nextState = static_cast<Qt::CheckState>(state);
+        const qreal target = nextState == Qt::Unchecked ? 0.0 : 1.0;
         if (m_checkAnim->duration() <= 0) {
             m_checkLevel = target;
             update();
@@ -47,7 +48,7 @@ FluentCheckBox::FluentCheckBox(QWidget *parent)
             m_checkAnim->start();
         }
     });
-    m_checkLevel = isChecked() ? 1.0 : 0.0;
+    m_checkLevel = checkState() == Qt::Unchecked ? 0.0 : 1.0;
 
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentCheckBox::applyTheme);
@@ -80,7 +81,8 @@ FluentCheckBox::FluentCheckBox(const QString &text, QWidget *parent)
     connect(this, &QCheckBox::stateChanged, this, [this](int state) {
         FluentMotion::configure(m_checkAnim, FluentMotionRole::Selection);
         m_checkAnim->stop();
-        const qreal target = state == Qt::Checked ? 1.0 : 0.0;
+        const Qt::CheckState nextState = static_cast<Qt::CheckState>(state);
+        const qreal target = nextState == Qt::Unchecked ? 0.0 : 1.0;
         if (m_checkAnim->duration() <= 0) {
             m_checkLevel = target;
             update();
@@ -90,7 +92,7 @@ FluentCheckBox::FluentCheckBox(const QString &text, QWidget *parent)
             m_checkAnim->start();
         }
     });
-    m_checkLevel = isChecked() ? 1.0 : 0.0;
+    m_checkLevel = checkState() == Qt::Unchecked ? 0.0 : 1.0;
 
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentCheckBox::applyTheme);
@@ -207,6 +209,10 @@ void FluentCheckBox::paintEvent(QPaintEvent *event)
         painter.drawRoundedRect(hoverRect, 6.0, 6.0);
     }
 
+    const Qt::CheckState currentState = checkState();
+    const bool selected = currentState != Qt::Unchecked;
+    const bool partiallyChecked = currentState == Qt::PartiallyChecked;
+
     // Determine checkbox state colors
     QColor borderColor = tokens.neutral.strokeStrong;
     QColor fillColor = tokens.neutral.card;
@@ -214,8 +220,8 @@ void FluentCheckBox::paintEvent(QPaintEvent *event)
     if (!isEnabled()) {
         borderColor = tokens.neutral.strokeSubtle;
         fillColor = Style::mix(tokens.neutral.card, tokens.neutral.background, tokens.dark ? 0.48 : 0.34);
-    } else if (m_checkLevel > 0.01) {
-        // Checked state: use the accent token ramp.
+    } else if (selected && m_checkLevel > 0.01) {
+        // Checked and partially checked states use the accent token ramp.
         borderColor = tokens.accent.base;
         fillColor = tokens.accent.base;
     }
@@ -223,8 +229,8 @@ void FluentCheckBox::paintEvent(QPaintEvent *event)
     // Draw checkbox box
     painter.setPen(QPen(borderColor, 1.5));
     
-    if (m_checkLevel > 0.01) {
-        // Checked: filled with accent
+    if (selected && m_checkLevel > 0.01) {
+        // Selected: filled with accent
         QColor accentFill = fillColor;
         accentFill.setAlphaF(m_checkLevel);
         painter.setBrush(accentFill);
@@ -245,26 +251,37 @@ void FluentCheckBox::paintEvent(QPaintEvent *event)
         painter.drawRoundedRect(ring, cornerRadius, cornerRadius);
     }
 
-    // Draw checkmark with animation
-    if (m_checkLevel > 0.01) {
+    // Draw checkmark or indeterminate mark with animation.
+    if (selected && m_checkLevel > 0.01) {
         painter.setPen(Qt::NoPen);
         painter.setBrush(Qt::NoBrush);
         
         QColor checkColor = isEnabled() ? tokens.onAccent : colors.disabledText;
         checkColor.setAlphaF(m_checkLevel);
-        painter.setPen(QPen(checkColor, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-        
-        // Fluent-style checkmark path
-        QPainterPath checkPath;
-        QPointF p1(boxRect.left() + boxSize * 0.25, boxRect.top() + boxSize * 0.50);
-        QPointF p2(boxRect.left() + boxSize * 0.45, boxRect.top() + boxSize * 0.70);
-        QPointF p3(boxRect.left() + boxSize * 0.75, boxRect.top() + boxSize * 0.30);
-        
-        checkPath.moveTo(p1);
-        checkPath.lineTo(p2);
-        checkPath.lineTo(p3);
-        
-        painter.drawPath(checkPath);
+
+        if (partiallyChecked) {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(checkColor);
+            const QRectF markRect(boxRect.left() + boxSize * 0.28,
+                                  boxRect.center().y() - 1.1,
+                                  boxSize * 0.44,
+                                  2.2);
+            painter.drawRoundedRect(markRect, 1.1, 1.1);
+        } else {
+            painter.setPen(QPen(checkColor, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+
+            // Fluent-style checkmark path
+            QPainterPath checkPath;
+            QPointF p1(boxRect.left() + boxSize * 0.25, boxRect.top() + boxSize * 0.50);
+            QPointF p2(boxRect.left() + boxSize * 0.45, boxRect.top() + boxSize * 0.70);
+            QPointF p3(boxRect.left() + boxSize * 0.75, boxRect.top() + boxSize * 0.30);
+
+            checkPath.moveTo(p1);
+            checkPath.lineTo(p2);
+            checkPath.lineTo(p3);
+
+            painter.drawPath(checkPath);
+        }
     }
 
     // Draw text label

@@ -37,6 +37,36 @@ bool isVerticalIconPosition(FluentButton::IconPosition position)
         || position == FluentButton::IconPosition::Bottom;
 }
 
+int effectiveIconSpacing(FluentButton::IconPosition position, int spacing)
+{
+    spacing = qMax(0, spacing);
+    if (isVerticalIconPosition(position)) {
+        return qMin(spacing, 3);
+    }
+    return spacing;
+}
+
+int effectiveVerticalPadding(const ControlMetrics &metrics,
+                             FluentButton::IconPosition position,
+                             bool hasIcon,
+                             bool hasText)
+{
+    if (hasIcon && hasText && isVerticalIconPosition(position)) {
+        return qMin(metrics.paddingY, 2);
+    }
+    return metrics.paddingY;
+}
+
+QSize applyButtonShapeToSize(QSize size, FluentButton::Shape shape)
+{
+    if (shape != FluentButton::Shape::Circular) {
+        return size;
+    }
+
+    const int extent = qMax(size.width(), size.height());
+    return QSize(extent, extent);
+}
+
 } // namespace
 
 FluentButton::FluentButton(QWidget *parent)
@@ -131,6 +161,22 @@ void FluentButton::setIconSpacing(int spacing)
     update();
 }
 
+FluentButton::Shape FluentButton::shape() const
+{
+    return m_shape;
+}
+
+void FluentButton::setShape(Shape shape)
+{
+    if (m_shape == shape) {
+        return;
+    }
+
+    m_shape = shape;
+    updateGeometry();
+    update();
+}
+
 qreal FluentButton::hoverLevel() const
 {
     return m_hoverLevel;
@@ -162,14 +208,15 @@ QSize FluentButton::sizeHint() const
     if (!hasButtonIcon && !hasText) {
         QSize size = QPushButton::sizeHint();
         size.rheight() = qMax(size.height(), metrics.height);
-        return size;
+        return applyButtonShapeToSize(size, m_shape);
     }
 
     const QFontMetrics fm(font());
     const QSize iconExtent = hasButtonIcon ? requestedIconSize(iconSize(), metrics) : QSize();
     const QSize textExtent(hasText ? fm.horizontalAdvance(text()) : 0,
                            hasText ? fm.height() : 0);
-    const int gap = hasButtonIcon && hasText ? m_iconSpacing : 0;
+    const int gap = hasButtonIcon && hasText ? effectiveIconSpacing(m_iconPosition, m_iconSpacing) : 0;
+    const int paddingY = effectiveVerticalPadding(metrics, m_iconPosition, hasButtonIcon, hasText);
 
     QSize content;
     if (hasButtonIcon && hasText && isVerticalIconPosition(m_iconPosition)) {
@@ -181,9 +228,9 @@ QSize FluentButton::sizeHint() const
     }
 
     QSize size(content.width() + metrics.paddingX * 2,
-               qMax(metrics.height, content.height() + metrics.paddingY * 2));
+               qMax(metrics.height, content.height() + paddingY * 2));
     size = size.expandedTo(QSize(metrics.height, metrics.height));
-    return size.expandedTo(QPushButton::sizeHint());
+    return applyButtonShapeToSize(size.expandedTo(QPushButton::sizeHint()), m_shape);
 }
 
 QSize FluentButton::minimumSizeHint() const
@@ -241,9 +288,10 @@ void FluentButton::paintEvent(QPaintEvent *event)
     
     const auto m = Style::metrics();
     QRectF rect = QRectF(this->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-    const qreal radius = m.radius;
+    const qreal radius = controlRadiusForRect(rect);
 
-    ButtonVisuals::paintRoundedControl(painter, rect, radius, fill, state.border, state.bottomBorder);
+    const QColor bottomBorder = m_shape == Shape::Rounded ? state.bottomBorder : QColor(0, 0, 0, 0);
+    ButtonVisuals::paintRoundedControl(painter, rect, radius, fill, state.border, bottomBorder);
 
     // Fluent-like checked detail (without indicator bar): add a subtle inner highlight so
     // the selected state is still obvious on accent-filled primary buttons.
@@ -252,7 +300,8 @@ void FluentButton::paintEvent(QPaintEvent *event)
         inner.setAlpha(115);
         painter.setPen(QPen(inner, 1.0));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(rect.adjusted(1.0, 1.0, -1.0, -1.0), radius - 1, radius - 1);
+        const qreal innerRadius = qMax<qreal>(0.0, radius - 1.0);
+        painter.drawRoundedRect(rect.adjusted(1.0, 1.0, -1.0, -1.0), innerRadius, innerRadius);
     }
 
     if (hasFocus() && isEnabled()) {
@@ -260,13 +309,17 @@ void FluentButton::paintEvent(QPaintEvent *event)
         focus.setAlpha(230);
         painter.setPen(QPen(focus, 2.0));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius - 1, radius - 1);
+        const qreal focusRadius = qMax<qreal>(0.0, radius - 1.0);
+        painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), focusRadius, focusRadius);
     }
 
     painter.setPen(textColor);
     painter.setFont(this->font());
 
-    QRect contentRect = rect.toRect();
+    const bool hasButtonIcon = !icon().isNull();
+    const bool hasText = !text().isEmpty();
+    const int paddingY = effectiveVerticalPadding(m, m_iconPosition, hasButtonIcon, hasText);
+    QRect contentRect = rect.toRect().adjusted(m.paddingX, paddingY, -m.paddingX, -paddingY);
 
     if (!icon().isNull()) {
         const QIcon::Mode mode = isEnabled() ? QIcon::Normal : QIcon::Disabled;
@@ -290,11 +343,12 @@ void FluentButton::paintEvent(QPaintEvent *event)
             return;
         }
 
-        const int gap = m_iconSpacing;
         const int textWidth = fontMetrics().horizontalAdvance(text());
         const int textHeight = fontMetrics().height();
 
         if (isVerticalIconPosition(m_iconPosition)) {
+            const int availableGap = contentRect.height() - drawSize.height() - textHeight;
+            const int gap = qBound(0, effectiveIconSpacing(m_iconPosition, m_iconSpacing), availableGap);
             const int totalHeight = drawSize.height() + gap + textHeight;
             const int startY = contentRect.center().y() - totalHeight / 2;
             const bool iconFirst = m_iconPosition == IconPosition::Top;
@@ -310,6 +364,7 @@ void FluentButton::paintEvent(QPaintEvent *event)
             return;
         }
 
+        const int gap = effectiveIconSpacing(m_iconPosition, m_iconSpacing);
         const int totalWidth = drawSize.width() + gap + textWidth;
         const int startX = contentRect.center().x() - totalWidth / 2;
         const bool iconFirst = m_iconPosition == IconPosition::Left;
@@ -353,6 +408,15 @@ void FluentButton::mouseReleaseEvent(QMouseEvent *event)
 {
     startPressAnimation(0.0);
     QPushButton::mouseReleaseEvent(event);
+}
+
+qreal FluentButton::controlRadiusForRect(const QRectF &rect) const
+{
+    if (m_shape == Shape::Pill || m_shape == Shape::Circular) {
+        return qMin(rect.width(), rect.height()) / 2.0;
+    }
+
+    return Style::metrics().radius;
 }
 
 void FluentButton::startHoverAnimation(qreal endValue)

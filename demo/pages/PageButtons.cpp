@@ -3,9 +3,13 @@
 #include "../DemoHelpers.h"
 
 #include <QAction>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QPixmap>
+#include <QSize>
 #include <QVBoxLayout>
 
 #include "Fluent/FluentAnimatedButton.h"
@@ -16,6 +20,7 @@
 #include "Fluent/FluentCommandBar.h"
 #include "Fluent/FluentDropDownButton.h"
 #include "Fluent/FluentIcon.h"
+#include "Fluent/FluentIconButton.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentMainWindow.h"
 #include "Fluent/FluentMenu.h"
@@ -172,10 +177,18 @@ QWidget *createButtonsPage(FluentMainWindow *window)
     X(iconTop->setIconPosition(FluentButton::IconPosition::Top);) \
     X(auto *iconBottom = new FluentButton(searchIcon, QStringLiteral("Bottom"));) \
     X(iconBottom->setIconPosition(FluentButton::IconPosition::Bottom);) \
+    X(auto *pill = new FluentButton(FluentIcon::icon(FluentIconType::Bookmark), QStringLiteral("Tag"));) \
+    X(pill->setPrimary(true);) \
+    X(pill->setShape(FluentButton::Shape::Pill);) \
+    X(auto *iconOnly = new FluentIconButton(searchIcon);) \
+    X(iconOnly->setShape(FluentButton::Shape::Circular);) \
+    X(iconOnly->setButtonExtent(36);) \
     X(iconRow->addWidget(iconLeft);) \
     X(iconRow->addWidget(iconRight);) \
     X(iconRow->addWidget(iconTop);) \
     X(iconRow->addWidget(iconBottom);) \
+    X(iconRow->addWidget(pill);) \
+    X(iconRow->addWidget(iconOnly);) \
     X(iconRow->addStretch(1);) \
     X(body->addLayout(iconRow);)
 
@@ -191,12 +204,14 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                           "-setPrimary(true) 切换主按钮样式\n"
                           "-setDisabled(true) 展示禁用态\n"
                           "-setCheckable(true) + setChecked(true) 展示 Checked\n"
-                          "-setIconPosition(...) 调整图标位置",
+                          "-setIconPosition(...) 调整图标位置\n"
+                          "-setShape(Pill/Circular) 展示胶囊/圆形按钮",
                           "Highlights:\n"
                           "-Use setPrimary(true) to switch to the primary button style\n"
                           "-Use setDisabled(true) to show the disabled state\n"
                           "-Use setCheckable(true) + setChecked(true) to show the checked state\n"
-                          "-Use setIconPosition(...) to adjust icon placement"),
+                          "-Use setIconPosition(...) to adjust icon placement\n"
+                          "-Use setShape(Pill/Circular) for pill and circular buttons"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -206,6 +221,54 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                 false));
 
 #undef BUTTONS_FLUENT_BUTTON
+        }
+
+        // Local image icon demo
+        {
+            QString code;
+#define BUTTONS_LOCAL_IMAGE_ICON(X) \
+    X(auto *row = new QHBoxLayout();) \
+    X(row->setContentsMargins(0, 0, 0, 0);) \
+    X(row->setSpacing(10);) \
+    X(auto *preview = new FluentButton(FluentIcon::icon(FluentIconType::Folder), DEMO_TEXT("图片图标", "Image icon"));) \
+    X(preview->setIconSize(QSize(24, 24));) \
+    X(preview->setMinimumWidth(150);) \
+    X(auto *choose = new FluentButton(FluentIcon::icon(FluentIconType::Folder), DEMO_TEXT("选择图片", "Choose image"));) \
+    X(choose->setPrimary(true);) \
+    X(row->addWidget(choose);) \
+    X(row->addWidget(preview);) \
+    X(row->addStretch(1);) \
+    X(body->addLayout(row);) \
+    X(auto *status = new FluentLabel(DEMO_TEXT("尚未选择本地图片。", "No local image selected."));) \
+    X(status->setWordWrap(true);) \
+    X(body->addWidget(status);) \
+    X(QObject::connect(choose, &QPushButton::clicked, preview, [=]() { const QString fileName = QFileDialog::getOpenFileName(window, DEMO_TEXT("选择按钮图标", "Choose button icon"), QString(), DEMO_TEXT("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.ico);;所有文件 (*)", "Image files (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.ico);;All files (*)")); if (fileName.isEmpty()) { return; } const QPixmap pixmap(fileName); if (pixmap.isNull()) { status->setText(DEMO_TEXT("无法加载所选图片。", "Unable to load the selected image.")); return; } preview->setIcon(QIcon(pixmap)); preview->setIconSize(QSize(24, 24)); status->setText(DEMO_TEXT("已将本地图片设置为按钮图标：%1", "Local image is now used as the button icon: %1").arg(QFileInfo(fileName).fileName())); });)
+
+#define X(line) code += QStringLiteral(#line "\n");
+            BUTTONS_LOCAL_IMAGE_ICON(X)
+#undef X
+
+            page->addWidget(Demo::makeCollapsedExample(
+                QStringLiteral("Local image button icon"),
+                DEMO_TEXT("从本地图片文件创建 QIcon，并应用到 FluentButton",
+                          "Create a QIcon from a local image file and apply it to FluentButton"),
+                DEMO_TEXT("要点：\n"
+                          "-QFileDialog 选择 png/jpg/webp/ico 等图片\n"
+                          "-QPixmap 校验加载结果，再用 QIcon(pixmap) 设置按钮图标\n"
+                          "-setIconSize(...) 控制本地图标在按钮中的显示尺寸",
+                          "Highlights:\n"
+                          "-Use QFileDialog to choose png / jpg / webp / ico images\n"
+                          "-Validate loading with QPixmap, then use QIcon(pixmap) as the button icon\n"
+                          "-Use setIconSize(...) to control how large the local image appears in the button"),
+                code,
+                [=](QVBoxLayout *body) {
+#define X(line) line
+                    BUTTONS_LOCAL_IMAGE_ICON(X)
+#undef X
+                },
+                false));
+
+#undef BUTTONS_LOCAL_IMAGE_ICON
         }
 
         // FluentToolButton demo
@@ -219,8 +282,25 @@ QWidget *createButtonsPage(FluentMainWindow *window)
     X(auto *tb2 = new FluentToolButton(QStringLiteral("Tool Checked"));) \
     X(tb2->setCheckable(true);) \
     X(tb2->setChecked(true);) \
+    X(auto *roundTool = new FluentToolButton();) \
+    X(roundTool->setIcon(FluentIcon::icon(FluentIconType::Mail));) \
+    X(roundTool->setShape(FluentToolButton::Shape::Circular);) \
+    X(FluentIconOptions reversedIcon;) \
+    X(reversedIcon.reversed = true;) \
+    X(auto *accentMenu = new FluentToolButton(QStringLiteral("Mail"));) \
+    X(accentMenu->setPrimary(true);) \
+    X(accentMenu->setShape(FluentToolButton::Shape::Pill);) \
+    X(accentMenu->setIcon(FluentIcon::icon(FluentIconType::Mail, reversedIcon));) \
+    X(accentMenu->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);) \
+    X(accentMenu->setPopupMode(QToolButton::MenuButtonPopup);) \
+    X(auto *mailMenu = new FluentMenu(accentMenu);) \
+    X(mailMenu->addAction(FluentIcon::icon(FluentIconType::Save), QStringLiteral("Save"));) \
+    X(mailMenu->addAction(FluentIcon::icon(FluentIconType::Upload), QStringLiteral("Send"));) \
+    X(accentMenu->setMenu(mailMenu);) \
     X(toolRow->addWidget(tb1);) \
     X(toolRow->addWidget(tb2);) \
+    X(toolRow->addWidget(roundTool);) \
+    X(toolRow->addWidget(accentMenu);) \
     X(toolRow->addStretch(1);) \
     X(body->addLayout(toolRow);)
 
@@ -233,10 +313,10 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                 DEMO_TEXT("更紧凑的按钮，适合工具栏/图标动作", "A more compact button suited to toolbars and icon actions"),
                 DEMO_TEXT("要点：\n"
                           "-可 checkable（用于 Toggle 工具）\n"
-                          "-尺寸更小，适合与菜单/弹出配合",
+                          "-支持 Primary、胶囊/圆形形态与 FluentMenu 菜单",
                           "Highlights:\n"
                           "-Can be checkable for toggle-style tools\n"
-                          "-Smaller footprint, ideal next to menus and popups"),
+                          "-Supports Primary, pill/circular shapes, and FluentMenu popups"),
                 code,
                 [=](QVBoxLayout *body) {
 #define X(line) line
@@ -430,12 +510,16 @@ QWidget *createButtonsPage(FluentMainWindow *window)
     X(optRow->setContentsMargins(0, 0, 0, 0);) \
     X(optRow->setSpacing(14);) \
     X(auto *cb = new FluentCheckBox(QStringLiteral("CheckBox"));) \
+    X(auto *mixed = new FluentCheckBox(QStringLiteral("Mixed"));) \
+    X(mixed->setTristate(true);) \
+    X(mixed->setCheckState(Qt::PartiallyChecked);) \
     X(auto *ra = new FluentRadioButton(QStringLiteral("Radio A"));) \
     X(auto *rb = new FluentRadioButton(QStringLiteral("Radio B"));) \
     X(ra->setChecked(true);) \
     X(auto *tg = new FluentToggleSwitch(QStringLiteral("Toggle"));) \
     X(tg->setChecked(true);) \
     X(optRow->addWidget(cb);) \
+    X(optRow->addWidget(mixed);) \
     X(optRow->addWidget(ra);) \
     X(optRow->addWidget(rb);) \
     X(optRow->addWidget(tg);) \
@@ -451,10 +535,12 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                 DEMO_TEXT("常见选择/开关控件", "Common selection and toggle controls"),
                 DEMO_TEXT("要点：\n"
                           "-CheckBox：多选\n"
+                          "-CheckBox 支持 Qt::PartiallyChecked 三态显示\n"
                           "-RadioButton：单选（同父布局/同组）\n"
                           "-ToggleSwitch：开关语义更明确",
                           "Highlights:\n"
                           "-CheckBox: multi-selection\n"
+                          "-CheckBox supports the Qt::PartiallyChecked tristate visual\n"
                           "-RadioButton: single-selection within the same parent or group\n"
                           "-ToggleSwitch: clearer on/off semantics"),
                 code,
