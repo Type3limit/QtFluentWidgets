@@ -699,6 +699,16 @@ void FluentAutoSuggestBox::setSuggestions(const QStringList &suggestions)
     updatePopup();
 }
 
+bool FluentAutoSuggestBox::isDefaultSuggestAll() const
+{
+    return m_defaultSuggestAll;
+}
+
+void FluentAutoSuggestBox::setDefaultSuggestAll(bool suggestAll)
+{
+    m_defaultSuggestAll = suggestAll;
+}
+
 bool FluentAutoSuggestBox::isSearchButtonVisible() const
 {
     return m_searchButton->isVisible();
@@ -749,7 +759,10 @@ QStringList FluentAutoSuggestBox::filteredSuggestions() const
 {
     const QString query = text().trimmed();
     if (query.isEmpty()) {
-        return {};
+        if(!m_defaultSuggestAll) {
+            return {};
+        }
+        return m_suggestions;
     }
 
     QStringList result;
