@@ -425,7 +425,7 @@ protected:
         if ((m_owner && watched == m_owner->lineEdit()) ||
             watched == m_view ||
             (m_view && watched == m_view->viewport())) {
-            if (m_owner && watched == m_owner->lineEdit() && event->type() == QEvent::FocusIn) {
+            if (m_owner && watched == m_owner->lineEdit() && (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut)) {
                 QPointer<FluentAutoSuggestBox> owner = m_owner;
                 QTimer::singleShot(0, this, [owner]() {
                     if (owner) {
