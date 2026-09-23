@@ -430,6 +430,7 @@ void FluentMenu::popup(const QPoint &pos, QAction *atAction)
     popup->setAttribute(Qt::WA_DeleteOnClose, true);
     m_popupHost = popup;
 
+    popup->setMinimumWidth(minimumWidth());
     QObject::connect(popup, &QObject::destroyed, this, [this]() {
         m_popupHost = nullptr;
     });

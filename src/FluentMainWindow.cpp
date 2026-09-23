@@ -1527,7 +1527,7 @@ bool FluentMainWindow::eventFilter(QObject *watched, QEvent *event)
         m_titleBarEnabled && m_titleBarHost && m_titleBarHost->isVisible() && m_titleBarHost->height() > 0;
 
     // If the title bar is collapsed/hidden, allow dragging the window from non-interactive areas.
-    if (!titleBarActuallyVisible && event->type() == QEvent::MouseButtonPress) {
+    if (m_titleBarEnabled && !titleBarActuallyVisible && event->type() == QEvent::MouseButtonPress) {
         auto *me = static_cast<QMouseEvent *>(event);
         if (me->button() == Qt::LeftButton && windowHandle()) {
             QWidget *w = qobject_cast<QWidget *>(watched);
