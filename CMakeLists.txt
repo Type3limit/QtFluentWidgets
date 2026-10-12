@@ -435,7 +435,7 @@ if(FLUENT_BUILD_TESTS)
         target_compile_options(QtFluentWidgetsIssueRegressionTest PRIVATE /utf-8)
     endif()
     add_test(NAME QtFluentWidgetsIssueRegressionTest
-        COMMAND QtFluentWidgetsIssueRegressionTest -o -,txt -o issue-regression-results.xml,junitxml
+        COMMAND QtFluentWidgetsIssueRegressionTest -o -,txt -o issue-regression-results.txt,txt
     )
     set_tests_properties(QtFluentWidgetsIssueRegressionTest PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"

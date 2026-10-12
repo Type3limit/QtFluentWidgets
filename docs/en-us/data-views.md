@@ -70,6 +70,8 @@ Demo: DataViews / Overview.
 
 ## Table view
 
+`FluentTableView` and `FluentTableWidget` keep the rounded focus border visible when headers and scroll bars are shown. Unfocused and disabled borders retain their neutral colors; painting follows the widget's current border style.
+
 Purpose: table view with Fluent hover/selection painting and a Win11-like current-row transition.
 
 Inheritance:

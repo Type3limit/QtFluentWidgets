@@ -74,6 +74,7 @@ FluentTableView::FluentTableView(QWidget *parent)
     });
     applyTheme();
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, &FluentTableView::applyTheme);
+    Detail::installFluentTableBorderOverlay(this);
 
     QTimer::singleShot(0, this, [this]() { hookSelectionModel(); });
 }

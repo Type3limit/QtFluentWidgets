@@ -12,13 +12,95 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QStyledItemDelegate>
+#include <QStyle>
+#include <QStyleOptionFrame>
 #include <QTableView>
+#include <QTimer>
 #include <QWidget>
 #include <QWindow>
 
 #include <functional>
 
 namespace Fluent::Detail {
+
+class FluentTableBorderOverlay final : public QWidget
+{
+public:
+    explicit FluentTableBorderOverlay(QTableView *table)
+        : QWidget(table)
+        , m_table(table)
+    {
+        setObjectName(QStringLiteral("FluentTableBorderOverlay"));
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        setAttribute(Qt::WA_NoSystemBackground, true);
+        setAttribute(Qt::WA_StyledBackground, false);
+        setAutoFillBackground(false);
+        setFocusPolicy(Qt::NoFocus);
+        setGeometry(table->rect());
+        table->installEventFilter(this);
+        QObject::connect(&ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() { update(); });
+        show();
+        raise();
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched == m_table) {
+            switch (event->type()) {
+            case QEvent::Resize:
+            case QEvent::Show:
+                setGeometry(m_table->rect());
+                raise();
+                update();
+                break;
+            case QEvent::ChildAdded:
+                // Headers and scroll-bar containers can be replaced after construction.
+                QTimer::singleShot(0, this, [this]() {
+                    raise();
+                    update();
+                });
+                break;
+            case QEvent::FocusIn:
+            case QEvent::FocusOut:
+            case QEvent::EnabledChange:
+            case QEvent::StyleChange:
+            case QEvent::PaletteChange:
+                update();
+                break;
+            default:
+                break;
+            }
+        }
+        return QWidget::eventFilter(watched, event);
+    }
+
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event)
+        QStyleOptionFrame option;
+        option.initFrom(m_table);
+        option.rect = m_table->rect();
+        option.frameShape = m_table->frameShape();
+        option.lineWidth = m_table->frameWidth();
+        option.midLineWidth = m_table->midLineWidth();
+        QPainter painter(this);
+        if (!painter.isActive()) {
+            return;
+        }
+        // Reuse the real style so focus/disabled colors and custom QSS remain authoritative.
+        // PE_Frame draws only the border, above headers and other opaque table children.
+        m_table->style()->drawPrimitive(QStyle::PE_Frame, &option, &painter, m_table);
+    }
+
+private:
+    QTableView *m_table = nullptr;
+};
+
+inline void installFluentTableBorderOverlay(QTableView *table)
+{
+    new FluentTableBorderOverlay(table);
+}
 
 class FluentHeaderView final : public QHeaderView
 {
