@@ -842,7 +842,8 @@ private:
         if (!rect.isValid()) {
             return QRectF();
         }
-        return QRectF(rect).adjusted(4, 2, -4, -2);
+        return rect;
+        //return QRectF(rect).adjusted(2, 1, -2, -1);
     }
 
     void startSelectionAnimation(const QModelIndex &from, const QModelIndex &to)
@@ -999,7 +1000,7 @@ public:
         const bool multi = m_combo && m_combo->selectionMode() == FluentComboBox::MultiSelection;
         const bool checked = multi && index.data(Qt::CheckStateRole).toInt() == Qt::Checked;
 
-        const QRectF itemRect = QRectF(opt.rect).adjusted(4, 2, -4, -2);
+        const QRectF itemRect = opt.rect;//QRectF(opt.rect).adjusted(2, 1, -2, -1);
         const bool selected = enabled && !multi && opt.state.testFlag(QStyle::State_Selected);
         const bool isCurrent = m_view && m_view->currentIndex().isValid() && index == m_view->currentIndex() && !multi;
         const bool hovered = enabled && m_view && index == m_view->hoverIndex();
@@ -1229,7 +1230,12 @@ void FluentComboBox::paintEvent(QPaintEvent *event)
     } else {
         displayText = currentText();
     }
-    const QString elided = fontMetrics().elidedText(displayText, Qt::ElideRight, textRect.width());
+    QStringList displayTextList = displayText.split(QStringLiteral("\n"));
+    QString elided;
+    for(const QString &line : displayTextList) {
+        elided += fontMetrics().elidedText(line, Qt::ElideRight, textRect.width()) + QStringLiteral("\n");
+    }
+    elided.chop(1);
     painter.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, elided);
 
     const QRect arrowRect(this->rect().right() - m.iconAreaWidth, this->rect().top(), m.iconAreaWidth, this->rect().height());

@@ -59,6 +59,9 @@ qreal contrastRatio(const QColor &a, const QColor &b)
 
 QString fluentFontFamily()
 {
+  return QStringLiteral("'Microsoft YaHei UI', 'Segoe UI', 'Noto Sans CJK SC', sans-serif");
+  
+  //这里不用了
   const QLocale locale;
   if (locale.language() == QLocale::Chinese) {
     return QStringLiteral("'Microsoft YaHei', 'Microsoft YaHei UI', 'Segoe UI', 'Noto Sans CJK SC', sans-serif");

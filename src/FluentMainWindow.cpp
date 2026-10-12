@@ -532,11 +532,11 @@ FluentMainWindow::FluentMainWindow(QWidget *parent)
 
     // Create the border overlay as a direct child of the MainWindow so it
     // covers the ENTIRE content area (title bar + central widget).
-    m_borderOverlay = new WindowBorderOverlay(this);
-    m_borderOverlay->setObjectName("FluentMainWindowBorderOverlay");
-    if (auto *overlay = dynamic_cast<WindowBorderOverlay *>(m_borderOverlay)) {
-        overlay->setBorderEffect(&m_border);
-    }
+    //m_borderOverlay = new WindowBorderOverlay(this);
+    //m_borderOverlay->setObjectName("FluentMainWindowBorderOverlay");
+    //if (auto *overlay = dynamic_cast<WindowBorderOverlay *>(m_borderOverlay)) {
+    //    overlay->setBorderEffect(&m_border);
+    //}
 
     m_border.syncFromTheme();
     m_border.setRequestUpdate([this]() {
@@ -1527,7 +1527,7 @@ bool FluentMainWindow::eventFilter(QObject *watched, QEvent *event)
         m_titleBarEnabled && m_titleBarHost && m_titleBarHost->isVisible() && m_titleBarHost->height() > 0;
 
     // If the title bar is collapsed/hidden, allow dragging the window from non-interactive areas.
-    if (!titleBarActuallyVisible && event->type() == QEvent::MouseButtonPress) {
+    if (m_titleBarEnabled && !titleBarActuallyVisible && event->type() == QEvent::MouseButtonPress) {
         auto *me = static_cast<QMouseEvent *>(event);
         if (me->button() == Qt::LeftButton && windowHandle()) {
             QWidget *w = qobject_cast<QWidget *>(watched);
