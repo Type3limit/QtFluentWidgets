@@ -16,6 +16,17 @@
 
 namespace Fluent {
 
+static QAbstractScrollArea *parentScrollArea(const QWidget *widget)
+{
+    // QAbstractScrollArea reparents installed bars into a private QWidget container.
+    for (QWidget *parent = widget->parentWidget(); parent; parent = parent->parentWidget()) {
+        if (auto *area = qobject_cast<QAbstractScrollArea *>(parent)) {
+            return area;
+        }
+    }
+    return nullptr;
+}
+
 static QColor handleBaseColor(const FluentThemeTokens &tokens)
 {
     const QColor base = tokens.dark
@@ -161,7 +172,8 @@ void FluentScrollBar::paintEvent(QPaintEvent *event)
 
     // If this scrollbar is installed as the real scroll bar of a QAbstractScrollArea, it reserves
     // layout space. Paint that reserved area to match the viewport background.
-    if (auto *area = qobject_cast<QAbstractScrollArea *>(parentWidget())) {
+    auto *area = parentScrollArea(this);
+    if (area && (area->verticalScrollBar() == this || area->horizontalScrollBar() == this)) {
         QColor bg;
         if (area->viewport()) {
             bg = area->viewport()->palette().color(area->viewport()->backgroundRole());
@@ -292,7 +304,7 @@ void FluentScrollBar::attachToViewportIfPossible()
         return;
     }
 
-    auto *area = qobject_cast<QAbstractScrollArea *>(parentWidget());
+    auto *area = parentScrollArea(this);
     if (!area || !area->viewport()) {
         return;
     }

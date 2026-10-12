@@ -424,6 +424,35 @@ if(FLUENT_BUILD_TESTS)
     endif()
 endif()
 
+if(FLUENT_BUILD_TESTS)
+    add_executable(QtFluentWidgetsIssueRegressionTest
+        tests/QtFluentWidgetsIssueRegressionTest.cpp
+    )
+    target_link_libraries(QtFluentWidgetsIssueRegressionTest PRIVATE
+        QtFluentWidgets ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Test
+    )
+    if(MSVC)
+        target_compile_options(QtFluentWidgetsIssueRegressionTest PRIVATE /utf-8)
+    endif()
+    add_test(NAME QtFluentWidgetsIssueRegressionTest
+        COMMAND QtFluentWidgetsIssueRegressionTest -o -,txt -o issue-regression-results.xml,junitxml
+    )
+    set_tests_properties(QtFluentWidgetsIssueRegressionTest PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+    if(WIN32)
+        add_custom_command(TARGET QtFluentWidgetsIssueRegressionTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:rlottie> $<TARGET_FILE_DIR:QtFluentWidgetsIssueRegressionTest>
+            VERBATIM
+        )
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
+            set_tests_properties(QtFluentWidgetsIssueRegressionTest PROPERTIES
+                ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:QtFluentWidgetsIssueRegressionTest>;PATH=path_list_prepend:${FLUENT_QT_BIN_DIR}"
+            )
+        endif()
+    endif()
+endif()
+
 # Demo convenience: run with known paint warnings suppressed.
 option(QTFLUENT_DEMO_SUPPRESS_KNOWN_PAINT_WARNINGS "Suppress known Qt viewport paint warnings in demo via env var" ON)
 
