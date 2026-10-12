@@ -1895,7 +1895,8 @@ void FluentMainWindow::ensureTitleBar()
 
     m_titleLabel = new QLabel(m_centerHost);
     m_titleLabel->setObjectName("FluentWindowTitle");
-    m_titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    // Keep the text size hint between the stretches; maximumWidth handles elision.
+    m_titleLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_titleLabel->setMinimumWidth(0);
     m_titleLabel->setAlignment(Qt::AlignCenter);
     QFont titleFont = m_titleLabel->font();
@@ -2039,7 +2040,7 @@ void FluentMainWindow::updateTitleBarContent()
     const int margins = Style::windowMetrics().titleBarPaddingX * 2 + 24;
     const int maxTitleWidth = qMax(0, width() - leftW - rightW - margins);
     const QString effectiveTitle = m_hasTitleOverride ? m_titleOverride : windowTitle();
-    const QString titleText = fontMetrics().elidedText(effectiveTitle, Qt::ElideRight, maxTitleWidth);
+    const QString titleText = m_titleLabel->fontMetrics().elidedText(effectiveTitle, Qt::ElideRight, maxTitleWidth);
 
     m_titleLabel->setMaximumWidth(maxTitleWidth);
     if (m_titleLabel->text() != titleText) {

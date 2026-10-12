@@ -190,6 +190,7 @@ Demo：Inputs / Containers / Windows / Overview。
 
 弹层（popup）行为：
 
+- 含换行符的项目按各自文本计算行高，单行项目保持最小行高；项目顺序不会改变其他行的高度。
 - `setView(new FluentComboPopupView)`：内部使用 `QListView` 的自定义子类。
 - popup 容器使用库内 `FluentComboPopup`，自绘 rounded panel / shadow / accent trace，并复用 ComboBox / AutoSuggest 的 popup placement 与 reveal 行为。
 - `showPopup()` 会根据屏幕空间决定向下或向上展开，并保持约 `5px` 的 anchor 间距。

@@ -498,7 +498,8 @@ void FluentDialog::ensureTitleBar()
 
     m_titleLabel = new QLabel(m_titleBarHost);
     m_titleLabel->setObjectName("FluentDialogTitle");
-    m_titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    // Keep the text size hint between the stretches; Ignored gives this label zero width.
+    m_titleLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_titleLabel->setMinimumWidth(0);
     m_titleLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_titleLabel, 0, Qt::AlignCenter);
@@ -576,7 +577,7 @@ void FluentDialog::updateTitleBarContent()
     }
     const int margins = Style::windowMetrics().titleBarPaddingX * 2 + 24;
     const int maxTitleWidth = qMax(0, m_titleBarHost->width() - rightW - margins);
-    const QString titleText = fontMetrics().elidedText(windowTitle(), Qt::ElideRight, maxTitleWidth);
+    const QString titleText = m_titleLabel->fontMetrics().elidedText(windowTitle(), Qt::ElideRight, maxTitleWidth);
 
     m_titleLabel->setMaximumWidth(maxTitleWidth);
     m_titleLabel->setText(titleText);

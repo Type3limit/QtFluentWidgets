@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(QtFluentWidgets VERSION 1.2.2 LANGUAGES CXX)
+project(QtFluentWidgets VERSION 1.2.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -419,6 +419,35 @@ if(FLUENT_BUILD_TESTS)
             )
             set_tests_properties(QtFluentWidgetsVisualSmokeTestLottieHighDpi PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=1.5;QTFLUENT_VISUAL_SMOKE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/visual-smoke-output;QTFLUENT_SUPPRESS_KNOWN_WARNINGS=1"
+            )
+        endif()
+    endif()
+endif()
+
+if(FLUENT_BUILD_TESTS)
+    add_executable(QtFluentWidgetsIssueRegressionTest
+        tests/QtFluentWidgetsIssueRegressionTest.cpp
+    )
+    target_link_libraries(QtFluentWidgetsIssueRegressionTest PRIVATE
+        QtFluentWidgets ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Test
+    )
+    if(MSVC)
+        target_compile_options(QtFluentWidgetsIssueRegressionTest PRIVATE /utf-8)
+    endif()
+    add_test(NAME QtFluentWidgetsIssueRegressionTest
+        COMMAND QtFluentWidgetsIssueRegressionTest -o -,txt -o issue-regression-results.txt,txt
+    )
+    set_tests_properties(QtFluentWidgetsIssueRegressionTest PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+    if(WIN32)
+        add_custom_command(TARGET QtFluentWidgetsIssueRegressionTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:rlottie> $<TARGET_FILE_DIR:QtFluentWidgetsIssueRegressionTest>
+            VERBATIM
+        )
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
+            set_tests_properties(QtFluentWidgetsIssueRegressionTest PROPERTIES
+                ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:QtFluentWidgetsIssueRegressionTest>;PATH=path_list_prepend:${FLUENT_QT_BIN_DIR}"
             )
         endif()
     endif()

@@ -406,7 +406,8 @@ private:
         }();
 
         const QMargins viewportMargins(kViewInset, kViewInset, kViewInset, kViewInset);
-        int contentHeight = viewportMargins.top() + viewportMargins.bottom();
+        // QListView spacing surrounds every item, including the first and last rows.
+        int contentHeight = viewportMargins.top() + viewportMargins.bottom() + 2 * spacing * visibleRows;
         int widest = width;
 
         const int sampleCount = qMax(visibleRows, qMin(rows, 24));
@@ -421,9 +422,6 @@ private:
 
             if (row < visibleRows) {
                 contentHeight += qMax(defaultRowHeight(), hint.height());
-                if (row + 1 < visibleRows) {
-                    contentHeight += spacing;
-                }
             }
         }
 
@@ -686,7 +684,8 @@ public:
         setSpacing(2);
         // Keep a small inset for rounded corners; no shadows for performance.
         setViewportMargins(6, 6, 6, 6);
-        setUniformItemSizes(true);
+        // Items may contain multiple lines; each row must use its delegate's own height.
+        setUniformItemSizes(false);
         setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 

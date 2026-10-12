@@ -190,6 +190,7 @@ Inheritance & construction:
 
 Popup behavior:
 
+- Items containing line breaks use their own text height, while single-line items retain the minimum row height. Item order does not change other rows' heights.
 - Uses a custom list view (`FluentComboPopupView`).
 - The popup uses the library-owned `FluentComboPopup`, with a rounded panel, shadow, accent trace, and the same placement/reveal behavior as AutoSuggest.
 - `showPopup()` opens below or above depending on available screen space while preserving an anchor gap of about `5px`.

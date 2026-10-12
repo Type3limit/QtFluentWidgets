@@ -72,6 +72,8 @@ Demo：DataViews / Overview。
 
 ## FluentTableView
 
+`FluentTableView` 与 `FluentTableWidget` 在显示表头和滚动条时保持完整的圆角焦点边框；失焦及禁用状态保留中性色边框，描边遵循控件当前的边框样式。
+
 ```cpp
 #include "Fluent/FluentTableView.h"
 
