@@ -485,9 +485,12 @@ protected:
                         }
                     }
                     const int available = qMax(0, width() - reserved - 6);
-                    maxWidth = qBound(112, available / qMax(1, count()), 260);
+                    // Let tabs shrink below the 112px comfort width (text elides)
+                    // when the bar is narrow; a hard 112px floor overflowed the bar,
+                    // and QTabBar then scrolled the first tab out of view.
+                    maxWidth = qBound(72, available / qMax(1, count()), 260);
                 }
-                sz.setWidth(qBound(112, w, maxWidth));
+                sz.setWidth(qBound(qMin(112, maxWidth), w, maxWidth));
             } else {
                 sz.setHeight(qMax(sz.height(), 36));
                 sz.setWidth(qMax(sz.width() + 12, 72));
