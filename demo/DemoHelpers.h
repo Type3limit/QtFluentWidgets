@@ -56,6 +56,12 @@ Fluent::FluentCard *makeCollapsedExample(const QString &title,
                                          bool collapsed = true,
                                          int codeBlockHeight = 190);
 
+// Card bodies passed to makeCollapsedExample/makeCollapsedCard are built progressively
+// (a frame-budgeted queue, visible cards first) behind a skeleton, so opening a page
+// never blocks the UI. Offscreen render / smoke modes disable it to get complete pages.
+void setProgressivePageBuildEnabled(bool enabled);
+bool progressivePageBuildEnabled();
+
 // State matrix: a caption column plus equal-width state columns on one grid, so
 // every row lines up and cells shrink with the card instead of overflowing it.
 QGridLayout *makeStateMatrix(const QString &captionHeader, const QStringList &stateHeaders);

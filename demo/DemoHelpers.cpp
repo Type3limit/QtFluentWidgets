@@ -9,6 +9,7 @@
 #include "Fluent/FluentIcon.h"
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentLottieWidget.h"
+#include "Fluent/FluentMotion.h"
 #include "Fluent/FluentScrollArea.h"
 #include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
@@ -17,12 +18,17 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QFrame>
+#include <QGraphicsOpacityEffect>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QLocale>
+#include <QPainter>
+#include <QPointer>
+#include <QPropertyAnimation>
 #include <QResizeEvent>
 #include <QScrollBar>
 #include <QSettings>
@@ -32,6 +38,8 @@
 #include <QTranslator>
 #include <QtMath>
 #include <QVBoxLayout>
+
+#include <vector>
 
 namespace Demo {
 
@@ -441,7 +449,168 @@ FluentCodeEditor *makeCodeBlock(QString code, int maxVisibleHeight)
     return edit;
 }
 
+bool s_progressivePageBuild = true;
+
+// Placeholder shown in a card until its body is built: a few muted bars.
+class CardSkeleton final : public QWidget
+{
+public:
+    CardSkeleton()
+    {
+        setFixedHeight(96);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(Qt::NoPen);
+        QColor bar = ThemeManager::instance().tokens().neutral.fillSecondary;
+        bar.setAlpha(ThemeManager::instance().tokens().dark ? 110 : 150);
+        p.setBrush(bar);
+        const qreal w = width();
+        const qreal widths[] = {0.42, 0.86, 0.64};
+        for (int i = 0; i < 3; ++i) {
+            p.drawRoundedRect(QRectF(0, 8 + i * 28, w * widths[i], 14), 7, 7);
+        }
+    }
+};
+
+// Builds queued card bodies a few at a time, within ~8 ms per event-loop turn,
+// so painting and input keep flowing while a page fills in. Cards on screen and
+// expanded are built first; jobs for deleted cards (page rebuilt) are dropped.
+class ProgressiveCardBuilder final : public QObject
+{
+public:
+    static ProgressiveCardBuilder &instance()
+    {
+        static auto *builder = new ProgressiveCardBuilder(qApp);
+        return *builder;
+    }
+
+    void enqueue(FluentCard *card, std::function<void()> job)
+    {
+        m_jobs.push_back({QPointer<FluentCard>(card), std::move(job)});
+        schedule();
+    }
+
+private:
+    using QObject::QObject;
+
+    struct Job {
+        QPointer<FluentCard> card;
+        std::function<void()> run;
+    };
+
+    void schedule()
+    {
+        if (!m_scheduled) {
+            m_scheduled = true;
+            QTimer::singleShot(0, this, [this]() { tick(); });
+        }
+    }
+
+    int pickNext() const
+    {
+        int fallback = -1;
+        for (int i = 0; i < int(m_jobs.size()); ++i) {
+            const FluentCard *card = m_jobs[size_t(i)].card;
+            if (!card || !card->isVisible()) {
+                continue;
+            }
+            if (!card->isCollapsed()) {
+                return i;
+            }
+            if (fallback < 0) {
+                fallback = i;
+            }
+        }
+        return fallback >= 0 ? fallback : 0;
+    }
+
+    void tick()
+    {
+        m_scheduled = false;
+        QElapsedTimer budget;
+        budget.start();
+        while (!m_jobs.empty()) {
+            const int index = pickNext();
+            Job job = std::move(m_jobs[size_t(index)]);
+            m_jobs.erase(m_jobs.begin() + index);
+            if (job.card) {
+                job.run();
+            }
+            if (budget.elapsed() >= 8) {
+                break;
+            }
+        }
+        if (!m_jobs.empty()) {
+            schedule();
+        }
+    }
+
+    std::vector<Job> m_jobs;
+    bool m_scheduled = false;
+};
+
+void fadeIn(QWidget *widget)
+{
+    const int duration = FluentMotion::duration(FluentMotionRole::PopupOpen) * 2;
+    if (duration <= 0 || !widget->isVisible()) {
+        return;
+    }
+    auto *effect = new QGraphicsOpacityEffect(widget);
+    effect->setOpacity(0.0);
+    widget->setGraphicsEffect(effect);
+    auto *anim = new QPropertyAnimation(effect, "opacity", widget);
+    anim->setDuration(duration);
+    anim->setEasingCurve(FluentMotion::easing(FluentMotionRole::PopupOpen));
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    QObject::connect(anim, &QPropertyAnimation::finished, widget, [widget, effect]() {
+        if (widget->graphicsEffect() == effect) {
+            widget->setGraphicsEffect(nullptr); // deletes the effect
+        }
+    });
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+// Runs fill() into the card body now, or later behind a skeleton when progressive
+// building is on. fill() receives a layout that ends up in the card body.
+void fillCardBody(FluentCard *card, QVBoxLayout *body, std::function<void(QVBoxLayout *)> fill)
+{
+    if (!s_progressivePageBuild) {
+        fill(body);
+        return;
+    }
+
+    auto *skeleton = new CardSkeleton();
+    body->addWidget(skeleton);
+    ProgressiveCardBuilder::instance().enqueue(card, [body, skeleton, fill = std::move(fill)]() {
+        auto *host = new QWidget();
+        auto *hostLayout = new QVBoxLayout(host);
+        hostLayout->setContentsMargins(0, 0, 0, 0);
+        hostLayout->setSpacing(body->spacing());
+        fill(hostLayout);
+        delete body->replaceWidget(skeleton, host);
+        skeleton->deleteLater();
+        fadeIn(host);
+    });
+}
+
 } // namespace
+
+void setProgressivePageBuildEnabled(bool enabled)
+{
+    s_progressivePageBuild = enabled;
+}
+
+bool progressivePageBuildEnabled()
+{
+    return s_progressivePageBuild;
+}
 
 FluentCard *makeCollapsedCard(const QString &title,
                               const QString &subtitle,
@@ -476,7 +645,9 @@ FluentCard *makeCollapsedCard(const QString &title,
     }
 
     if (!code.isEmpty()) {
-        body->addWidget(makeCodeBlock(code, 170));
+        fillCardBody(card, body, [code](QVBoxLayout *layout) {
+            layout->addWidget(makeCodeBlock(code, 170));
+        });
     }
 
     return card;
@@ -511,12 +682,16 @@ FluentCard *makeCollapsedExample(const QString &title,
 
     Q_UNUSED(features)
 
-    if (buildDemo) {
-        buildDemo(body);
-    }
-
-    if (!code.isEmpty()) {
-        body->addWidget(makeCodeBlock(code, codeBlockHeight));
+    if (buildDemo || !code.isEmpty()) {
+        // Demo bodies capture by value ([=]), so they are safe to run later.
+        fillCardBody(card, body, [buildDemo, code, codeBlockHeight](QVBoxLayout *layout) {
+            if (buildDemo) {
+                buildDemo(layout);
+            }
+            if (!code.isEmpty()) {
+                layout->addWidget(makeCodeBlock(code, codeBlockHeight));
+            }
+        });
     }
 
     return card;

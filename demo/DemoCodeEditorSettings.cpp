@@ -68,10 +68,15 @@ QString DemoCodeEditorSettings::clangFormatPathText() const
 
 QString DemoCodeEditorSettings::resolvedClangFormatPath() const
 {
-    if (m_clangPathText.isEmpty()) {
-        return QStandardPaths::findExecutable(QStringLiteral("clang-format"));
+    // Every snippet editor asks for this; a PATH scan per editor made page
+    // building slow, so resolve once per configured value.
+    if (!m_resolvedClangPathValid || m_resolvedClangPathFor != m_clangPathText) {
+        m_resolvedClangPathFor = m_clangPathText;
+        m_resolvedClangPath = QStandardPaths::findExecutable(
+            m_clangPathText.isEmpty() ? QStringLiteral("clang-format") : m_clangPathText);
+        m_resolvedClangPathValid = true;
     }
-    return QStandardPaths::findExecutable(m_clangPathText);
+    return m_resolvedClangPath;
 }
 
 void DemoCodeEditorSettings::setLineNumbersEnabled(bool enabled)

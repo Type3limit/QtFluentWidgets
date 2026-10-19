@@ -311,6 +311,8 @@ int runVisualRenderBatch(const QString &outputPath,
                          const QString &pagesOverride = QString(),
                          const QString &variantsOverride = QString())
 {
+    // Baselines need complete pages, not skeletons still waiting to be filled in.
+    Demo::setProgressivePageBuildEnabled(false);
     QDir outputDir(outputPath);
     if (!outputDir.exists() && !QDir().mkpath(outputDir.absolutePath())) {
         qWarning().noquote() << QStringLiteral("[DemoVisualRender] cannot create output directory: %1")
@@ -548,6 +550,8 @@ QString demoMatrixHealthError(QWidget *root, const QString &key, const QString &
 
 int runInteractionSmoke(const QString &outputPath)
 {
+    // The smoke clicks into card contents right after opening a page.
+    Demo::setProgressivePageBuildEnabled(false);
     QDir outputDir(outputPath);
     if (!outputDir.exists() && !QDir().mkpath(outputDir.absolutePath())) {
         qWarning().noquote() << QStringLiteral("[DemoInteractionSmoke] cannot create output directory: %1")
