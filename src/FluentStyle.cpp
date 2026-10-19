@@ -1,6 +1,11 @@
 #include "Fluent/FluentStyle.h"
 
+#include <QPaintDevice>
+#include <QPixmap>
+#include <QPixmapCache>
 #include <QtMath>
+
+#include <vector>
 
 namespace Fluent {
 
@@ -367,6 +372,148 @@ void Style::paintElevationShadow(QPainter &p, const QRectF &panelRect, qreal rad
         p.setBrush(c);
         p.drawRoundedRect(panelRect.adjusted(-2 - i, -2 - i, 2 + i, 2 + i), radius + i, radius + i);
     }
+}
+
+namespace {
+
+// One box-blur pass over a single-channel buffer; samples outside are zero.
+void boxBlurLine(const uchar *src, uchar *dst, int count, int stride, int radius)
+{
+    const int window = radius * 2 + 1;
+    int sum = 0;
+    for (int i = 0; i <= radius && i < count; ++i) {
+        sum += src[i * stride];
+    }
+    for (int i = 0; i < count; ++i) {
+        dst[i * stride] = static_cast<uchar>(sum / window);
+        const int addIndex = i + radius + 1;
+        const int removeIndex = i - radius;
+        if (addIndex < count) {
+            sum += src[addIndex * stride];
+        }
+        if (removeIndex >= 0) {
+            sum -= src[removeIndex * stride];
+        }
+    }
+}
+
+// Renders a rounded rect of shapeSize (device px) padded by 3 * boxRadius on each
+// side, blurs its alpha with three box passes (~Gaussian) and tints it.
+QPixmap blurredRoundedRect(const QSize &shapeSize, qreal radiusPx, int boxRadius, const QColor &color, qreal dpr)
+{
+    const int pad = boxRadius * 3;
+    const QString key = QStringLiteral("fluent-soft-shadow:%1x%2:r%3:b%4:c%5:d%6")
+                            .arg(shapeSize.width())
+                            .arg(shapeSize.height())
+                            .arg(radiusPx, 0, 'f', 2)
+                            .arg(boxRadius)
+                            .arg(color.rgba(), 0, 16)
+                            .arg(dpr, 0, 'f', 2);
+    QPixmap cached;
+    if (QPixmapCache::find(key, &cached)) {
+        return cached;
+    }
+
+    const int w = shapeSize.width() + pad * 2;
+    const int h = shapeSize.height() + pad * 2;
+    QImage mask(w, h, QImage::Format_ARGB32_Premultiplied);
+    mask.fill(Qt::transparent);
+    {
+        QPainter mp(&mask);
+        mp.setRenderHint(QPainter::Antialiasing, true);
+        mp.setPen(Qt::NoPen);
+        mp.setBrush(Qt::white);
+        mp.drawRoundedRect(QRectF(pad, pad, shapeSize.width(), shapeSize.height()), radiusPx, radiusPx);
+    }
+
+    std::vector<uchar> a(static_cast<size_t>(w) * h);
+    std::vector<uchar> b(a.size());
+    for (int y = 0; y < h; ++y) {
+        const QRgb *line = reinterpret_cast<const QRgb *>(mask.constScanLine(y));
+        for (int x = 0; x < w; ++x) {
+            a[static_cast<size_t>(y) * w + x] = static_cast<uchar>(qAlpha(line[x]));
+        }
+    }
+    for (int pass = 0; pass < 3; ++pass) {
+        for (int y = 0; y < h; ++y) {
+            boxBlurLine(a.data() + static_cast<size_t>(y) * w, b.data() + static_cast<size_t>(y) * w, w, 1, boxRadius);
+        }
+        for (int x = 0; x < w; ++x) {
+            boxBlurLine(b.data() + x, a.data() + x, h, w, boxRadius);
+        }
+    }
+
+    QImage tinted(w, h, QImage::Format_ARGB32_Premultiplied);
+    const int ca = color.alpha();
+    for (int y = 0; y < h; ++y) {
+        QRgb *line = reinterpret_cast<QRgb *>(tinted.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            const int alpha = a[static_cast<size_t>(y) * w + x] * ca / 255;
+            line[x] = qRgba(color.red() * alpha / 255, color.green() * alpha / 255, color.blue() * alpha / 255, alpha);
+        }
+    }
+
+    QPixmap pixmap = QPixmap::fromImage(tinted);
+    pixmap.setDevicePixelRatio(dpr);
+    QPixmapCache::insert(key, pixmap);
+    return pixmap;
+}
+
+} // namespace
+
+void Style::paintSoftShadow(QPainter &p, const QRectF &rect, qreal radius, const QColor &color, qreal blurRadius, const QPointF &offset)
+{
+    if (!p.isActive() || rect.isEmpty() || color.alpha() == 0) {
+        return;
+    }
+
+    const qreal dpr = p.device() ? qMax<qreal>(1.0, p.device()->devicePixelRatioF()) : 1.0;
+    const int boxRadius = qMax(1, qRound(qMax<qreal>(1.0, blurRadius) * dpr / 3.0));
+    const qreal padLogical = boxRadius * 3 / dpr;
+    radius = qBound<qreal>(0.0, radius, qMin(rect.width(), rect.height()) / 2.0);
+
+    // Snap to device pixels so the nine-patch pieces butt together exactly.
+    const auto snap = [dpr](qreal v) { return qRound(v * dpr) / dpr; };
+    const QRectF raw = rect.translated(offset).adjusted(-padLogical, -padLogical, padLogical, padLogical);
+    const QRectF target(QPointF(snap(raw.left()), snap(raw.top())), QPointF(snap(raw.right()), snap(raw.bottom())));
+
+    // Nine-patch: corners come from a small blurred rect, the straight middle
+    // stretches. The corner zone covers radius + blur on both sides of the edge.
+    const int marginPx = qCeil(radius * dpr) + boxRadius * 6;
+    const qreal marginLogical = marginPx / dpr;
+    const bool ninePatch = target.width() >= 2.0 * marginLogical + 1.0 && target.height() >= 2.0 * marginLogical + 1.0;
+
+    p.save();
+    // No AA / smoothing: antialiased piece edges and bilinear sampling across
+    // piece borders both leave visible seams. Corners draw 1:1, middles stretch
+    // a single uniform pixel, so nothing is lost.
+    p.setRenderHint(QPainter::Antialiasing, false);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, !ninePatch);
+    if (!ninePatch) {
+        const QSize shapePx(qMax(1, qRound(rect.width() * dpr)), qMax(1, qRound(rect.height() * dpr)));
+        p.drawPixmap(target, blurredRoundedRect(shapePx, radius * dpr, boxRadius, color, dpr),
+                     QRectF(QPointF(0, 0), QSizeF(shapePx.width() + boxRadius * 6, shapePx.height() + boxRadius * 6)));
+        p.restore();
+        return;
+    }
+
+    // Shape just big enough for two corner zones plus a 1px stretchable middle.
+    const int sidePx = (marginPx - boxRadius * 3) * 2 + 1;
+    const QPixmap pm = blurredRoundedRect(QSize(sidePx, sidePx), radius * dpr, boxRadius, color, dpr);
+    const qreal fullPx = pm.width();
+
+    const qreal sx[4] = {0.0, static_cast<qreal>(marginPx), fullPx - marginPx, fullPx};
+    const qreal sy[4] = {0.0, static_cast<qreal>(marginPx), static_cast<qreal>(pm.height()) - marginPx, static_cast<qreal>(pm.height())};
+    const qreal tx[4] = {target.left(), target.left() + marginLogical, target.right() - marginLogical, target.right()};
+    const qreal ty[4] = {target.top(), target.top() + marginLogical, target.bottom() - marginLogical, target.bottom()};
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            p.drawPixmap(QRectF(QPointF(tx[col], ty[row]), QPointF(tx[col + 1], ty[row + 1])),
+                         pm,
+                         QRectF(QPointF(sx[col], sy[row]), QPointF(sx[col + 1], sy[row + 1])));
+        }
+    }
+    p.restore();
 }
 
 } // namespace Fluent
