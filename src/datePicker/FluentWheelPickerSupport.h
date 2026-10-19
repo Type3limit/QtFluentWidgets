@@ -3,6 +3,7 @@
 #include "Fluent/FluentBorderEffect.h"
 #include "Fluent/FluentMotion.h"
 #include "Fluent/FluentPopupSurface.h"
+#include "../FluentAutotestExport_p.h"
 
 #include <QListWidget>
 #include <QPointer>
@@ -29,7 +30,7 @@ struct PickerColumnConfig {
     Qt::Alignment alignment = Qt::AlignCenter;
 };
 
-class FluentWheelPickerColumn final : public QListWidget
+class FLUENT_AUTOTEST_EXPORT FluentWheelPickerColumn final : public QListWidget
 {
 public:
     explicit FluentWheelPickerColumn(QWidget *parent = nullptr);
@@ -85,7 +86,7 @@ private:
     int m_currentRow = -1;
 };
 
-class FluentWheelPickerPopup final : public QWidget
+class FLUENT_AUTOTEST_EXPORT FluentWheelPickerPopup final : public QWidget
 {
 public:
     explicit FluentWheelPickerPopup(QWidget *anchor = nullptr);
