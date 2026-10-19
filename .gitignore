@@ -11,6 +11,7 @@ CMakeCache.txt
 cmake_install.cmake
 compile_commands.json
 visual-smoke-output/
+install/
 
 # Compiler/debug artifacts
 *.pdb

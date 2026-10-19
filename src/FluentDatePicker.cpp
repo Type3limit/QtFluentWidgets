@@ -71,7 +71,7 @@ FluentDatePicker::FluentDatePicker(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
     setMinimumHeight(Style::metrics().height);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    setLocale(defaultPickerLocale());
+    //setLocale(defaultPickerLocale());//这里不要设置默认语言，否则会导致日期格式错误，使用默认的locale由外部整体环境设置
 
     m_hoverAnim = new QVariantAnimation(this);
     FluentMotion::configure(m_hoverAnim, FluentMotionRole::Hover);

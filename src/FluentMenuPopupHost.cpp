@@ -19,6 +19,7 @@
 #include <QTimer>
 #include <QVariantAnimation>
 #include <QVBoxLayout>
+#include <QDebug>
 
 #include <cmath>
 
@@ -30,7 +31,7 @@ constexpr int kActionRole = Qt::UserRole + 1;
 constexpr int kSeparatorRole = Qt::UserRole + 2;
 constexpr int kShortcutRole = Qt::UserRole + 3;
 
-constexpr int kMenuMinWidth = 148;
+constexpr int kMenuMinWidth = 160;
 constexpr int kMenuItemHeight = 34;
 constexpr int kSeparatorHeight = 13;
 constexpr int kViewportPaddingY = 6;
@@ -480,7 +481,7 @@ void FluentMenuItemDelegate::paint(QPainter *painter,
         ? QRect()
         : QRect(right - shortcutWidth, rowRect.top(), shortcutWidth, rowRect.height());
     const int labelRight = shortcut.isEmpty() ? right : shortcutRect.left() - kShortcutGap;
-    const QRect labelRect(x, rowRect.top(), qMax(0, labelRight - x), rowRect.height());
+    const QRect labelRect(x, rowRect.top(), qMax(0, labelRight), rowRect.height());
 
     painter->setFont(option.font);
     painter->setPen(enabled ? colors.text : colors.disabledText);

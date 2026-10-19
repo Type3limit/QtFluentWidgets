@@ -78,10 +78,10 @@ struct FLUENT_EXPORT FluentSpacingTokens {
 struct FLUENT_EXPORT FluentTypographyTokens {
     QString family = QStringLiteral("'Segoe UI', 'Microsoft YaHei', 'Microsoft YaHei UI', sans-serif");
     int caption = 12;
-    int body = 14;
-    int bodyLarge = 16;
-    int subtitle = 18;
-    int title = 20;
+    int body = 16;
+    int bodyLarge = 18;
+    int subtitle = 20;
+    int title = 22;
     int titleLarge = 28;
 };
 

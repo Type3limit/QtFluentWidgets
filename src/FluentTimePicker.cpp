@@ -64,7 +64,7 @@ FluentTimePicker::FluentTimePicker(QWidget *parent)
     setMinimumHeight(Style::metrics().height);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    setLocale(defaultPickerLocale());
+    //setLocale(defaultPickerLocale());//这里不要设置默认语言，否则会导致时间格式错误，使用默认的locale由外部整体环境设置
 
     m_hourPlaceholderText = tr("时");
     m_minutePlaceholderText = tr("分");

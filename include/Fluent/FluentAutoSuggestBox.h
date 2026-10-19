@@ -36,6 +36,9 @@ public:
     QStringList suggestions() const;
     void setSuggestions(const QStringList &suggestions);
 
+    bool isDefaultSuggestAll() const;
+    void setDefaultSuggestAll(bool suggestAll);
+
     bool isSearchButtonVisible() const;
     void setSearchButtonVisible(bool visible);
 
@@ -66,6 +69,7 @@ private:
     FluentToolButton *m_searchButton = nullptr;
     FluentAutoSuggestPopup *m_popup = nullptr;
     QStringList m_suggestions;
+    bool m_defaultSuggestAll = false;
 };
 
 class FLUENT_EXPORT FluentSearchBox final : public FluentAutoSuggestBox
