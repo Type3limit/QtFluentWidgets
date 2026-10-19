@@ -52,6 +52,9 @@ private:
     void applyTo(Fluent::FluentCodeEditor *editor, bool snippetMode) const;
 
     QString m_clangPathText;
+    mutable QString m_resolvedClangPathFor;
+    mutable QString m_resolvedClangPath;
+    mutable bool m_resolvedClangPathValid = false;
     bool m_lineNumbersEnabled = true;
     bool m_autoFormatEnabled = true;
     int m_autoFormatDebounceMs = 1200;

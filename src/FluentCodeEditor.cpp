@@ -700,7 +700,9 @@ bool FluentCodeEditor::autoBraceNewlineEnabled() const
 
 QString FluentCodeEditor::findDefaultClangFormat()
 {
-    const QString exe = QStandardPaths::findExecutable(QStringLiteral("clang-format"));
+    // Scanning PATH costs tens of ms on Windows and every editor asks for it on
+    // construction, so look it up once per process.
+    static const QString exe = QStandardPaths::findExecutable(QStringLiteral("clang-format"));
     return exe;
 }
 
