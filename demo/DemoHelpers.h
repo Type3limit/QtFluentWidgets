@@ -3,7 +3,11 @@
 #include <QByteArray>
 #include <functional>
 #include <QString>
+#include <QList>
+#include <QStringList>
+
 class QWidget;
+class QGridLayout;
 class QVBoxLayout;
 class QString;
 class QColor;
@@ -51,6 +55,12 @@ Fluent::FluentCard *makeCollapsedExample(const QString &title,
                                          const std::function<void(QVBoxLayout *body)> &buildDemo,
                                          bool collapsed = true,
                                          int codeBlockHeight = 190);
+
+// State matrix: a caption column plus equal-width state columns on one grid, so
+// every row lines up and cells shrink with the card instead of overflowing it.
+QGridLayout *makeStateMatrix(const QString &captionHeader, const QStringList &stateHeaders);
+// Appends a row; a cell spanning several state columns can be passed with span > 1.
+void addStateMatrixRow(QGridLayout *matrix, const QString &caption, const QList<QWidget *> &cells, int span = 1);
 
 void applyAccent(const QColor &accent);
 void applyBackground(const QColor &bg);

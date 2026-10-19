@@ -141,42 +141,33 @@ inline void paintFluentSurfaceShadow(QPainter &p, const QRectF &rect, const Them
     }
 
     const auto tokens = Theme::tokens(colors);
-    int steps = 0;
     qreal alpha = 0.0;
+    qreal blur = 0.0;
     qreal offset = 0.0;
     switch (spec.elevation) {
     case FluentElevationLevel::High:
-        steps = 5;
-        alpha = tokens.dark ? 0.30 : 0.14;
-        offset = 5.0;
+        alpha = tokens.dark ? 0.36 : 0.16;
+        blur = tokens.elevation.highBlur;
+        offset = tokens.elevation.highYOffset;
         break;
     case FluentElevationLevel::Medium:
-        steps = 4;
-        alpha = tokens.dark ? 0.24 : 0.10;
-        offset = 3.0;
+        alpha = tokens.dark ? 0.28 : 0.12;
+        blur = tokens.elevation.mediumBlur;
+        offset = tokens.elevation.mediumYOffset;
         break;
     case FluentElevationLevel::Low:
-        steps = 2;
-        alpha = tokens.dark ? 0.18 : 0.07;
-        offset = 1.5;
+        alpha = tokens.dark ? 0.20 : 0.08;
+        blur = tokens.elevation.lowBlur;
+        offset = tokens.elevation.lowYOffset;
         break;
     case FluentElevationLevel::None:
     default:
         return;
     }
 
-    p.save();
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    for (int i = steps; i >= 1; --i) {
-        QColor shadow = tokens.elevation.shadow;
-        shadow.setAlphaF(qBound<qreal>(0.0, alpha * (static_cast<qreal>(i) / steps) * 0.42, 1.0));
-        const qreal spread = static_cast<qreal>(i);
-        const QRectF shadowRect = rect.translated(0.0, offset).adjusted(-spread, -spread, spread, spread);
-        p.setBrush(shadow);
-        p.drawRoundedRect(shadowRect, spec.radius + spread, spec.radius + spread);
-    }
-    p.restore();
+    QColor shadow = tokens.elevation.shadow;
+    shadow.setAlphaF(alpha);
+    Style::paintSoftShadow(p, rect, spec.radius, shadow, blur, QPointF(0.0, offset));
 }
 
 inline void paintFluentSurface(QPainter &p, const QRectF &rect, const ThemeColors &colors, const FluentSurfaceSpec &spec)

@@ -101,22 +101,14 @@ protected:
         const bool enabled = isEnabled();
         const QColor accent = severityVisualColor(m_severity, colors, enabled);
 
-        QColor wash = accent;
-        wash.setAlphaF(enabled
-                           ? (Theme::isDark(colors) ? 0.18 : 0.12)
-                           : (Theme::isDark(colors) ? 0.10 : 0.07));
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(wash);
-
-        const QRectF badge = QRectF(rect()).adjusted(3.0, 3.0, -3.0, -3.0);
-        painter.drawEllipse(badge);
-
         FluentIconOptions options;
         options.autoTheme = false;
         options.color = accent;
         options.opacity = enabled ? 1.0 : 0.72;
 
-        const QRectF iconRect = badge.adjusted(4.0, 4.0, -4.0, -4.0);
+        // Plain severity glyph (no pale badge behind it), ~20px like WinUI.
+        const qreal side = qMin(width(), height()) - 6.0;
+        const QRectF iconRect(QRectF(rect()).center() - QPointF(side / 2.0, side / 2.0), QSizeF(side, side));
         FluentIcon::paintIcon(&painter, severityIcon(m_severity), iconRect, options);
     }
 
@@ -321,9 +313,9 @@ void FluentInfoBar::applyTheme()
     }
     static_cast<FluentInfoBarIcon *>(m_icon)->setSeverity(m_severity);
     m_titleLabel->setStyleSheet(QStringLiteral("font-size: %1px; font-weight: 650; color: %2;")
-                                    .arg(m_compact ? 12 : 13)
+                                    .arg(m_compact ? 13 : 14)
                                     .arg(titleColor.name(QColor::HexArgb)));
-    m_messageLabel->setStyleSheet(QStringLiteral("font-size: 12px; color: %1;")
+    m_messageLabel->setStyleSheet(QStringLiteral("font-size: 13px; color: %1;")
                                       .arg(messageColor.name(QColor::HexArgb)));
     update();
 }
@@ -434,7 +426,7 @@ void FluentInfoBar::updateLayoutMode()
     m_layout->setSpacing(m_compact ? 8 : 12);
 
     m_textLayout->setDirection(m_compact ? QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
-    m_textLayout->setSpacing(m_compact ? 6 : 2);
+    m_textLayout->setSpacing(m_compact ? 12 : 2);
     m_textLayout->setAlignment(m_compact ? Qt::AlignVCenter : Qt::Alignment());
 
     m_icon->setFixedSize(m_compact ? QSize(24, 24) : QSize(28, 28));
@@ -443,6 +435,9 @@ void FluentInfoBar::updateLayoutMode()
     m_layout->setAlignment(m_actionButton, Qt::AlignVCenter);
     m_layout->setAlignment(m_closeButton, m_compact ? Qt::AlignVCenter : Qt::AlignTop);
 
+    // Compact: the title hugs its text so the message follows right after it
+    // instead of both labels splitting the row in half.
+    m_titleLabel->setSizePolicy(m_compact ? QSizePolicy::Maximum : QSizePolicy::MinimumExpanding, QSizePolicy::Preferred);
     m_titleLabel->setWordWrap(false);
     m_messageLabel->setWordWrap(!m_compact);
     m_messageLabel->setTextInteractionFlags(Qt::NoTextInteraction);

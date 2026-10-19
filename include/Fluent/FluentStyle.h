@@ -105,6 +105,17 @@ public:
         const ThemeColors &colors,
         qreal strength = 1.0,
         int layers = 6);
+
+    // Soft drop shadow for a rounded rect: the shape is blurred (3-pass box blur,
+    // ~Gaussian) so the shadow extends about blurRadius px beyond the rect, then
+    // shifted by offset. Blurred nine-patches are cached, so it is cheap per frame.
+    static void paintSoftShadow(
+        QPainter &p,
+        const QRectF &rect,
+        qreal radius,
+        const QColor &color,
+        qreal blurRadius,
+        const QPointF &offset = QPointF());
 };
 
 } // namespace Fluent

@@ -55,48 +55,7 @@ void fillInputs(QVBoxLayout *page, FluentMainWindow *window)
                       "-AutoSuggestBox and ComboBox popups now share Fluent-painted popup behavior"),
             code,
             [=](QVBoxLayout *body) {
-                auto *matrix = new QVBoxLayout();
-                matrix->setContentsMargins(0, 0, 0, 0);
-                matrix->setSpacing(12);
-
-                auto makeCaption = [](const QString &text, bool strong = false) {
-                    auto *label = new FluentLabel(text);
-                    label->setStyleSheet(strong
-                                             ? QStringLiteral("font-size: 12px; font-weight: 600; opacity: 0.9;")
-                                             : QStringLiteral("font-size: 12px; opacity: 0.78;"));
-                    return label;
-                };
-
-                auto prepareInput = [](QWidget *widget) {
-                    widget->setMinimumWidth(176);
-                    widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-                    return widget;
-                };
-
-                auto *header = new QHBoxLayout();
-                header->setContentsMargins(0, 0, 0, 0);
-                header->setSpacing(12);
-                auto *controlHeader = makeCaption(DEMO_TEXT("控件", "Control"), true);
-                controlHeader->setMinimumWidth(150);
-                header->addWidget(controlHeader, 0);
-                header->addWidget(makeCaption(DEMO_TEXT("Placeholder", "Placeholder"), true), 1);
-                header->addWidget(makeCaption(DEMO_TEXT("Filled", "Filled"), true), 1);
-                header->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 1);
-                matrix->addLayout(header);
-
-                auto addRow = [&](int row, const QString &name, QWidget *placeholder, QWidget *filled, QWidget *disabled) {
-                    Q_UNUSED(row)
-                    auto *line = new QHBoxLayout();
-                    line->setContentsMargins(0, 0, 0, 0);
-                    line->setSpacing(12);
-                    auto *caption = makeCaption(name);
-                    caption->setMinimumWidth(150);
-                    line->addWidget(caption, 0);
-                    line->addWidget(prepareInput(placeholder), 1);
-                    line->addWidget(prepareInput(filled), 1);
-                    line->addWidget(prepareInput(disabled), 1);
-                    matrix->addLayout(line);
-                };
+                auto *matrix = Demo::makeStateMatrix(DEMO_TEXT("控件", "Control"), {DEMO_TEXT("Placeholder", "Placeholder"), DEMO_TEXT("Filled", "Filled"), DEMO_TEXT("Disabled", "Disabled")});
 
                 auto *linePlaceholder = new FluentLineEdit();
                 linePlaceholder->setPlaceholderText(DEMO_TEXT("输入名称", "Enter a name"));
@@ -105,7 +64,7 @@ void fillInputs(QVBoxLayout *page, FluentMainWindow *window)
                 auto *lineDisabled = new FluentLineEdit();
                 lineDisabled->setText(DEMO_TEXT("不可编辑", "Unavailable"));
                 lineDisabled->setDisabled(true);
-                addRow(1, QStringLiteral("FluentLineEdit"), linePlaceholder, lineFilled, lineDisabled);
+                Demo::addStateMatrixRow(matrix, QStringLiteral("FluentLineEdit"), {linePlaceholder, lineFilled, lineDisabled});
 
                 const QStringList suggestions = {
                     QStringLiteral("FluentButton"),
@@ -123,7 +82,7 @@ void fillInputs(QVBoxLayout *page, FluentMainWindow *window)
                 suggestDisabled->setPlaceholderText(DEMO_TEXT("禁用建议", "Disabled suggestions"));
                 suggestDisabled->setSuggestions(suggestions);
                 suggestDisabled->setDisabled(true);
-                addRow(2, QStringLiteral("FluentAutoSuggestBox"), suggestPlaceholder, suggestFilled, suggestDisabled);
+                Demo::addStateMatrixRow(matrix, QStringLiteral("FluentAutoSuggestBox"), {suggestPlaceholder, suggestFilled, suggestDisabled});
 
                 body->addLayout(matrix);
             },

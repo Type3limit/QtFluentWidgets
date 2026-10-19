@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QGradient>
 #include "Fluent/FluentQtCompat.h"
+#include "../FluentAutotestExport_p.h"
 #include <QWidget>
 #include <QVector>
 
@@ -17,7 +18,7 @@ class QEnterEvent;
 
 namespace Fluent::ColorPicker {
 
-class ColorSwatchButton final : public QWidget
+class FLUENT_AUTOTEST_EXPORT ColorSwatchButton final : public QWidget
 {
     Q_OBJECT
 public:
@@ -44,7 +45,7 @@ private:
     bool m_hover = false;
 };
 
-class SvPanel final : public QWidget
+class FLUENT_AUTOTEST_EXPORT SvPanel final : public QWidget
 {
     Q_OBJECT
 public:
@@ -76,7 +77,7 @@ private:
     bool m_dragging = false;
 };
 
-class PreviewSwatch final : public QWidget
+class FLUENT_AUTOTEST_EXPORT PreviewSwatch final : public QWidget
 {
     Q_OBJECT
 public:
@@ -101,7 +102,7 @@ private:
     int  m_gradAngle    = 0;
 };
 
-class HueStrip final : public QWidget
+class FLUENT_AUTOTEST_EXPORT HueStrip final : public QWidget
 {
     Q_OBJECT
 public:
@@ -134,7 +135,7 @@ private:
     Qt::Orientation m_orientation = Qt::Vertical;
 };
 
-class AlphaStrip final : public QWidget
+class FLUENT_AUTOTEST_EXPORT AlphaStrip final : public QWidget
 {
     Q_OBJECT
 public:
@@ -168,7 +169,7 @@ private:
 };
 
 // ── Eye-dropper compact button ────────────────────────────────────────────
-class EyeDropperButton final : public QWidget
+class FLUENT_AUTOTEST_EXPORT EyeDropperButton final : public QWidget
 {
     Q_OBJECT
 public:
@@ -196,7 +197,7 @@ struct GradientStop {
     QColor color;
 };
 
-class GradientStopBar final : public QWidget
+class FLUENT_AUTOTEST_EXPORT GradientStopBar final : public QWidget
 {
     Q_OBJECT
 public:

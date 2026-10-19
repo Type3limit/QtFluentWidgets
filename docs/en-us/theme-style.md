@@ -106,6 +106,7 @@ More related APIs:
 - `Style::paintControlSurface()` paints its focus stroke from the current `accent.base` token; a legacy `ThemeColors::focus` override does not bypass the token ramp.
 - `Style::windowMetrics()` / `Style::setWindowMetrics(...)`
 - `Style::roundedRectPath(...)`, `Style::paintTraceBorder(...)`, `Style::paintElevationShadow(...)`
+- `Style::paintSoftShadow(painter, rect, radius, color, blurRadius, offset)`: blurred (near-Gaussian) drop shadow for a rounded rect, extending about `blurRadius` px beyond it. Blurred nine-patches are cached in `QPixmapCache`, so it is cheap to call every paint. Elevated surfaces and popups use it.
 
 Implementation notes:
 

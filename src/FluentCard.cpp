@@ -128,6 +128,29 @@ protected:
         updateContentGeometry();
     }
 
+    // Expose the content's height-for-width (wrapped labels) so the card's layout
+    // asks for the height at the real width in the same pass. Otherwise the hint
+    // stays whatever was computed at an earlier (e.g. default 100px) width, and
+    // the card is laid out too tall.
+    bool hasHeightForWidth() const override
+    {
+        if (m_revealHeight >= 0 || !m_content) {
+            return false;
+        }
+        return m_content->layout() ? m_content->layout()->hasHeightForWidth() : m_content->hasHeightForWidth();
+    }
+
+    int heightForWidth(int width) const override
+    {
+        if (m_revealHeight >= 0 || !m_content) {
+            return qMax(0, m_revealHeight);
+        }
+        if (auto *layout = m_content->layout(); layout && layout->hasHeightForWidth()) {
+            return qMax(0, layout->heightForWidth(width));
+        }
+        return m_content->hasHeightForWidth() ? qMax(0, m_content->heightForWidth(width)) : contentNaturalHeight();
+    }
+
 private:
     void updateContentGeometry()
     {

@@ -428,24 +428,27 @@ void FluentAnnotatedScrollBar::paintEvent(QPaintEvent *event)
         painter.setBrush(dotColor);
         painter.drawEllipse(QPointF(rail.center().x(), rect.center().y()), active ? 3.2 : 2.2, active ? 3.2 : 2.2);
 
+        // Active: subtle neutral fill + strong semibold text (the accent stays on
+        // the dot/connector), like a WinUI list selection; a solid accent pill
+        // competed with the page's primary buttons.
         QColor fill = Qt::transparent;
         if (active) {
-            fill = tokens.accent.base;
+            fill = tokens.neutral.fillSecondary;
+            fill.setAlpha(tokens.dark ? 150 : 170);
         } else if (hovered) {
             fill = tokens.neutral.cardHover;
-            fill.setAlpha(tokens.dark ? 154 : 136);
+            fill.setAlpha(tokens.dark ? 120 : 110);
         }
 
         if (fill.alpha() > 0) {
             painter.setBrush(fill);
-            painter.drawRoundedRect(rect, 8.0, 8.0);
+            painter.drawRoundedRect(rect, 6.0, 6.0);
         }
 
-        QColor textColor = active ? tokens.onAccent : colors.subText;
-        if (hovered && !active) {
-            textColor = colors.text;
-        }
-
+        const QColor textColor = (active || hovered) ? colors.text : colors.subText;
+        QFont textFont = labelFont;
+        textFont.setWeight(active ? QFont::DemiBold : QFont::Normal);
+        painter.setFont(textFont);
         painter.setPen(textColor);
         painter.drawText(rect.adjusted(10, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft,
                          painter.fontMetrics().elidedText(m_ranges.at(i).text, Qt::ElideRight, int(labelBounds.width()) - 18));

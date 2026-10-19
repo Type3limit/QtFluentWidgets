@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(QtFluentWidgets VERSION 1.2.3 LANGUAGES CXX)
+project(QtFluentWidgets VERSION 1.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -122,6 +122,7 @@ add_library(QtFluentWidgets
     include/Fluent/FluentTeachingTip.h
     include/Fluent/FluentDateRangePicker.h
     include/Fluent/FluentNavigationView.h
+    src/FluentAutotestExport_p.h
     src/FluentAnimatedButton.cpp
     src/FluentAnimatedIcon.cpp
     src/FluentAutoSuggestBox.cpp
@@ -209,6 +210,10 @@ if(_QTFLUENTWIDGETS_TARGET_TYPE STREQUAL "SHARED_LIBRARY")
     )
 else()
     target_compile_definitions(QtFluentWidgets PUBLIC QTFLUENTWIDGETS_STATIC)
+endif()
+if(FLUENT_BUILD_TESTS)
+    # Tests use internal classes tagged FLUENT_AUTOTEST_EXPORT; export them only here.
+    target_compile_definitions(QtFluentWidgets PRIVATE QTFLUENTWIDGETS_BUILD_AUTOTEST_EXPORTS)
 endif()
 target_link_libraries(QtFluentWidgets
     PUBLIC ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Svg
@@ -371,6 +376,7 @@ if(FLUENT_BUILD_TESTS)
         tests/QtFluentWidgetsVisualSmokeTest.cpp
     )
     target_link_libraries(QtFluentWidgetsVisualSmokeTest PRIVATE QtFluentWidgets ${QT_PACKAGE}::Widgets ${QT_PACKAGE}::Test)
+    target_compile_definitions(QtFluentWidgetsVisualSmokeTest PRIVATE QTFLUENTWIDGETS_BUILD_AUTOTEST_EXPORTS)
     if(MSVC)
         target_compile_options(QtFluentWidgetsVisualSmokeTest PRIVATE /utf-8 /bigobj)
     endif()

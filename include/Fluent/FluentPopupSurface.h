@@ -82,25 +82,17 @@ inline QPainterPath shadowContentClipPath(const QRect &rect)
 inline void paintSoftPopupShadow(QPainter &painter, const QRectF &rect, const ThemeColors &colors)
 {
     const auto tokens = Theme::tokens(colors);
-    constexpr int steps = 8;
-    const qreal baseAlpha = tokens.dark ? 0.16 : 0.075;
-    const qreal verticalOffset = 5.0;
 
-    painter.save();
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(Qt::NoPen);
+    // Key shadow: blur + offset sized to fit the shadow margins
+    // (12 sides, 12 - 6 = 6 top, 12 + 6 = 18 bottom).
+    QColor key = tokens.elevation.shadow;
+    key.setAlphaF(tokens.dark ? 0.34 : 0.14);
+    Style::paintSoftShadow(painter, rect, kRadius, key, 12.0, QPointF(0.0, 6.0));
 
-    for (int i = steps; i >= 1; --i) {
-        const qreal t = static_cast<qreal>(i) / static_cast<qreal>(steps);
-        QColor shadow = tokens.elevation.shadow;
-        shadow.setAlphaF(qBound<qreal>(0.0, baseAlpha * t * t * 0.16, 1.0));
-        const qreal spread = static_cast<qreal>(i) * 1.1;
-        const QRectF shadowRect = rect.translated(0.0, verticalOffset)
-                                      .adjusted(-spread, -spread, spread, spread);
-        painter.setBrush(shadow);
-        painter.drawRoundedRect(shadowRect, kRadius + spread, kRadius + spread);
-    }
-    painter.restore();
+    // Tight contact shadow keeps the panel edge crisp.
+    QColor contact = tokens.elevation.shadow;
+    contact.setAlphaF(tokens.dark ? 0.22 : 0.06);
+    Style::paintSoftShadow(painter, rect, kRadius, contact, 3.0, QPointF(0.0, 1.0));
 }
 
 /// Paints the Fluent surface panel (fill + themed border + optional accent trace).

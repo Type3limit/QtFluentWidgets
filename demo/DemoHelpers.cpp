@@ -10,6 +10,7 @@
 #include "Fluent/FluentLabel.h"
 #include "Fluent/FluentLottieWidget.h"
 #include "Fluent/FluentScrollArea.h"
+#include "Fluent/FluentStyle.h"
 #include "Fluent/FluentTheme.h"
 #include "Fluent/FluentWidget.h"
 
@@ -18,14 +19,18 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QLocale>
 #include <QResizeEvent>
 #include <QScrollBar>
 #include <QSettings>
+#include <QTextCursor>
+#include <QTextDocument>
 #include <QTimer>
 #include <QTranslator>
+#include <QtMath>
 #include <QVBoxLayout>
 
 namespace Demo {
@@ -318,6 +323,19 @@ QString compactAnnotatedRailTitle(QString title)
     if (title.startsWith(QStringLiteral("FluentAngleSelector")) && title.length() > 20) {
         return QStringLiteral("AngleSelector variants");
     }
+    if (title == QStringLiteral("Popup / FluentFlyout / FluentTeachingTip")) {
+        return QStringLiteral("Popups / Tips");
+    }
+
+    // Bilingual titles such as "流光背景 Flow background" are too long for the
+    // rail: keep the half that matches the current language.
+    for (int i = 1; i + 1 < title.size(); ++i) {
+        if (title.at(i) == QLatin1Char(' ') && title.at(i - 1).unicode() >= 0x2E80
+            && title.at(i + 1).unicode() < 0x80 && title.at(i + 1).isLetter()) {
+            return s_currentLanguage == DemoLanguage::English ? title.mid(i + 1) : title.left(i);
+        }
+    }
+
     if (title.length() > 18) {
         title.replace(QStringLiteral(" / Fluent"), QStringLiteral(" / "));
         if (title.startsWith(QStringLiteral("Fluent"))) {
@@ -381,6 +399,50 @@ Section makeSection(const QString &title, const QString &subtitle)
     return {card, body};
 }
 
+namespace {
+
+// Read-only snippet editor whose height follows its line count: short snippets
+// no longer leave empty space, long ones stop at maxVisibleHeight and scroll.
+FluentCodeEditor *makeCodeBlock(QString code, int maxVisibleHeight)
+{
+    auto *edit = new FluentCodeEditor();
+    edit->setReadOnly(true);
+    edit->setAutoFormatEnabled(false);
+    edit->setAutoBraceNewlineEnabled(false);
+    edit->setClangFormatMissingHintEnabled(false);
+    code.replace(QStringLiteral("\\\""), QStringLiteral("\""));
+    while (code.endsWith(QLatin1Char('\n'))) {
+        code.chop(1);
+    }
+    edit->setPlainText(code);
+    DemoCodeEditorSettings::instance().attach(edit, true);
+
+    auto fit = [edit, maxVisibleHeight]() {
+        // The app stylesheet can replace the editor font on polish, so prefer the
+        // laid-out line height (cursorRect) and fall back to font metrics.
+        edit->ensurePolished();
+        const int laidOut = edit->cursorRect(QTextCursor(edit->document())).height();
+        const int lineHeight = laidOut > 0 ? laidOut : QFontMetrics(edit->font()).lineSpacing();
+        const int lines = qMax(1, edit->document()->blockCount());
+        // Never cap below ~12 lines: callers' old fixed heights were sized for
+        // a different font and clipped mid-line.
+        const int cap = qMax(maxVisibleHeight, 12 * lineHeight);
+        const QScrollBar *hbar = edit->horizontalScrollBar();
+        const int chrome = 2 * (Style::metrics().paddingY + edit->frameWidth())
+                         + qCeil(2 * edit->document()->documentMargin())
+                         + ((hbar && hbar->isVisible()) ? hbar->height() : 0);
+        edit->setFixedHeight(qMin(lines * lineHeight + chrome, cap));
+    };
+    fit();
+    // Re-measure once laid out (real font, scrollbar visibility), and whenever the
+    // live font-size setting changes.
+    QTimer::singleShot(0, edit, fit);
+    QObject::connect(&DemoCodeEditorSettings::instance(), &DemoCodeEditorSettings::changed, edit, fit);
+    return edit;
+}
+
+} // namespace
+
 FluentCard *makeCollapsedCard(const QString &title,
                               const QString &subtitle,
                               const QString &features,
@@ -414,17 +476,7 @@ FluentCard *makeCollapsedCard(const QString &title,
     }
 
     if (!code.isEmpty()) {
-        auto *edit = new FluentCodeEditor();
-        edit->setReadOnly(true);
-        edit->setAutoFormatEnabled(false);
-        edit->setAutoBraceNewlineEnabled(false);
-        edit->setClangFormatMissingHintEnabled(false);
-        QString pretty = code;
-        pretty.replace("\\\"", "\"");
-        edit->setPlainText(pretty);
-        DemoCodeEditorSettings::instance().attach(edit, true);
-        edit->setFixedHeight(170);
-        body->addWidget(edit);
+        body->addWidget(makeCodeBlock(code, 170));
     }
 
     return card;
@@ -464,20 +516,62 @@ FluentCard *makeCollapsedExample(const QString &title,
     }
 
     if (!code.isEmpty()) {
-        auto *edit = new FluentCodeEditor();
-        edit->setReadOnly(true);
-        edit->setAutoFormatEnabled(false);
-        edit->setAutoBraceNewlineEnabled(false);
-        edit->setClangFormatMissingHintEnabled(false);
-        QString pretty = code;
-        pretty.replace("\\\"", "\"");
-        edit->setPlainText(pretty);
-        DemoCodeEditorSettings::instance().attach(edit, true);
-        edit->setFixedHeight(codeBlockHeight);
-        body->addWidget(edit);
+        body->addWidget(makeCodeBlock(code, codeBlockHeight));
     }
 
     return card;
+}
+
+QGridLayout *makeStateMatrix(const QString &captionHeader, const QStringList &stateHeaders)
+{
+    auto *grid = new QGridLayout();
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(10);
+
+    auto makeHeader = [](const QString &text) {
+        auto *label = new FluentLabel(text);
+        label->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: 600;"));
+        return label;
+    };
+    grid->addWidget(makeHeader(captionHeader), 0, 0);
+    for (int i = 0; i < stateHeaders.size(); ++i) {
+        grid->addWidget(makeHeader(stateHeaders.at(i)), 0, i + 1);
+        grid->setColumnStretch(i + 1, 1);
+    }
+    grid->setColumnStretch(0, 0);
+    return grid;
+}
+
+void addStateMatrixRow(QGridLayout *matrix, const QString &caption, const QList<QWidget *> &cells, int span)
+{
+    if (!matrix) {
+        return;
+    }
+
+    const int row = matrix->rowCount();
+    auto *label = new FluentLabel(caption);
+    label->setStyleSheet(QStringLiteral("font-size: 12px;"));
+    matrix->addWidget(label, row, 0, Qt::AlignVCenter);
+
+    int column = 1;
+    for (QWidget *cell : cells) {
+        if (!cell) {
+            column += span;
+            continue;
+        }
+        // Fill the column (also for Fixed-policy controls such as tool buttons)
+        // and let it shrink with the card; only the control's own minimum
+        // size hint is kept.
+        cell->setMinimumWidth(0);
+        cell->setMaximumWidth(QWIDGETSIZE_MAX);
+        QSizePolicy policy = cell->sizePolicy();
+        policy.setHorizontalPolicy(QSizePolicy::Preferred);
+        policy.setVerticalPolicy(QSizePolicy::Fixed);
+        cell->setSizePolicy(policy);
+        matrix->addWidget(cell, row, column, 1, span);
+        column += span;
+    }
 }
 
 void applyAccent(const QColor &accent)

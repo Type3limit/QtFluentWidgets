@@ -35,7 +35,8 @@ SliderPaintColors sliderPaintColors(qreal hoverLevel, bool enabled)
     result.handleFill = tokens.dark
         ? Style::mix(tokens.neutral.cardHover, colors.text, 0.10 + 0.04 * hover)
         : tokens.neutral.layer;
-    result.handleBorder = Style::mix(tokens.neutral.strokeStrong, tokens.accent.base, hover > 0.10 ? 0.58 : 0.0);
+    // WinUI keeps the thumb ring neutral; hover feedback comes from the inner dot.
+    result.handleBorder = tokens.neutral.stroke;
 
     if (!enabled) {
         result.track = tokens.neutral.strokeSubtle;
@@ -46,6 +47,24 @@ SliderPaintColors sliderPaintColors(qreal hoverLevel, bool enabled)
     }
 
     return result;
+}
+
+// Thumb: neutral raised ring with an accent dot that is always visible
+// (WinUI style): grows on hover, shrinks while dragging.
+void paintSliderHandle(QPainter &painter, const QRectF &handleRect, const SliderPaintColors &paint, qreal hoverLevel, bool pressed)
+{
+    painter.setPen(QPen(paint.handleBorder, 1));
+    painter.setBrush(paint.handleFill);
+    painter.drawEllipse(handleRect.adjusted(0.5, 0.5, -0.5, -0.5));
+
+    const qreal hover = qBound<qreal>(0.0, hoverLevel, 1.0);
+    const qreal ratio = pressed ? 0.44 : 0.52 + 0.18 * hover;
+    const qreal innerSize = handleRect.width() * ratio;
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(paint.fill);
+    painter.drawEllipse(QRectF(handleRect.center().x() - innerSize / 2.0,
+                               handleRect.center().y() - innerSize / 2.0,
+                               innerSize, innerSize));
 }
 
 } // namespace
@@ -184,24 +203,8 @@ void FluentSlider::paintEvent(QPaintEvent *event)
         painter.setBrush(paint.fill);
         painter.drawRoundedRect(QRectF(trackLeft, trackY, fillWidth, thickness), radius, radius);
 
-        // Handle: raised control surface with accent feedback on hover.
-        painter.setPen(QPen(paint.handleBorder, 1));
-        painter.setBrush(paint.handleFill);
         QRectF handleRect(handleX, handleY, handleSize, handleSize);
-        painter.drawEllipse(handleRect.adjusted(0.5, 0.5, -0.5, -0.5));
-        
-        // Inner accent dot
-        qreal innerSize = handleSize * 0.6;
-        if (m_hoverLevel > 0.01) {
-             painter.setPen(Qt::NoPen);
-             painter.setBrush(paint.fill);
-             QRectF innerRect(
-                 handleX + (handleSize - innerSize) / 2.0,
-                 handleY + (handleSize - innerSize) / 2.0,
-                 innerSize, innerSize
-             );
-             painter.drawEllipse(innerRect);
-        }
+        paintSliderHandle(painter, handleRect, paint, m_hoverLevel, isSliderDown());
 
     } else {
         const qreal trackTop = trackMargin;
@@ -224,24 +227,8 @@ void FluentSlider::paintEvent(QPaintEvent *event)
         // Fill from bottom up
         painter.drawRoundedRect(QRectF(trackX, trackBottom - fillHeight, thickness, fillHeight), radius, radius);
 
-        // Handle
-        painter.setPen(QPen(paint.handleBorder, 1));
-        painter.setBrush(paint.handleFill);
         QRectF handleRect(handleX, handleY, handleSize, handleSize);
-        painter.drawEllipse(handleRect.adjusted(0.5, 0.5, -0.5, -0.5));
-        
-        // Inner accent dot
-        qreal innerSize = handleSize * 0.6;
-        if (m_hoverLevel > 0.01) {
-             painter.setPen(Qt::NoPen);
-             painter.setBrush(paint.fill);
-             QRectF innerRect(
-                 handleX + (handleSize - innerSize) / 2.0,
-                 handleY + (handleSize - innerSize) / 2.0,
-                 innerSize, innerSize
-             );
-             painter.drawEllipse(innerRect);
-        }
+        paintSliderHandle(painter, handleRect, paint, m_hoverLevel, isSliderDown());
     }
 }
 

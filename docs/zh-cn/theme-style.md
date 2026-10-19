@@ -108,6 +108,7 @@ Style::paintControlSurface(p, QRectF(rect()), ThemeManager::instance().colors(),
 - `Style::paintControlSurface()` 的 focus stroke 使用当前 `accent.base` token；若传入旧 `ThemeColors::focus` 自定义色，也不会绕过 token ramp。
 - `Style::windowMetrics()` / `Style::setWindowMetrics(...)`：标题栏高度、窗口按钮尺寸、accent trace 动画参数等。
 - `Style::roundedRectPath(...)` / `paintTraceBorder(...)` / `paintElevationShadow(...)`：用于窗口/弹窗/卡片等自绘。
+- `Style::paintSoftShadow(painter, rect, radius, color, blurRadius, offset)`：圆角矩形的真模糊（近似高斯）投影，向外扩散约 `blurRadius` px；模糊后的九宫格缓存在 `QPixmapCache`，每帧调用开销很小。带 elevation 的表面和弹层都用它。
 
 实现语义补充：
 
