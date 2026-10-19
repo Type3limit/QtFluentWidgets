@@ -12300,10 +12300,13 @@ private slots:
         QCoreApplication::processEvents();
 
         const QImage topSelectedImage = renderWidgetImage(&topNav);
+        // Top mode (WinUI): selection is shown only by the accent indicator pill;
+        // the selected item gets no background fill, so it matches the empty bar.
         const QColor topSelectedFill = dominantColor(topSelectedImage, QRect(42, 18, 24, 10));
-        QVERIFY2(colorDelta(topSelectedFill, expectedSelection) < 58,
-                 qPrintable(QStringLiteral("Top NavigationView selected row fill should use an accent token tint, got %1 expected near %2")
-                                .arg(topSelectedFill.name(), expectedSelection.name())));
+        const QColor topBarBackground = dominantColor(topSelectedImage, QRect(320, 18, 24, 10));
+        QVERIFY2(colorDelta(topSelectedFill, topBarBackground) < 20,
+                 qPrintable(QStringLiteral("Top NavigationView selected item should have no selection fill, got %1 expected near bar background %2")
+                                .arg(topSelectedFill.name(), topBarBackground.name())));
         QVERIFY2(nearColorPixelCount(topSelectedImage, tokens.accent.base, QRect(22, 38, 72, 8), 58) > 8,
                  "Top NavigationView selected indicator should use the accent.base token");
 
@@ -12330,9 +12333,10 @@ private slots:
         QCoreApplication::processEvents();
         const QImage topDisabledImage = renderWidgetImage(&topNav);
         const QColor topDisabledSelectionFill = dominantColor(topDisabledImage, QRect(42, 18, 24, 10));
-        QVERIFY2(colorDelta(topDisabledSelectionFill, expectedDisabledSelection) < 62,
-                 qPrintable(QStringLiteral("Disabled Top NavigationView selected row should use neutral disabled selection fill, got %1 expected near %2")
-                                .arg(topDisabledSelectionFill.name(), expectedDisabledSelection.name())));
+        const QColor topDisabledBarBackground = dominantColor(topDisabledImage, QRect(320, 18, 24, 10));
+        QVERIFY2(colorDelta(topDisabledSelectionFill, topDisabledBarBackground) < 20,
+                 qPrintable(QStringLiteral("Disabled Top NavigationView selected item should have no selection fill, got %1 expected near bar background %2")
+                                .arg(topDisabledSelectionFill.name(), topDisabledBarBackground.name())));
         QVERIFY2(nearColorPixelCount(topDisabledImage, tokens.accent.base, QRect(22, 38, 72, 8), 58) < 3,
                  "Disabled Top NavigationView selected indicator should not keep accent.base pixels");
         QVERIFY2(nearColorPixelCount(topDisabledImage, colors.disabledText, QRect(22, 38, 72, 8), 72) > 8,
@@ -16627,10 +16631,18 @@ private slots:
         QCoreApplication::processEvents();
 
         const QImage activeImage = renderHost(host, colors.background);
+        // The active label uses a subtle neutral fill (accent stays on the dot /
+        // connector) so it no longer competes with primary buttons.
         const QColor activeFill = dominantColor(activeImage, QRect(38, 101, 8, 8));
-        QVERIFY2(colorDelta(activeFill, tokens.accent.base) < 76,
-                 qPrintable(QStringLiteral("AnnotatedScrollBar active label should use accent token, got %1 expected near %2")
-                                .arg(activeFill.name(), tokens.accent.base.name())));
+        QColor expectedActive = tokens.neutral.fillSecondary;
+        expectedActive.setAlpha(tokens.dark ? 150 : 170);
+        const QColor blendedActive = blendOver(expectedActive, colors.background);
+        QVERIFY2(colorDelta(activeFill, blendedActive) < 40,
+                 qPrintable(QStringLiteral("AnnotatedScrollBar active label should use the neutral fillSecondary token, got %1 expected near %2")
+                                .arg(activeFill.name(), blendedActive.name())));
+        QVERIFY2(colorDelta(activeFill, tokens.accent.base) > 60,
+                 qPrintable(QStringLiteral("AnnotatedScrollBar active label should not be a solid accent pill, got %1")
+                                .arg(activeFill.name())));
 
         QColor expectedHandle = tokens.accent.base;
         expectedHandle.setAlpha(210);

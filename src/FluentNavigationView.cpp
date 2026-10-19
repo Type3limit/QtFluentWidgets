@@ -2026,26 +2026,20 @@ void FluentNavigationView::paintEvent(QPaintEvent * /*event*/)
             const bool hovered = widgetEnabled && i == d->hoverRowIndex && d->hoverLevel > 0.0;
             const bool selected = layout.key() == selectedVisibleKey;
 
-            if (hovered && !selected) {
+            // Top mode (WinUI): selection is shown only by a short centered
+            // accent pill; a background fill appears on hover alone.
+            if (hovered) {
                 p.setPen(Qt::NoPen);
                 p.setBrush(navigationHoverFill(tokens, d->hoverLevel));
                 p.drawRoundedRect(layout.rect, 5.0, 5.0);
             }
 
             if (selected) {
+                constexpr qreal kTopIndicatorWidth = 16.0;
+                QRectF lineRect(layout.rect.center().x() - kTopIndicatorWidth / 2.0, layout.rect.bottom() - 3.0, kTopIndicatorWidth, 3.0);
                 p.setPen(Qt::NoPen);
-                p.setBrush(navigationSelectionFill(tokens, colors, 0.94, widgetEnabled));
-                p.drawRoundedRect(layout.rect, 5.0, 5.0);
-
-                QRectF lineRect(layout.rect.left() + 10.0, layout.rect.bottom() - 3.0, layout.rect.width() - 20.0, 3.0);
                 p.setBrush(navigationIndicatorFill(tokens, colors, 1.0, widgetEnabled));
                 p.drawRoundedRect(lineRect, 1.5, 1.5);
-            }
-
-            if (hovered && selected) {
-                p.setPen(Qt::NoPen);
-                p.setBrush(navigationSelectionHoverFill(tokens, d->hoverLevel));
-                p.drawRoundedRect(layout.rect, 5.0, 5.0);
             }
 
             qreal x = layout.rect.left() + 12.0;
