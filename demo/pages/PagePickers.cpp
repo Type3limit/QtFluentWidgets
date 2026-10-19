@@ -61,25 +61,8 @@ QWidget *createPickersPage(FluentMainWindow *window)
                           "-CalendarPicker, ColorPicker, and ComboBox are handled by later single-purpose cards"),
                 code,
                 [=](QVBoxLayout *body) {
-                    auto *grid = new QGridLayout();
-                    grid->setContentsMargins(0, 0, 0, 0);
-                    grid->setHorizontalSpacing(14);
-                    grid->setVerticalSpacing(10);
-
-                    auto makeCaption = [](const QString &text, bool strong = false) {
-                        auto *label = new FluentLabel(text);
-                        label->setWordWrap(true);
-                        label->setStyleSheet(strong
-                                                 ? QStringLiteral("font-size: 12px; font-weight: 600; opacity: 0.9;")
-                                                 : QStringLiteral("font-size: 12px; opacity: 0.78;"));
-                        return label;
-                    };
-
-                    auto preparePicker = [](QWidget *widget, int width) {
-                        widget->setFixedWidth(width);
-                        widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-                        return widget;
-                    };
+                    auto *grid = Demo::makeStateMatrix(DEMO_TEXT("控件", "Control"),
+                                                          {DEMO_TEXT("Selected / Accent", "Selected / Accent"), DEMO_TEXT("Disabled", "Disabled")});
 
                     auto makeDatePicker = [](bool enabled) {
                         auto *picker = new FluentDatePicker();
@@ -105,22 +88,12 @@ QWidget *createPickersPage(FluentMainWindow *window)
                         return picker;
                     };
 
-                    grid->addWidget(makeCaption(DEMO_TEXT("控件", "Control"), true), 0, 0);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Selected / Accent", "Selected / Accent"), true), 0, 1);
-                    grid->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 0, 2);
-
-                    auto addRow = [&](int row, const QString &name, QWidget *selected, QWidget *disabled, int width) {
-                        grid->addWidget(makeCaption(name), row, 0);
-                        grid->addWidget(preparePicker(selected, width), row, 1);
-                        grid->addWidget(preparePicker(disabled, width), row, 2);
-                    };
-
-                    addRow(1, QStringLiteral("FluentDatePicker"), makeDatePicker(true), makeDatePicker(false), 220);
-                    addRow(2, QStringLiteral("FluentTimePicker"), makeTimePicker(true), makeTimePicker(false), 170);
-                    addRow(3, QStringLiteral("FluentDateRangePicker"), makeRangePicker(true), makeRangePicker(false), 340);
-
-                    grid->setColumnStretch(1, 1);
-                    grid->setColumnStretch(2, 1);
+                    Demo::addStateMatrixRow(grid, QStringLiteral("FluentDatePicker"), {makeDatePicker(true), makeDatePicker(false)});
+                    Demo::addStateMatrixRow(grid, QStringLiteral("FluentTimePicker"), {makeTimePicker(true), makeTimePicker(false)});
+                    // A range picker needs ~300px, so two side by side would overflow the card:
+                    // give each state a full-width row instead.
+                    Demo::addStateMatrixRow(grid, QStringLiteral("FluentDateRangePicker"), {makeRangePicker(true)}, 2);
+                    Demo::addStateMatrixRow(grid, DEMO_TEXT("（禁用）", "(disabled)"), {makeRangePicker(false)}, 2);
                     body->addLayout(grid);
                 },
                 false,

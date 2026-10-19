@@ -70,47 +70,7 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                           "-DropDownButton / SplitButton and CommandBar use the same Fluent menu popup system"),
                 code,
                 [=](QVBoxLayout *body) {
-                    auto *matrix = new QVBoxLayout();
-                    matrix->setContentsMargins(0, 0, 0, 0);
-                    matrix->setSpacing(12);
-
-                    auto makeCaption = [](const QString &text, bool strong = false) {
-                        auto *label = new FluentLabel(text);
-                        label->setStyleSheet(strong
-                                                 ? QStringLiteral("font-size: 12px; font-weight: 600; opacity: 0.9;")
-                                                 : QStringLiteral("font-size: 12px; opacity: 0.78;"));
-                        return label;
-                    };
-
-                    auto prepareButton = [](QWidget *widget) {
-                        widget->setMinimumWidth(118);
-                        return widget;
-                    };
-
-                    auto *header = new QHBoxLayout();
-                    header->setContentsMargins(0, 0, 0, 0);
-                    header->setSpacing(12);
-                    auto *controlHeader = makeCaption(DEMO_TEXT("控件", "Control"), true);
-                    controlHeader->setMinimumWidth(150);
-                    header->addWidget(controlHeader, 0);
-                    header->addWidget(makeCaption(DEMO_TEXT("Normal", "Normal"), true), 1);
-                    header->addWidget(makeCaption(DEMO_TEXT("Active", "Active"), true), 1);
-                    header->addWidget(makeCaption(DEMO_TEXT("Disabled", "Disabled"), true), 1);
-                    matrix->addLayout(header);
-
-                    auto addRow = [&](int row, const QString &name, QWidget *normal, QWidget *active, QWidget *disabled) {
-                        Q_UNUSED(row)
-                        auto *line = new QHBoxLayout();
-                        line->setContentsMargins(0, 0, 0, 0);
-                        line->setSpacing(12);
-                        auto *caption = makeCaption(name);
-                        caption->setMinimumWidth(150);
-                        line->addWidget(caption, 0);
-                        line->addWidget(prepareButton(normal), 1);
-                        line->addWidget(prepareButton(active), 1);
-                        line->addWidget(prepareButton(disabled), 1);
-                        matrix->addLayout(line);
-                    };
+                    auto *matrix = Demo::makeStateMatrix(DEMO_TEXT("控件", "Control"), {DEMO_TEXT("Normal", "Normal"), DEMO_TEXT("Active", "Active"), DEMO_TEXT("Disabled", "Disabled")});
 
                     auto *buttonNormal = new FluentButton(DEMO_TEXT("Secondary", "Secondary"));
                     auto *buttonActive = new FluentButton(DEMO_TEXT("Checked", "Checked"));
@@ -118,7 +78,7 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                     buttonActive->setChecked(true);
                     auto *buttonDisabled = new FluentButton(DEMO_TEXT("Disabled", "Disabled"));
                     buttonDisabled->setDisabled(true);
-                    addRow(1, QStringLiteral("FluentButton"), buttonNormal, buttonActive, buttonDisabled);
+                    Demo::addStateMatrixRow(matrix, QStringLiteral("FluentButton"), {buttonNormal, buttonActive, buttonDisabled});
 
                     auto *primaryNormal = new FluentButton(DEMO_TEXT("Primary", "Primary"));
                     primaryNormal->setPrimary(true);
@@ -129,7 +89,7 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                     auto *primaryDisabled = new FluentButton(DEMO_TEXT("Disabled", "Disabled"));
                     primaryDisabled->setPrimary(true);
                     primaryDisabled->setDisabled(true);
-                    addRow(2, DEMO_TEXT("Primary", "Primary"), primaryNormal, primaryActive, primaryDisabled);
+                    Demo::addStateMatrixRow(matrix, DEMO_TEXT("Primary", "Primary"), {primaryNormal, primaryActive, primaryDisabled});
 
                     auto *toolNormal = new FluentToolButton(DEMO_TEXT("Tool", "Tool"));
                     auto *toolActive = new FluentToolButton(DEMO_TEXT("Pinned", "Pinned"));
@@ -137,7 +97,7 @@ QWidget *createButtonsPage(FluentMainWindow *window)
                     toolActive->setChecked(true);
                     auto *toolDisabled = new FluentToolButton(DEMO_TEXT("Disabled", "Disabled"));
                     toolDisabled->setDisabled(true);
-                    addRow(3, QStringLiteral("FluentToolButton"), toolNormal, toolActive, toolDisabled);
+                    Demo::addStateMatrixRow(matrix, QStringLiteral("FluentToolButton"), {toolNormal, toolActive, toolDisabled});
                     body->addLayout(matrix);
                 },
                 false,

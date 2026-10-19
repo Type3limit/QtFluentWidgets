@@ -228,10 +228,11 @@ QWidget *createContainersPage(FluentMainWindow *window)
                     auto makeTabs = [](FluentTabWidget::TabDisplayMode mode, bool enabled = true) {
                         auto *tabs = new FluentTabWidget();
                         tabs->setTabDisplayMode(mode);
-                        tabs->setFixedSize(250, 118);
+                        // Height only: three fixed 250px tab widgets overflowed the card.
+                        tabs->setFixedHeight(118);
+                        tabs->setMinimumWidth(0);
                         tabs->addTab(new FluentLabel(QStringLiteral("Overview")), QStringLiteral("Overview"));
                         tabs->addTab(new FluentLabel(QStringLiteral("Details")), QStringLiteral("Details"));
-                        tabs->addTab(new FluentLabel(QStringLiteral("Settings")), QStringLiteral("Settings"));
                         tabs->setCurrentIndex(mode == FluentTabWidget::TabDisplayMode::Document ? 1 : 0);
                         tabs->setEnabled(enabled);
                         return tabs;
@@ -248,7 +249,7 @@ QWidget *createContainersPage(FluentMainWindow *window)
                     navGrid->addWidget(makeCaption(QStringLiteral("Top"), true), 1, 2);
                     navGrid->addWidget(makeNav(FluentNavigationView::Left, QSize(212, 224)), 2, 0);
                     navGrid->addWidget(makeNav(FluentNavigationView::LeftCompact, QSize(72, 224)), 2, 1);
-                    navGrid->addWidget(makeNav(FluentNavigationView::Top, QSize(292, 118)), 2, 2);
+                    navGrid->addWidget(makeNav(FluentNavigationView::Top, QSize(292, 118)), 2, 2, Qt::AlignTop);
                     navGrid->setColumnStretch(0, 1);
                     navGrid->setColumnStretch(1, 0);
                     navGrid->setColumnStretch(2, 1);
